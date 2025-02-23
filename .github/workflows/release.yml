@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 jobs:
   changelog:
@@ -11,10 +12,12 @@ jobs:
       - uses: actions/checkout@v2
       - name: Conventional Changelog Action
         id: changelog
-        uses: TriPSs/conventional-changelog-action@v3.7.1
+        uses: TriPSs/conventional-changelog-action@v5
         with:
           github-token: ${{ secrets.PA_TOKEN  }}
           version-file: './package.json'
+          pre-release: "true"
+          pre-release-identifier: "beta"
       - name: Create Release 🏷️
         uses: actions/create-release@v1
         if: ${{ steps.changelog.outputs.skipped == 'false' }}
