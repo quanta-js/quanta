@@ -1,3 +1,12 @@
+# [1.0.0-beta.4](https://github.com/quanta-js/quanta/compare/v1.0.0-beta.3...v1.0.0-beta.4) (2025-02-23)
+
+
+### Bug Fixes
+
+* publish action config ([c8e5822](https://github.com/quanta-js/quanta/commit/c8e58224ac8362615c5842f5c25de57a96d5584d))
+
+
+
 # [1.0.0-beta.3](https://github.com/quanta-js/quanta/compare/v1.0.0-beta.2...v1.0.0-beta.3) (2025-02-23)
 
 
