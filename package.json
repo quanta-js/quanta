@@ -1,0 +1,74 @@
+{
+    "name": "quantajs",
+    "private": false,
+    "author": {
+        "name": "Jeel Gajera",
+        "url": "https://github.com/JeelGajera"
+    },
+    "description": "A compact, scalable, and developer-friendly state management library designed for any JavaScript environment. It includes a reactivity system that enables efficient and flexible data handling, making complex state management easy.",
+    "keywords": [
+        "quantajs",
+        "quanta",
+        "state-management",
+        "reactivity"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/quanta-js/quanta.git"
+    },
+    "bugs": {
+        "url": "https://github.com/quanta-js/quanta/issues"
+    },
+    "homepage": "https://github.com/quanta-js/quanta#readme",
+    "version": "1.0.0-beta.1",
+    "type": "module",
+    "license": "MIT",
+    "scripts": {
+        "dev": "npm run format && npm run lint:fix && npm run build",
+        "build": "npm run clean && tsc && vite build",
+        "preview": "vite preview",
+        "clean": "rimraf dist",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,scss,md}\""
+    },
+    "devDependencies": {
+        "@eslint/eslintrc": "^3.3.0",
+        "@eslint/js": "^9.21.0",
+        "@types/node": "^22.2.0",
+        "@typescript-eslint/eslint-plugin": "^8.1.0",
+        "@typescript-eslint/parser": "^8.1.0",
+        "eslint": "^8.57.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-import": "^2.29.1",
+        "eslint-plugin-prettier": "^5.2.1",
+        "eslint-plugin-unused-imports": "^4.1.3",
+        "prettier": "^3.3.3",
+        "rimraf": "^6.0.1",
+        "typescript": "^5.5.3",
+        "vite": "^5.4.0",
+        "vite-plugin-dts": "^4.0.3",
+        "vite-plugin-eslint": "^1.8.1"
+    },
+    "dependencies": {
+        "quantajs": "file:"
+    },
+    "publishConfig": {
+        "access": "public",
+        "tag": "beta"
+    },
+    "main": "dist/quantajs.cjs.js",
+    "module": "dist/quantajs.es.js",
+    "types": "dist/types/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "exports": {
+        ".": {
+            "import": "./dist/quantajs.es.js",
+            "require": "./dist/quantajs.cjs.js",
+            "types": "./dist/types/index.d.ts"
+        },
+        "./types": "./dist/types/index.d.ts"
+    }
+}
