@@ -1,4 +1,5 @@
 # QuantaJS
+![Logo](./assets/quantajs_banner.png)
 
 A compact, scalable, and developer-friendly **state management library** designed for any JavaScript environment. It includes a **reactivity system** that enables efficient and flexible data handling, making complex state management easy.
 
@@ -43,7 +44,7 @@ console.log(counter.count); // 1
 
 
 ## 📜 License
-This project is licensed under the MIT [License](/LICENCE) - see the LICENSE file for details.
+This project is licensed under the MIT [License](/LICENSE) - see the LICENSE file for details.
 
 
 ## 💬 Contributing
