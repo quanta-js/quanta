@@ -1,3 +1,12 @@
+# [1.0.0-beta.5](https://github.com/quanta-js/quanta/compare/v1.0.0-beta.4...v1.0.0-beta.5) (2025-03-02)
+
+
+### Features
+
+* update store implementation to use StoreInstance and add flattenStore utility ([e53fc40](https://github.com/quanta-js/quanta/commit/e53fc408939db6af7ca5e6c69e61267295a4cc8c))
+
+
+
 # [1.0.0-beta.4](https://github.com/quanta-js/quanta/compare/v1.0.0-beta.3...v1.0.0-beta.4) (2025-02-23)
 
 
