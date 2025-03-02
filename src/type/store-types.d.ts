@@ -5,7 +5,7 @@ export type GetterDefinition<S, G> = {
 };
 
 export type ActionDefinition<S, G, A> = {
-    [key in keyof A]: (this: Store<S, G, A>, ...args: any[]) => any;
+    [key in keyof A]: (this: StoreInstance<S, G, A>, ...args: any[]) => any;
 };
 
 export interface Store<S, G, A> {
@@ -13,3 +13,13 @@ export interface Store<S, G, A> {
     getters: G;
     actions: A;
 }
+
+type FlattenedGetters<G> = {
+    [K in keyof G]: G[K] extends { value: infer V } ? V : never;
+};
+
+export type StoreInstance<
+    S extends object,
+    G extends object,
+    A extends object,
+> = S & FlattenedGetters<G> & A;

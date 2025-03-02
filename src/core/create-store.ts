@@ -3,19 +3,21 @@ import {
     GetterDefinition,
     StateDefinition,
     Store,
+    StoreInstance,
 } from 'type/store-types';
 import { reactive, computed } from '../state';
+import { flattenStore } from '../utils/flattenStore';
 
-const storeRegistry = new Map<string, Store<any, any, any>>();
+const storeRegistry = new Map<string, StoreInstance<any, any, any>>();
 
-const createStore = <S, G, A>(
+const createStore = <S extends object, G extends object, A extends object>(
     name: string,
     options: {
         state: StateDefinition<S>;
         getters?: GetterDefinition<S, G>;
         actions?: ActionDefinition<S, G, A>;
     },
-): Store<S, G, A> => {
+): StoreInstance<S, G, A> => {
     if (storeRegistry.has(name)) {
         throw new Error(`Store with name "${name}" already exists.`);
     }
@@ -34,24 +36,27 @@ const createStore = <S, G, A>(
         }
     }
 
-    // Define actions
-    const store: Store<S, G, A> = {
+    // Define Actions
+    const store = {
         state,
         getters,
         actions: {} as A,
     };
 
+    const flattenedStore = flattenStore(store);
     if (options.actions) {
         for (const key in options.actions) {
             const actionFn = options.actions[key];
-            store.actions[key as keyof A] = actionFn.bind(store) as A[keyof A];
+            store.actions[key as keyof A] = actionFn.bind(
+                flattenedStore,
+            ) as A[keyof A];
         }
     }
 
     // Register the store
-    storeRegistry.set(name, store);
+    storeRegistry.set(name, flattenedStore);
 
-    return store;
+    return flattenedStore;
 };
 
 export default createStore;
