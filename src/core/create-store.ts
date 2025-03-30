@@ -12,13 +12,17 @@ import { Dependency } from './dependency';
 
 const storeRegistry = new Map<string, StoreInstance<any, any, any>>();
 
-const createStore = <S extends object, G extends object, A extends object>(
+const createStore = <
+    S extends object,
+    G extends object,
+    A extends Record<string, (...args: any[]) => any>,
+>(
     name: string,
     options: {
         state: StateDefinition<S>;
         getters?: GetterDefinition<S, G>;
         actions?: ActionDefinition<S, G, A>;
-    },
+    } & ThisType<S & { [K in keyof G]: G[K] } & A>,
 ): StoreInstance<S, G, A> => {
     if (storeRegistry.has(name)) {
         throw new Error(`Store with name "${name}" already exists.`);

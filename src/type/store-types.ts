@@ -4,13 +4,9 @@ export type GetterDefinition<S, G> = {
     [key in keyof G]: (state: S) => G[key];
 };
 
-export type ActionDefinition<
-    S extends object,
-    G extends object,
-    A extends object,
-> = {
+export type ActionDefinition<S extends object, G extends object, A> = {
     [key in keyof A]: (this: StoreInstance<S, G, A>, ...args: any[]) => any;
-};
+} & ThisType<S & { [K in keyof G]: G[K] } & A>;
 
 export type StoreSubscriber = () => void;
 
@@ -21,16 +17,14 @@ export interface Store<S, G, A> {
     subscribe: (callback: StoreSubscriber) => () => void;
 }
 
-type FlattenedGetters<G> = {
-    [K in keyof G]: G[K] extends { value: infer V } ? V : never;
-};
+// type FlattenedGetters<G> = {
+//     [K in keyof G]: G[K] extends { value: infer V } ? V : never;
+// };
 
 export type StoreInstance<
     S extends object,
-    G extends object,
-    A extends object,
-> = S &
-    FlattenedGetters<G> &
-    A & {
+    G extends Record<string, any>,
+    A,
+> = S & { [K in keyof G]: G[K] } & A & {
         subscribe: (callback: StoreSubscriber) => () => void;
     };
