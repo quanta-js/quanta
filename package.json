@@ -19,7 +19,7 @@
   "bugs": {
     "url": "https://github.com/quanta-js/quanta/issues"
   },
-  "homepage": "https://github.com/quanta-js/quanta#readme",
+  "homepage": "https://quantajs.com",
   "version": "1.0.0-beta.5",
   "type": "module",
   "license": "MIT",
@@ -57,18 +57,17 @@
     "access": "public",
     "tag": "beta"
   },
-  "main": "dist/quantajs.cjs.js",
-  "module": "dist/quantajs.es.js",
-  "types": "dist/types/index.d.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
   "exports": {
     ".": {
-      "import": "./dist/quantajs.es.js",
-      "require": "./dist/quantajs.cjs.js",
-      "types": "./dist/types/index.d.ts"
-    },
-    "./types": "./dist/types/index.d.ts"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   }
 }
