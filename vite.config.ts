@@ -1,22 +1,38 @@
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
-import path from 'path';
+import { resolve } from 'path';
 
 export default defineConfig({
-    build: {
-        lib: {
-            entry: path.resolve(__dirname, 'src/index.ts'),
-            name: 'QuantaJS',
-            fileName: (format) => `quantajs.${format}.js`,
-            formats: ['es', 'cjs', 'umd'],
-        },
-        sourcemap: true,
-        outDir: 'dist',
-    },
     plugins: [
         dts({
+            include: ['src'],
+            exclude: ['src/**/*.test.ts'],
+            rollupTypes: true,
+            outDir: 'dist',
             insertTypesEntry: true,
-            outDir: 'dist/types',
+            beforeWriteFile: (filePath, content) => {
+                // Remove any references to the type directory
+                const cleanedContent = content
+                    .replace(/from ['"]\.\/type\//g, "from './")
+                    .replace(/from ['"]\.\.\/type\//g, "from './");
+                return {
+                    filePath: filePath.replace('/type/', '/'), // Fixed from '/types/' to '/type/'
+                    content: cleanedContent
+                };
+            }
         }),
     ],
+    build: {
+        lib: {
+            entry: resolve(__dirname, 'src/index.ts'),
+            name: 'QuantaJS',
+            fileName: (format) => `index.${format === 'es' ? 'mjs' : 'js'}`,
+        },
+        rollupOptions: {
+            external: [],
+            output: {
+                globals: {},
+            },
+        },
+    },
 });

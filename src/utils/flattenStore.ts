@@ -1,4 +1,4 @@
-import { StoreInstance } from 'type/store-types';
+import { StoreInstance } from '../type/store-types';
 
 export const flattenStore = <
     S extends object,

@@ -4,9 +4,11 @@ import {
     StateDefinition,
     Store,
     StoreInstance,
-} from 'type/store-types';
+    StoreSubscriber,
+} from '../type/store-types';
 import { reactive, computed } from '../state';
 import { flattenStore } from '../utils/flattenStore';
+import { Dependency } from './dependency';
 
 const storeRegistry = new Map<string, StoreInstance<any, any, any>>();
 
@@ -25,6 +27,9 @@ const createStore = <S extends object, G extends object, A extends object>(
     // Create reactive state
     const state = reactive(options.state());
 
+    // Create dependency tracker for store updates
+    const dependency = new Dependency();
+
     // Compute getters
     const getters = {} as G;
     if (options.getters) {
@@ -41,6 +46,10 @@ const createStore = <S extends object, G extends object, A extends object>(
         state,
         getters,
         actions: {} as A,
+        subscribe: (callback: StoreSubscriber) => {
+            dependency.depend(callback);
+            return () => dependency.remove(callback);
+        },
     };
 
     const flattenedStore = flattenStore(store);
