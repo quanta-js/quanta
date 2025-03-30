@@ -5,21 +5,11 @@ import { resolve } from 'path';
 export default defineConfig({
     plugins: [
         dts({
-            include: ['src'],
+            include: ['src/**/*.ts'],
             exclude: ['src/**/*.test.ts'],
             rollupTypes: true,
             outDir: 'dist',
             insertTypesEntry: true,
-            beforeWriteFile: (filePath, content) => {
-                // Remove any references to the type directory
-                const cleanedContent = content
-                    .replace(/from ['"]\.\/type\//g, "from './")
-                    .replace(/from ['"]\.\.\/type\//g, "from './");
-                return {
-                    filePath: filePath.replace('/type/', '/'), // Fixed from '/types/' to '/type/'
-                    content: cleanedContent
-                };
-            }
         }),
     ],
     build: {
