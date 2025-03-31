@@ -10,21 +10,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all tags 🏷️
+        run: git fetch --tags --force
+
       - name: Conventional Changelog Action
         id: changelog
         uses: TriPSs/conventional-changelog-action@v5
         with:
-          github-token: ${{ secrets.PA_TOKEN  }}
+          github-token: ${{ secrets.PA_TOKEN }}
           git-user-name: ${{ secrets.GIT_USER }}
           git-user-email: ${{ secrets.GIT_USER_MAIL }}
           version-file: './package.json'
           pre-release: "true"
           pre-release-identifier: "beta"
+
+      - name: Push tags after changelog update
+        run: |
+          git push origin --tags --force
+
       - name: Create Release 🏷️
         uses: actions/create-release@v1
         if: ${{ steps.changelog.outputs.skipped == 'false' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.PA_TOKEN  }}
+          GITHUB_TOKEN: ${{ secrets.PA_TOKEN }}
         with:
           tag_name: ${{ steps.changelog.outputs.tag }}
           release_name: ${{ steps.changelog.outputs.tag }}
