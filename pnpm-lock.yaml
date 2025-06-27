@@ -21,7 +21,7 @@ importers:
         specifier: ^22.2.0
         version: 22.15.33
       '@typescript-eslint/eslint-plugin':
-        specifier: ^8.1.0
+        specifier: ^8.35.0
         version: 8.35.0(@typescript-eslint/parser@8.35.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
       '@typescript-eslint/parser':
         specifier: ^8.1.0
@@ -72,7 +72,7 @@ importers:
         specifier: ^22.2.0
         version: 22.15.33
       '@typescript-eslint/eslint-plugin':
-        specifier: ^8.1.0
+        specifier: ^8.35.0
         version: 8.35.0(@typescript-eslint/parser@8.35.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
       '@typescript-eslint/parser':
         specifier: ^8.1.0
