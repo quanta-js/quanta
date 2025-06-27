@@ -15,8 +15,8 @@ importers:
         specifier: ^3.3.0
         version: 3.3.1
       '@eslint/js':
-        specifier: ^9.21.0
-        version: 9.29.0
+        specifier: ^9.30.0
+        version: 9.30.0
       '@types/node':
         specifier: ^22.2.0
         version: 22.15.33
@@ -66,8 +66,8 @@ importers:
         specifier: ^3.3.0
         version: 3.3.1
       '@eslint/js':
-        specifier: ^9.21.0
-        version: 9.29.0
+        specifier: ^9.30.0
+        version: 9.30.0
       '@types/node':
         specifier: ^22.2.0
         version: 22.15.33
@@ -364,8 +364,8 @@ packages:
     resolution: {integrity: sha512-d9zaMRSTIKDLhctzH12MtXvJKSSUhaHcjV+2Z+GK+EEY7XKpP5yR4x+N3TAcHTcu963nIr+TMcCb4DBCYX1z6Q==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
 
-  '@eslint/js@9.29.0':
-    resolution: {integrity: sha512-3PIF4cBw/y+1u2EazflInpV+lYsSG0aByVIQzAgb1m1MhHFSbqTyNqtBKHgWf/9Ykud+DhILS9EGkmekVhbKoQ==}
+  '@eslint/js@9.30.0':
+    resolution: {integrity: sha512-Wzw3wQwPvc9sHM+NjakWTcPx11mbZyiYHuwWa/QfZ7cIRX7WK54PSk7bdyXDaoaopUcMatv1zaQvOAAO8hCdww==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
   '@humanwhocodes/config-array@0.13.0':
@@ -2383,7 +2383,7 @@ snapshots:
 
   '@eslint/js@8.57.1': {}
 
-  '@eslint/js@9.29.0': {}
+  '@eslint/js@9.30.0': {}
 
   '@humanwhocodes/config-array@0.13.0':
     dependencies:
