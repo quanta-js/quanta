@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
+import banner from 'vite-plugin-banner';
+import { readFileSync } from 'fs';
+
+const licenseBanner = readFileSync(resolve(__dirname, '../../LICENSE'), 'utf8');
 
 export default defineConfig({
     plugins: [
@@ -11,6 +15,7 @@ export default defineConfig({
             outDir: 'dist',
             insertTypesEntry: true,
         }),
+        banner(licenseBanner),
     ],
     build: {
         lib: {

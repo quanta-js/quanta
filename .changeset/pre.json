@@ -1,0 +1,10 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@quantajs/core": "1.0.0"
+  },
+  "changesets": [
+    "better-cities-relate"
+  ]
+}
