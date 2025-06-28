@@ -16,7 +16,11 @@ A compact, scalable, and developer-friendly **state management library** designe
 ## 📦 Installation
 
 ```sh
-npm install quantajs
+npm install @quantajs/core
+# or
+yarn add @quantajs/core
+# or
+pnpm add @quantajs/core
 ```
 
 ## ⚡ Quick Start
