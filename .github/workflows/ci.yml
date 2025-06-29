@@ -1,12 +1,17 @@
 name: CI
+
 on:
   pull_request:
     branches: [main, master]
   push:
     branches: [main, master]
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: Build and Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

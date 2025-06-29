@@ -20,8 +20,8 @@
   },
   "references": [
     {
-      "path": "./packages/core"
+      "path": "./packages/**"
     }
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "dist"]
 } 
