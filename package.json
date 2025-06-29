@@ -2,13 +2,15 @@
   "name": "quantajs",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter @quantajs/core dev",
-    "build": "pnpm --filter @quantajs/core build",
-    "preview": "pnpm --filter @quantajs/core preview",
-    "clean": "pnpm --filter @quantajs/core clean",
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r build",
+    "preview": "pnpm -r preview",
+    "clean": "pnpm -r clean",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",
-    "format": "prettier --write \"packages/**/*.{ts,tsx,js,jsx,json,css,scss,md}\""
+    "format": "prettier --write \"packages/**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
+    "changeset": "changeset",
+    "version:update": "pnpm changeset version && pnpm install"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.5",
@@ -26,6 +28,7 @@
     "rimraf": "^6.0.1",
     "typescript": "^5.8.3",
     "vite": "^6.2.3",
+    "vite-plugin-banner": "^0.8.1",
     "vite-plugin-dts": "^4.0.3",
     "vite-plugin-eslint": "^1.8.1"
   },
