@@ -2,9 +2,11 @@
   "mode": "pre",
   "tag": "beta",
   "initialVersions": {
-    "@quantajs/core": "1.0.0"
+    "@quantajs/core": "1.0.0",
+    "@quantajs/react": "1.0.1-beta.0"
   },
   "changesets": [
-    "better-cities-relate"
+    "better-cities-relate",
+    "stale-bananas-strive"
   ]
 }
