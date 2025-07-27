@@ -19,7 +19,7 @@ export function useComputed<
     computeFn: (store: StoreInstance<S, G, A>) => T,
 ): T {
     const computedRef = useRef<{ value: T } | null>(null);
-    
+
     if (!computedRef.current) {
         computedRef.current = computed(() => computeFn(store));
     }

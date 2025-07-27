@@ -5,12 +5,10 @@ import tsParser from '@typescript-eslint/parser';
 
 export default [
     {
-        ignores: ['dist/**/*', 'node_modules/**/*'],
+        ignores: ['**/dist/**', '**/node_modules/**'],
     },
     {
-        files: ['src/**/*.ts'],
-    },
-    {
+        files: ['**/*.ts', '**/*.tsx'],
         plugins: {
             '@typescript-eslint': typescriptEslint,
             prettier,
