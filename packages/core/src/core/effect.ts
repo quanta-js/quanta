@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-function-type */
 import { Dependency } from './dependency';
 
 const targetMap = new WeakMap<object, Record<string | symbol, Dependency>>();

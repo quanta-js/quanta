@@ -30,8 +30,8 @@
         "build": "npm run clean && vite build",
         "preview": "vite preview",
         "clean": "rimraf dist",
-        "lint": "eslint . --ext .ts,.tsx",
-        "lint:fix": "eslint . --ext .ts,.tsx --fix",
+        "lint": "eslint \"src/**/*.{ts,tsx}\"",
+        "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
         "format": "prettier --write \"src/**/*.{ts,tsx}\""
     },
     "main": "./dist/index.js",

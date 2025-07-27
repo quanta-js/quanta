@@ -22,10 +22,10 @@ export function useCreateStore<
     actions?: ActionDefinition<S, G, A>,
 ): StoreInstance<S, G, A> {
     const storeRef = useRef<StoreInstance<S, G, A>>();
-    
+
     if (!storeRef.current) {
         storeRef.current = createStore(name, { state, getters, actions });
     }
-    
+
     return storeRef.current;
 }

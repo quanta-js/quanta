@@ -33,7 +33,7 @@ export function useQuantaStore<
     // Simple implementation - let QuantaJS core handle the heavy lifting
     return useSyncExternalStore(
         store.subscribe,
-        () => selector ? selector(store) : store,
-        () => selector ? selector(store) : store,
+        () => (selector ? selector(store) : store),
+        () => (selector ? selector(store) : store),
     );
 }

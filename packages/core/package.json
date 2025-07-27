@@ -28,8 +28,8 @@
         "build": "npm run clean && vite build",
         "preview": "vite preview",
         "clean": "rimraf dist",
-        "lint": "eslint .",
-        "lint:fix": "eslint . --fix",
+        "lint": "eslint \"src/**/*.{ts,tsx}\"",
+        "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
         "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,scss,md}\""
     },
     "devDependencies": {},

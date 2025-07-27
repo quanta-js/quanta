@@ -11,12 +11,12 @@ export { QuantaContext, useQuantaContext } from './context/QuantaContext';
 
 // Re-export core types for convenience
 export type {
-  StateDefinition,
-  GetterDefinition,
-  ActionDefinition,
-  Store,
-  StoreInstance,
-  StoreSubscriber,
+    StateDefinition,
+    GetterDefinition,
+    ActionDefinition,
+    Store,
+    StoreInstance,
+    StoreSubscriber,
 } from '@quantajs/core';
 
 // Re-export core functions
