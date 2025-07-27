@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useRef } from 'react';
 import { createStore } from '@quantajs/core';
 import type {
     StateDefinition,
@@ -9,11 +9,7 @@ import type {
 
 /**
  * Hook to create a QuantaJS store instance within a React component
- * @param name - Unique name for the store
- * @param state - State definition function
- * @param getters - Optional getters definition
- * @param actions - Optional actions definition
- * @returns A memoized store instance
+ * Creates store only once and reuses it across re-renders
  */
 export function useCreateStore<
     S extends object,
@@ -25,7 +21,11 @@ export function useCreateStore<
     getters?: GetterDefinition<S, G>,
     actions?: ActionDefinition<S, G, A>,
 ): StoreInstance<S, G, A> {
-    return useMemo(() => {
-        return createStore(name, { state, getters, actions });
-    }, [name, state, getters, actions]);
+    const storeRef = useRef<StoreInstance<S, G, A>>();
+    
+    if (!storeRef.current) {
+        storeRef.current = createStore(name, { state, getters, actions });
+    }
+    
+    return storeRef.current;
 }
