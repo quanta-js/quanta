@@ -1,11 +1,9 @@
-import { useSyncExternalStore, useCallback } from 'react';
+import { useSyncExternalStore } from 'react';
 import type { StoreInstance } from '@quantajs/core';
 
 /**
  * Hook to subscribe to a QuantaJS store and get reactive updates
- * @param store - The QuantaJS store instance to subscribe to
- * @param selector - Optional selector function to pick specific parts of the store
- * @returns The store instance or selected value that updates reactively
+ * Simple implementation that relies on QuantaJS core's reactivity system
  */
 export function useQuantaStore<
     S extends object,
@@ -32,19 +30,10 @@ export function useQuantaStore<
     store: StoreInstance<S, G, A>,
     selector?: (store: StoreInstance<S, G, A>) => T,
 ): StoreInstance<S, G, A> | T {
-    const getSnapshot = useCallback(() => {
-        if (selector) {
-            return selector(store);
-        }
-        return store;
-    }, [store, selector]);
-
-    const subscribe = useCallback(
-        (callback: () => void) => {
-            return store.subscribe(callback);
-        },
-        [store],
+    // Simple implementation - let QuantaJS core handle the heavy lifting
+    return useSyncExternalStore(
+        store.subscribe,
+        () => selector ? selector(store) : store,
+        () => selector ? selector(store) : store,
     );
-
-    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
