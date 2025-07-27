@@ -1,0 +1,61 @@
+{
+    "name": "@quantajs/react",
+    "private": false,
+    "author": {
+        "name": "Jeel Gajera",
+        "url": "https://github.com/JeelGajera"
+    },
+    "description": "React integration for QuantaJS - A compact, scalable, and developer-friendly state management library for React applications.",
+    "keywords": [
+        "quantajs",
+        "quanta",
+        "state-management",
+        "reactivity",
+        "react",
+        "hooks"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/quanta-js/quanta.git"
+    },
+    "bugs": {
+        "url": "https://github.com/quanta-js/quanta/issues"
+    },
+    "homepage": "https://quantajs.com",
+    "version": "1.0.1-beta.0",
+    "type": "module",
+    "license": "MIT",
+    "scripts": {
+        "dev": "npm run format && npm run lint:fix && npm run build",
+        "build": "npm run clean && vite build",
+        "preview": "vite preview",
+        "clean": "rimraf dist",
+        "lint": "eslint . --ext .ts,.tsx",
+        "lint:fix": "eslint . --ext .ts,.tsx --fix",
+        "format": "prettier --write \"src/**/*.{ts,tsx}\""
+    },
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "require": "./dist/index.cjs"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "sideEffects": false,
+    "peerDependencies": {
+        "react": ">=16.8.0"
+    },
+    "dependencies": {
+        "@quantajs/core": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/react": "^18.3.12",
+        "react": "^18.3.1"
+    }
+}
