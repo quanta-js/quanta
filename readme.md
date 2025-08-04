@@ -26,7 +26,7 @@ pnpm add @quantajs/core
 ## ⚡ Quick Start
 
 ```javascript
-import { createStore } from "quantajs";
+import { createStore } from "@quantajs/core";
 
 const counter = createStore({
   state: { count: 0 },
@@ -50,6 +50,8 @@ console.log(counter.count); // 1
 ## 📜 License
 This project is licensed under the MIT [License](/LICENSE) - see the LICENSE file for details.
 
+## Get Started
+Ready to dive in? Check out the [Installation](https://www.quantajs.com/docs/getting-started/installation) guide or explore the [Quick Start](https://www.quantajs.com/docs/getting-started/quick-start-guide) to see QuantaJS in action!
 
 ## 💬 Contributing
 We welcome contributions! Feel free to open issues, submit PRs, or suggest improvements.
