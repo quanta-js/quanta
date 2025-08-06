@@ -1,6 +1,6 @@
 import { track, trigger } from './effect';
 
-// This method handles Map and Set types specifically
+// handles Map and Set types specifically
 function createReactiveCollection(target: Map<any, any> | Set<any>) {
     return new Proxy(target, {
         get(target, prop: string | symbol) {
@@ -49,7 +49,7 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
     });
 }
 
-// Main createReactive function to handle all data types
+// createReactive function to handle all data types
 export function createReactive(target: any) {
     if (target instanceof Map || target instanceof Set) {
         return createReactiveCollection(target); // Handle Map/Set specially

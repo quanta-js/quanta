@@ -40,7 +40,7 @@ export function trigger(target: object, prop: string | symbol) {
     }
 }
 
-// Other existing methods remain unchanged
+// Track dependencies for reactive properties
 export function track(target: object, prop: string | symbol) {
     let depsMap = targetMap.get(target);
     if (!depsMap) {
@@ -56,6 +56,7 @@ export function track(target: object, prop: string | symbol) {
     }
 }
 
+// Reactive effect to handle reactivity
 export function reactiveEffect(effect: Function) {
     const wrappedEffect = () => {
         if (effectStack.includes(effect)) {

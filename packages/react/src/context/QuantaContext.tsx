@@ -2,10 +2,10 @@ import { createContext, useContext } from 'react';
 import type { StoreInstance } from '@quantajs/core';
 
 export interface QuantaContextValue {
-    store: StoreInstance<any, any, any>;
+    stores: { [name: string]: StoreInstance<any, any, any> };
 }
 
-export const QuantaContext = createContext<QuantaContextValue | null>(null);
+export const QuantaContext = createContext<QuantaContextValue>({ stores: {} });
 
 /**
  * Hook to access the QuantaJS store from the context
