@@ -32,37 +32,41 @@ import { createStore, QuantaProvider, useStore } from '@quantajs/react';
 
 // Create store
 const counterStore = createStore('counter', {
-  state: () => ({ count: 0 }),
-  getters: {
-    doubleCount: (state) => state.count * 2
-  },
-  actions: {
-    increment() { this.count++; },
-    decrement() { this.count--; }
-  }
+    state: () => ({ count: 0 }),
+    getters: {
+        doubleCount: (state) => state.count * 2,
+    },
+    actions: {
+        increment() {
+            this.count++;
+        },
+        decrement() {
+            this.count--;
+        },
+    },
 });
 
 // Component
 function Counter() {
-  const store = useStore();
-  
-  return (
-    <div>
-      <p>Count: {store.count}</p>
-      <p>Double: {store.doubleCount}</p>
-      <button onClick={() => store.increment()}>+</button>
-      <button onClick={() => store.decrement()}>-</button>
-    </div>
-  );
+    const store = useStore();
+
+    return (
+        <div>
+            <p>Count: {store.count}</p>
+            <p>Double: {store.doubleCount}</p>
+            <button onClick={() => store.increment()}>+</button>
+            <button onClick={() => store.decrement()}>-</button>
+        </div>
+    );
 }
 
 // App
 function App() {
-  return (
-    <QuantaProvider store={counterStore}>
-      <Counter />
-    </QuantaProvider>
-  );
+    return (
+        <QuantaProvider store={counterStore}>
+            <Counter />
+        </QuantaProvider>
+    );
 }
 ```
 
@@ -72,10 +76,10 @@ function App() {
 import { useQuantaStore } from '@quantajs/react';
 
 function CounterDisplay() {
-  // Only re-render when count changes
-  const count = useQuantaStore(counterStore, store => store.count);
-  
-  return <p>Count: {count}</p>;
+    // Only re-render when count changes
+    const count = useQuantaStore(counterStore, (store) => store.count);
+
+    return <p>Count: {count}</p>;
 }
 ```
 
@@ -85,39 +89,42 @@ function CounterDisplay() {
 import { useCreateStore } from '@quantajs/react';
 
 function TodoComponent() {
-  const todoStore = useCreateStore(
-    'todos',
-    () => ({ todos: [] }),
-    undefined,
-    {
-      addTodo(text: string) {
-        this.todos.push({ id: Date.now(), text, done: false });
-      }
-    }
-  );
+    const todoStore = useCreateStore(
+        'todos',
+        () => ({ todos: [] }),
+        undefined,
+        {
+            addTodo(text: string) {
+                this.todos.push({ id: Date.now(), text, done: false });
+            },
+        },
+    );
 
-  return (
-    <div>
-      <button onClick={() => todoStore.addTodo('New task')}>
-        Add Todo
-      </button>
-      <p>Todos: {todoStore.todos.length}</p>
-    </div>
-  );
+    return (
+        <div>
+            <button onClick={() => todoStore.addTodo('New task')}>
+                Add Todo
+            </button>
+            <p>Todos: {todoStore.todos.length}</p>
+        </div>
+    );
 }
 ```
 
 ## 🔧 API
 
 ### Hooks
+
 - `useQuantaStore(store, selector?)` - Subscribe to store with optional selector
 - `useStore(selector?)` - Access store from QuantaProvider context
 - `useCreateStore(name, state, getters?, actions?)` - Create component-scoped store
 
 ### Components
+
 - `<QuantaProvider store={store}>` - Provide store to child components
 
 ### Core Features
+
 - `createStore`, `reactive`, `computed`, `watch` - Re-exported from @quantajs/core
 
 ## 📜 License
