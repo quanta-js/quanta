@@ -9,8 +9,10 @@ import {
 import { reactive, computed } from '../state';
 import { flattenStore } from '../utils/flattenStore';
 import { Dependency } from './dependency';
+import { trigger } from './effect';
 
 const storeRegistry = new Map<string, StoreInstance<any, any, any>>();
+const initialStateMap = new WeakMap<StoreInstance<any, any, any>, any>();
 
 const createStore = <
     S extends object,
@@ -29,7 +31,8 @@ const createStore = <
     }
 
     // Create reactive state
-    const state = reactive(options.state());
+    const initialState = options.state();
+    const state = reactive(initialState);
 
     // Create dependency tracker for store updates
     const dependency = new Dependency();
@@ -54,7 +57,30 @@ const createStore = <
             dependency.depend(callback);
             return () => dependency.remove(callback);
         },
+        $reset: () => {
+            const initial = initialStateMap.get(store);
+            if (!initial) {
+                throw new Error(`Initial state not found for store "${name}"`);
+            }
+            // Update state properties with initial values
+            for (const key in initial) {
+                if ((store.state as any)[key] !== initial[key]) {
+                    (store.state as any)[key] = initial[key];
+                    trigger(store.state, key); // Trigger reactivity for changed properties
+                }
+            }
+            // Remove properties not in initial state
+            for (const key in store.state) {
+                if (!(key in initial)) {
+                    delete (store.state as any)[key];
+                    trigger(store.state, key); // Trigger reactivity for deleted properties
+                }
+            }
+        },
     };
+
+    // Save initial state
+    initialStateMap.set(store, initialState);
 
     const flattenedStore = flattenStore(store);
     if (options.actions) {

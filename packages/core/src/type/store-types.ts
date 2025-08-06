@@ -15,6 +15,7 @@ export interface Store<S, G, A> {
     getters: G;
     actions: A;
     subscribe: (callback: StoreSubscriber) => () => void;
+    $reset: () => void;
 }
 
 // type FlattenedGetters<G> = {
@@ -27,4 +28,5 @@ export type StoreInstance<
     A,
 > = S & { [K in keyof G]: G[K] } & A & {
         subscribe: (callback: StoreSubscriber) => () => void;
+        $reset: () => void;
     };
