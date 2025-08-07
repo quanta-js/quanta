@@ -35,8 +35,7 @@
     "devDependencies": {},
     "publishConfig": {
         "access": "public",
-        "registry": "https://registry.npmjs.org/",
-        "tag": "beta"
+        "registry": "https://registry.npmjs.org/"
     },
     "main": "./dist/index.js",
     "module": "./dist/index.mjs",
