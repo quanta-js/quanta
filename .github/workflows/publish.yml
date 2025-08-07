@@ -33,11 +33,14 @@ jobs:
       - name: 🛠️ Build Packages
         run: pnpm build
 
-      - name: 🚀 Create Release Pull Request or Publish to npm
-        id: changesets
-        uses: changesets/action@v1
-        with:
-          publish: pnpm changeset publish
+      - name: ⚙️ Configure NPM
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+          echo "@quantajs:registry=https://registry.npmjs.org/" >> ~/.npmrc
         env:
-          GITHUB_TOKEN: ${{ secrets.PA_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: 🚀 Publish packages
+        run: pnpm changeset publish
+        env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
