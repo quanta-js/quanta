@@ -1,5 +1,8 @@
 export { reactive, computed, watch } from './state';
-export { createStore } from './core';
+export { createStore, useStore } from './core';
+
+// Persistence exports
+export * from './persistence';
 
 // Type exports
 export type {
@@ -9,4 +12,5 @@ export type {
     Store,
     StoreInstance,
     StoreSubscriber,
+    StoreOptions,
 } from './type/store-types';
