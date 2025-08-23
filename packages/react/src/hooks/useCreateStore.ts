@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { createStore } from '@quantajs/core';
+import { createStore, logger } from '@quantajs/core';
 import type {
     StateDefinition,
     GetterDefinition,
@@ -21,11 +21,29 @@ export function useCreateStore<
     getters?: GetterDefinition<S, G>,
     actions?: ActionDefinition<S, G, A>,
 ): StoreInstance<S, G, A> {
-    const storeRef = useRef<StoreInstance<S, G, A>>();
+    try {
+        const storeRef = useRef<StoreInstance<S, G, A> | undefined>(undefined);
 
-    if (!storeRef.current) {
-        storeRef.current = createStore(name, { state, getters, actions });
+        if (!storeRef.current) {
+            try {
+                storeRef.current = createStore(name, {
+                    state,
+                    getters,
+                    actions,
+                });
+            } catch (error) {
+                logger.error(
+                    `useCreateStore: Failed to create store "${name}": ${error instanceof Error ? error.message : String(error)}`,
+                );
+                throw error;
+            }
+        }
+
+        return storeRef.current;
+    } catch (error) {
+        logger.error(
+            `useCreateStore: Hook execution failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        throw error;
     }
-
-    return storeRef.current;
 }

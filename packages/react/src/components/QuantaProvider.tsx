@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import type { StoreInstance } from '@quantajs/core';
 import { QuantaContext } from '../context/QuantaContext';
+import { logger } from '@quantajs/core';
 
 export interface QuantaProviderProps {
     stores: { [key: string]: StoreInstance<any, any, any> };
@@ -13,9 +14,32 @@ export interface QuantaProviderProps {
  * @param children - Child components that can access the stores
  */
 export function QuantaProvider({ stores, children }: QuantaProviderProps) {
-    return (
-        <QuantaContext.Provider value={{ stores }}>
-            {children}
-        </QuantaContext.Provider>
-    );
+    try {
+        // Validate stores object
+        if (!stores || typeof stores !== 'object') {
+            const errorMessage = 'QuantaProvider: Invalid stores prop provided';
+            logger.error(errorMessage);
+            throw new Error(errorMessage);
+        }
+
+        // Validate each store
+        for (const [name, store] of Object.entries(stores)) {
+            if (!store || typeof store !== 'object') {
+                const errorMessage = `QuantaProvider: Invalid store "${name}" provided`;
+                logger.error(errorMessage);
+                throw new Error(errorMessage);
+            }
+        }
+
+        return (
+            <QuantaContext.Provider value={{ stores }}>
+                {children}
+            </QuantaContext.Provider>
+        );
+    } catch (error) {
+        logger.error(
+            `QuantaProvider: Failed to render provider: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        throw error;
+    }
 }

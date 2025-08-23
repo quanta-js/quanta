@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { watch } from '@quantajs/core';
+import { watch, logger } from '@quantajs/core';
 import type { StoreInstance } from '@quantajs/core';
 
 /**
@@ -18,17 +18,49 @@ export function useWatch<
     watchFn: (store: StoreInstance<S, G, A>) => T,
     callback: (newValue: T) => void,
 ): void {
-    const callbackRef = useRef(callback);
-    callbackRef.current = callback;
+    try {
+        const callbackRef = useRef(callback);
+        callbackRef.current = callback;
 
-    useEffect(() => {
-        watch(
-            () => watchFn(store),
-            (newValue: T) => callbackRef.current(newValue),
+        useEffect(() => {
+            try {
+                watch(
+                    () => {
+                        try {
+                            return watchFn(store);
+                        } catch (error) {
+                            logger.error(
+                                `useWatch: Failed to execute watch function: ${error instanceof Error ? error.message : String(error)}`,
+                            );
+                            throw error;
+                        }
+                    },
+                    (newValue: T) => {
+                        try {
+                            callbackRef.current(newValue);
+                        } catch (error) {
+                            logger.error(
+                                `useWatch: Failed to execute watch callback: ${error instanceof Error ? error.message : String(error)}`,
+                            );
+                            throw error;
+                        }
+                    },
+                );
+            } catch (error) {
+                logger.error(
+                    `useWatch: Failed to set up watcher: ${error instanceof Error ? error.message : String(error)}`,
+                );
+                throw error;
+            }
+
+            // Note: The core watch function doesn't return a cleanup function
+            // so we can't clean up the watcher when the component unmounts
+            // This is a limitation of the current core implementation
+        }, [store, watchFn]);
+    } catch (error) {
+        logger.error(
+            `useWatch: Hook execution failed: ${error instanceof Error ? error.message : String(error)}`,
         );
-
-        // Note: The core watch function doesn't return a cleanup function
-        // so we can't clean up the watcher when the component unmounts
-        // This is a limitation of the current core implementation
-    }, [store, watchFn]);
+        throw error;
+    }
 }

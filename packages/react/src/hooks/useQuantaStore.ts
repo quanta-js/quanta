@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { StoreInstance } from '@quantajs/core';
+import { logger } from '@quantajs/core';
 
 /**
  * Hook to subscribe to a QuantaJS store and get reactive updates
@@ -30,10 +31,35 @@ export function useQuantaStore<
     store: StoreInstance<S, G, A>,
     selector?: (store: StoreInstance<S, G, A>) => T,
 ): StoreInstance<S, G, A> | T {
-    // Simple implementation - let QuantaJS core handle the heavy lifting
-    return useSyncExternalStore(
-        store.subscribe,
-        () => (selector ? selector(store) : store),
-        () => (selector ? selector(store) : store),
-    );
+    try {
+        // Simple implementation - let QuantaJS core handle the heavy lifting
+        return useSyncExternalStore(
+            store.subscribe,
+            () => {
+                try {
+                    return selector ? selector(store) : store;
+                } catch (error) {
+                    logger.error(
+                        `useQuantaStore: Failed to get store snapshot: ${error instanceof Error ? error.message : String(error)}`,
+                    );
+                    throw error;
+                }
+            },
+            () => {
+                try {
+                    return selector ? selector(store) : store;
+                } catch (error) {
+                    logger.error(
+                        `useQuantaStore: Failed to get server snapshot: ${error instanceof Error ? error.message : String(error)}`,
+                    );
+                    throw error;
+                }
+            },
+        );
+    } catch (error) {
+        logger.error(
+            `useQuantaStore: Hook execution failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        throw error;
+    }
 }
