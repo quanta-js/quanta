@@ -1,4 +1,4 @@
-// Core hooks - minimal React integration
+// Core hooks
 export { useQuantaStore } from './hooks/useQuantaStore';
 export { useStore } from './hooks/useStore';
 export { useCreateStore } from './hooks/useCreateStore';
@@ -19,5 +19,5 @@ export type {
     StoreSubscriber,
 } from '@quantajs/core';
 
-// Re-export core functions
-export { createStore, reactive, computed, watch } from '@quantajs/core';
+// Re-export core functions and logger
+export { createStore, reactive, computed, watch, logger } from '@quantajs/core';
