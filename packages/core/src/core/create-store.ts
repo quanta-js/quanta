@@ -1,15 +1,14 @@
 import {
-    ActionDefinition,
-    GetterDefinition,
-    StateDefinition,
     Store,
     StoreInstance,
     StoreSubscriber,
+    StoreOptions,
 } from '../type/store-types';
 import { reactive, computed } from '../state';
 import { flattenStore } from '../utils/flattenStore';
 import { Dependency } from './dependency';
 import { trigger } from './effect';
+import { createPersistenceManager } from '../persistence';
 
 const storeRegistry = new Map<string, StoreInstance<any, any, any>>();
 const initialStateMap = new WeakMap<StoreInstance<any, any, any>, any>();
@@ -20,11 +19,7 @@ const createStore = <
     A extends Record<string, (...args: any[]) => any>,
 >(
     name: string,
-    options: {
-        state: StateDefinition<S>;
-        getters?: GetterDefinition<S, G>;
-        actions?: ActionDefinition<S, G, A>;
-    } & ThisType<S & { [K in keyof G]: G[K] } & A>,
+    options: StoreOptions<S, G, A>,
 ): StoreInstance<S, G, A> => {
     if (storeRegistry.has(name)) {
         throw new Error(`Store with name "${name}" already exists.`);
@@ -46,6 +41,27 @@ const createStore = <
                 getterFn(state),
             ) as G[keyof G];
         }
+    }
+
+    // Set up persistence if configured
+    let persistenceManager: any = null;
+
+    if (options.persist) {
+        persistenceManager = createPersistenceManager(
+            () => state,
+            (newState: Partial<S>) => {
+                // Update state properties
+                for (const key in newState) {
+                    if ((state as any)[key] !== newState[key]) {
+                        (state as any)[key] = newState[key];
+                        trigger(state, key);
+                    }
+                }
+            },
+            () => dependency.notify(),
+            options.persist,
+            name,
+        );
     }
 
     // Define Actions
@@ -77,6 +93,7 @@ const createStore = <
                 }
             }
         },
+        $persist: persistenceManager,
     };
 
     // Save initial state

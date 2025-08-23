@@ -1,3 +1,5 @@
+import type { PersistenceConfig, PersistenceManager } from '../persistence';
+
 export type StateDefinition<S> = () => S;
 
 export type GetterDefinition<S, G> = {
@@ -16,6 +18,7 @@ export interface Store<S, G, A> {
     actions: A;
     subscribe: (callback: StoreSubscriber) => () => void;
     $reset: () => void;
+    $persist?: PersistenceManager;
 }
 
 // type FlattenedGetters<G> = {
@@ -29,4 +32,13 @@ export type StoreInstance<
 > = S & { [K in keyof G]: G[K] } & A & {
         subscribe: (callback: StoreSubscriber) => () => void;
         $reset: () => void;
+        $persist?: PersistenceManager;
     };
+
+// Enhanced store options with persistence support
+export type StoreOptions<S extends object, G extends object, A> = {
+    state: StateDefinition<S>;
+    getters?: GetterDefinition<S, G>;
+    actions?: ActionDefinition<S, G, A>;
+    persist?: PersistenceConfig<S>;
+} & ThisType<S & { [K in keyof G]: G[K] } & A>;
