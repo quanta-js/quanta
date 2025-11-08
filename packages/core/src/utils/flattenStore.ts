@@ -1,5 +1,6 @@
-import { StoreInstance } from '../type/store-types';
+import { StoreInstance, StoreSubscriber } from '../type/store-types';
 import { logger } from '../services/logger-service';
+import { trigger } from '../core/effect';
 
 export const flattenStore = <
     S extends object,
@@ -9,6 +10,8 @@ export const flattenStore = <
     state: S;
     getters: G;
     actions: A;
+    subscribe?: (cb: StoreSubscriber) => () => void;
+    notifyAll?: () => void;
 }): StoreInstance<S, G, A> => {
     try {
         const flattenedProxy = new Proxy(store, {
@@ -48,13 +51,17 @@ export const flattenStore = <
             },
             set(target, prop: string, value, receiver) {
                 try {
-                    // If the property exists in state, update it there
-                    if (prop in target.state) {
-                        return Reflect.set(target.state, prop, value);
+                    const wasInState = prop in target.state;
+                    const result = wasInState
+                        ? Reflect.set(target.state, prop, value) // Mutate reactive state
+                        : Reflect.set(target, prop, value, receiver); // Fallback
+                    if (result && wasInState) {
+                        // Trigger core reactivity (per-key)
+                        trigger(target.state, prop);
+                        // Broad notify via notifyAll (global subs for frameworks)
+                        target.notifyAll?.();
                     }
-
-                    // Otherwise, fallback to setting the property on the target
-                    return Reflect.set(target, prop, value, receiver);
+                    return result;
                 } catch (error) {
                     logger.error(
                         `FlattenStore: Failed to set property "${prop}": ${error instanceof Error ? error.message : String(error)}`,
