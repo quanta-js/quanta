@@ -1,15 +1,16 @@
 import { Dependency } from './dependency';
 import { logger } from '../services/logger-service';
+import { StoreSubscriber } from '../type/store-types';
 
 const targetMap = new WeakMap<object, Record<string | symbol, Dependency>>();
-let activeEffect: Function | null = null;
+let activeEffect: StoreSubscriber | null = null;
 
 let isBatching = false;
-const effectQueue = new Set<Function>();
-const effectStack: Function[] = [];
+const effectQueue = new Set<StoreSubscriber>();
+const effectStack: StoreSubscriber[] = [];
 
 // Start and process batched effects
-export function batchEffects(fn: Function) {
+export function batchEffects(fn: StoreSubscriber) {
     try {
         isBatching = true;
         fn();
@@ -134,7 +135,7 @@ export function track(target: object, prop: string | symbol) {
 }
 
 // Reactive effect to handle reactivity with comprehensive error handling
-export function reactiveEffect(effect: Function) {
+export function reactiveEffect(effect: StoreSubscriber) {
     const wrappedEffect = () => {
         if (effectStack.includes(effect)) {
             const errorMessage = `Circular dependency detected: Effect "${

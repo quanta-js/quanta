@@ -89,16 +89,21 @@ const createStore = <
             }
         }
 
-        // Define Actions
+        // Store-level subscribers for broad "onAnyChange" (framework-safe)
+        const subscribers = new Set<StoreSubscriber>();
+
+        // Define core store object
         const store = {
             state,
             getters,
             actions: {} as A,
             subscribe: (callback: StoreSubscriber) => {
                 try {
+                    subscribers.add(callback);
                     dependency.depend(callback);
                     return () => {
                         try {
+                            subscribers.delete(callback);
                             dependency.remove(callback);
                         } catch (error) {
                             logger.error(
@@ -111,6 +116,24 @@ const createStore = <
                         `Store: Failed to add subscriber to store "${name}": ${error instanceof Error ? error.message : String(error)}`,
                     );
                     throw error;
+                }
+            },
+            notifyAll: () => {
+                try {
+                    const snapshot = store.state; // Fresh ref for subs
+                    subscribers.forEach((cb) => {
+                        try {
+                            cb(snapshot);
+                        } catch (e) {
+                            logger.warn(
+                                `Store: Subscriber callback failed for "${name}": ${e instanceof Error ? e.message : String(e)}`,
+                            );
+                        }
+                    });
+                } catch (error) {
+                    logger.error(
+                        `Store: notifyAll failed for "${name}": ${error instanceof Error ? error.message : String(error)}`,
+                    );
                 }
             },
             $reset: () => {

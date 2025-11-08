@@ -10,13 +10,13 @@ export type ActionDefinition<S extends object, G extends object, A> = {
     [key in keyof A]: (this: StoreInstance<S, G, A>, ...args: any[]) => any;
 } & ThisType<S & { [K in keyof G]: G[K] } & A>;
 
-export type StoreSubscriber = () => void;
+export type StoreSubscriber<S = any> = (snapshot?: S) => void;
 
 export interface Store<S, G, A> {
     state: S;
     getters: G;
     actions: A;
-    subscribe: (callback: StoreSubscriber) => () => void;
+    subscribe: (callback: StoreSubscriber<S>) => () => void;
     $reset: () => void;
     $persist?: PersistenceManager;
 }
@@ -30,6 +30,9 @@ export type StoreInstance<
     G extends Record<string, any>,
     A,
 > = S & { [K in keyof G]: G[K] } & A & {
+        state: S;
+        getters: G;
+        actions: A;
         subscribe: (callback: StoreSubscriber) => () => void;
         $reset: () => void;
         $persist?: PersistenceManager;
