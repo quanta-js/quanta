@@ -4,6 +4,8 @@ import type {
     PersistedData,
     PersistenceManager,
 } from '../type/persistence-types';
+import { logger } from '../services/logger-service';
+import { watch } from '../state';
 
 export function createPersistenceManager<T extends Record<string, any>>(
     getState: () => T,
@@ -29,6 +31,35 @@ export function createPersistenceManager<T extends Record<string, any>>(
     let isHydrating = false;
     let isRehydrated = false;
     let crossTabUnsubscribe: (() => void) | null = null;
+    let autoSaveUnsub: (() => void) | null = null;
+
+    // Compute persisted slice (mirrors save logic, for watch source)
+    const computePersistedSlice = (): any => {
+        const state = getState();
+        let dataToSave = { ...state };
+        // Apply include/exclude filters
+        if (include) {
+            dataToSave = include.reduce((acc, key) => {
+                if (key in state) acc[key] = state[key];
+                return acc;
+            }, {} as any);
+        }
+        if (exclude) {
+            exclude.forEach((key) => delete dataToSave[key]);
+        }
+        // Apply output transform
+        if (transform?.out) {
+            dataToSave = transform.out(dataToSave);
+        }
+        // Validate
+        if (validator && !validator(dataToSave)) {
+            logger.warn(
+                `Persistence: Slice validation failed for ${storeName || 'store'}—skipping watch trigger`,
+            );
+            return null; // "no-change" sentinel
+        }
+        return dataToSave;
+    };
 
     // Create debounced save function
     const debouncedSave = debounce(async () => {
@@ -71,6 +102,9 @@ export function createPersistenceManager<T extends Record<string, any>>(
             // Use serialize function if provided
             const serializedData = serialize(persistedData);
             await adapter.write(serializedData);
+            logger.debug(
+                `Persistence: Saved slice for ${storeName || 'store'}`,
+            );
         } catch (error) {
             const persistError =
                 error instanceof Error ? error : new Error(String(error));
@@ -155,8 +189,39 @@ export function createPersistenceManager<T extends Record<string, any>>(
         }
     };
 
+    // Auto-save watcher—triggers on persisted slice changes (deep via JSON)
+    const setupAutoSave = () => {
+        if (autoSaveUnsub) return; // Idempotent
+        try {
+            // Watch serialized slice: Re-runs effect only on relevant changes
+            autoSaveUnsub = watch(
+                () => {
+                    if (isHydrating) return null;
+                    const slice = computePersistedSlice();
+                    return slice ? serialize({ data: slice }) : null;
+                },
+                () => {
+                    if (!isRehydrated) return;
+                    debouncedSave();
+                },
+                { deep: true },
+            );
+            logger.debug(
+                `Persistence: Auto-save watcher active for ${storeName || 'store'}`,
+            );
+        } catch (error) {
+            const err =
+                error instanceof Error ? error : new Error(String(error));
+            onError?.(err, 'watch-setup');
+            logger.warn(
+                `Persistence: Auto-save setup failed for ${storeName || 'store'}: ${err.message}`,
+            );
+        }
+    };
+
     // Initialize
     load().then(() => {
+        setupAutoSave();
         setupCrossTabSync();
     });
 
@@ -169,6 +234,10 @@ export function createPersistenceManager<T extends Record<string, any>>(
 
         async clear() {
             try {
+                if (autoSaveUnsub) {
+                    autoSaveUnsub();
+                    autoSaveUnsub = null;
+                }
                 await adapter.remove();
                 if (crossTabUnsubscribe) {
                     crossTabUnsubscribe();
@@ -188,6 +257,18 @@ export function createPersistenceManager<T extends Record<string, any>>(
 
         isRehydrated() {
             return isRehydrated;
+        },
+
+        destroy() {
+            if (autoSaveUnsub) {
+                autoSaveUnsub();
+                autoSaveUnsub = null;
+            }
+            if (crossTabUnsubscribe) {
+                crossTabUnsubscribe();
+                crossTabUnsubscribe = null;
+            }
+            debouncedSave.cancel();
         },
     };
 }

@@ -168,6 +168,18 @@ const createStore = <
                 }
             },
             $persist: persistenceManager,
+            $destroy: () => {
+                try {
+                    store.$persist?.destroy?.();
+                    dependency.clear();
+                    subscribers.clear();
+                    logger.debug(`Store: Destroyed "${name}"`);
+                } catch (error) {
+                    logger.error(
+                        `Store: Destroy failed for "${name}": ${error instanceof Error ? error.message : String(error)}`,
+                    );
+                }
+            },
         };
 
         // Save initial state
