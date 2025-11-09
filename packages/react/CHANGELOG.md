@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0-beta.5
+
+### Patch Changes
+
+- Updated dependencies [ddf4edc]
+    - @quantajs/core@2.0.0-beta.5
+
 ## 2.0.0-beta.4
 
 ### Major Changes
