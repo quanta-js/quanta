@@ -36,6 +36,7 @@ export type StoreInstance<
         subscribe: (callback: StoreSubscriber) => () => void;
         $reset: () => void;
         $persist?: PersistenceManager;
+        $destroy?: () => void;
     };
 
 // Enhanced store options with persistence support

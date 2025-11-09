@@ -19,7 +19,10 @@ export interface PersistenceConfig<T = any> {
         in?: (data: any) => any; // Transform when loading
         out?: (data: any) => any; // Transform when saving
     };
-    onError?: (error: Error, operation: 'read' | 'write' | 'remove') => void;
+    onError?: (
+        error: Error,
+        operation: 'read' | 'write' | 'remove' | 'watch-setup',
+    ) => void;
     validator?: (data: any) => boolean;
 }
 
@@ -37,4 +40,5 @@ export interface PersistenceManager {
     clear(): Promise<void>;
     getAdapter(): PersistenceAdapter;
     isRehydrated(): boolean;
+    destroy(): void;
 }
