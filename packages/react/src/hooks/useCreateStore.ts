@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { createStore, logger } from '@quantajs/core';
 import type {
     StateDefinition,
-    GetterDefinition,
+    GetterDefinitions,
     ActionDefinition,
     StoreInstance,
 } from '@quantajs/core';
@@ -13,16 +13,18 @@ import type {
  */
 export function useCreateStore<
     S extends object,
-    G extends object = {},
+    GDefs extends Record<string, (state: S) => any> = {},
     A extends Record<string, (...args: any[]) => any> = {},
 >(
     name: string,
     state: StateDefinition<S>,
-    getters?: GetterDefinition<S, G>,
-    actions?: ActionDefinition<S, G, A>,
-): StoreInstance<S, G, A> {
+    getters?: GetterDefinitions<S, GDefs>,
+    actions?: ActionDefinition<S, GDefs, A>,
+): StoreInstance<S, GDefs, A> {
     try {
-        const storeRef = useRef<StoreInstance<S, G, A> | undefined>(undefined);
+        const storeRef = useRef<StoreInstance<S, GDefs, A> | undefined>(
+            undefined,
+        );
 
         if (!storeRef.current) {
             try {

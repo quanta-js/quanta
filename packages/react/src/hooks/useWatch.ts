@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { watch, logger } from '@quantajs/core';
-import type { StoreInstance } from '@quantajs/core';
+import type { RawActions, StoreInstance } from '@quantajs/core';
 
 /**
  * Hook to watch for changes in store values and execute side effects
@@ -10,12 +10,12 @@ import type { StoreInstance } from '@quantajs/core';
  */
 export function useWatch<
     S extends object,
-    G extends object,
-    A extends object,
-    T,
+    GDefs extends Record<string, (state: S) => any> = {},
+    A extends RawActions = {},
+    T = any,
 >(
-    store: StoreInstance<S, G, A>,
-    watchFn: (store: StoreInstance<S, G, A>) => T,
+    store: StoreInstance<S, GDefs, A>,
+    watchFn: (store: StoreInstance<S, GDefs, A>) => T,
     callback: (newValue: T) => void,
 ): void {
     try {
