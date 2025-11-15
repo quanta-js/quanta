@@ -23,11 +23,18 @@ export default [
 
         rules: {
             'prettier/prettier': 'error',
+            
+            // General TS rules
             '@typescript-eslint/no-explicit-any': 'off',
-            '@typescript-eslint/no-unused-vars': 'warn',
+
+            // Disable the unused-vars rule from unused-imports
+            'unused-imports/no-unused-vars': 'off',
+
+            // Enable unused-imports for imports only
             'unused-imports/no-unused-imports': 'warn',
 
-            'unused-imports/no-unused-vars': [
+            // Use @typescript-eslint for variable warnings, but ignore vars/args starting with "_"
+            '@typescript-eslint/no-unused-vars': [
                 'warn',
                 {
                     vars: 'all',
@@ -37,5 +44,6 @@ export default [
                 },
             ],
         },
+
     },
 ];

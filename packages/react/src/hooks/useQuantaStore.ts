@@ -1,36 +1,44 @@
 import { useCallback, useRef, useSyncExternalStore } from 'react';
-import type { StoreInstance, StoreSubscriber } from '@quantajs/core';
+import type {
+    RawActions,
+    StoreInstance,
+    StoreSubscriber,
+} from '@quantajs/core';
 import { logger } from '@quantajs/core';
+import { resolveGetterValue } from '../utils/resolve-getters';
 
 /**
  * Hook to subscribe to a QuantaJS store and get reactive updates
  * Simple implementation that relies on QuantaJS core's reactivity system
  */
+// 1) No selector → return full store instance
 export function useQuantaStore<
     S extends object,
-    G extends object,
-    A extends object,
->(store: StoreInstance<S, G, A>): StoreInstance<S, G, A>;
+    GDefs extends Record<string, (state: S) => any> = {},
+    A extends RawActions = {},
+>(store: StoreInstance<S, GDefs, A>): StoreInstance<S, GDefs, A>;
 
+// 2) Selector provided → return T
 export function useQuantaStore<
     S extends object,
-    G extends object,
-    A extends object,
+    GDefs extends Record<string, (state: S) => any> = {},
+    A extends RawActions = {},
     T = any,
 >(
-    store: StoreInstance<S, G, A>,
-    selector: (store: StoreInstance<S, G, A>) => T,
+    store: StoreInstance<S, GDefs, A>,
+    selector: (store: StoreInstance<S, GDefs, A>) => T,
 ): T;
 
+// 3) Implementation
 export function useQuantaStore<
     S extends object,
-    G extends object,
-    A extends object,
+    GDefs extends Record<string, (state: S) => any> = {},
+    A extends RawActions = {},
     T = any,
 >(
-    store: StoreInstance<S, G, A>,
-    selector?: (store: StoreInstance<S, G, A>) => T,
-): StoreInstance<S, G, A> | T {
+    store: StoreInstance<S, GDefs, A>,
+    selector?: (store: StoreInstance<S, GDefs, A>) => T,
+): StoreInstance<S, GDefs, A> | T {
     // Guard: Core subscribe required (per beta.2+)
     if (!store.subscribe) {
         const err = new Error(
@@ -41,7 +49,7 @@ export function useQuantaStore<
     }
 
     // Cache: Holds current flat snapshot (stable ref until mutation)
-    const snapshotRef = useRef<StoreInstance<S, G, A> | null>(null);
+    const snapshotRef = useRef<StoreInstance<S, GDefs, A> | null>(null);
 
     // Initial cache: Flat { state props, actions } (shallow, stable actions)
     const getInitialSnapshot = useCallback(() => {
@@ -55,11 +63,10 @@ export function useQuantaStore<
         if ((store as any).getters) {
             Object.keys((store as any).getters).forEach((key) => {
                 const getter = (store as any).getters[key];
-                snap[key] =
-                    typeof getter === 'function' ? getter.bind(store) : getter;
+                snap[key] = resolveGetterValue(getter, store);
             });
         }
-        return snap as StoreInstance<S, G, A>;
+        return snap as StoreInstance<S, GDefs, A>;
     }, [store]);
 
     if (snapshotRef.current === null) {
@@ -76,18 +83,18 @@ export function useQuantaStore<
                     const newSnap: any = { ...freshState };
                     // Stable actions/getters (no rebinds—original bindings persist)
                     Object.keys(store.actions ?? {}).forEach((key) => {
-                        newSnap[key] = (store.actions as any)[key];
+                        const fn = (store.actions as any)[key];
+                        // If function and not already bound, bind to store so `this` inside action works
+                        newSnap[key] =
+                            typeof fn === 'function' ? fn.bind(store) : fn;
                     });
                     if ((store as any).getters) {
                         Object.keys((store as any).getters).forEach((key) => {
                             const getter = (store as any).getters[key];
-                            newSnap[key] =
-                                typeof getter === 'function'
-                                    ? getter.bind(store)
-                                    : getter;
+                            newSnap[key] = resolveGetterValue(getter, store);
                         });
                     }
-                    snapshotRef.current = newSnap as StoreInstance<S, G, A>;
+                    snapshotRef.current = newSnap as StoreInstance<S, GDefs, A>;
                     cb(); // Mark dirty for React
                 } catch (error) {
                     logger.warn(
@@ -130,5 +137,16 @@ export function useQuantaStore<
         }
     }, [selector, getInitialSnapshot]);
 
-    return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+    const flattened = useSyncExternalStore(
+        subscribe,
+        getSnapshot,
+        getServerSnapshot,
+    );
+
+    return {
+        ...flattened,
+        $reset: store.$reset,
+        $persist: store.$persist,
+        $destroy: store.$destroy,
+    };
 }

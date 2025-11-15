@@ -15,9 +15,10 @@ export {
 // Type exports
 export type {
     StateDefinition,
-    GetterDefinition,
+    GetterDefinitions,
+    RawActions,
     ActionDefinition,
-    Store,
+    InferActions,
     StoreInstance,
     StoreSubscriber,
     StoreOptions,

@@ -1,18 +1,24 @@
-import { StoreInstance, StoreSubscriber } from '../type/store-types';
+import {
+    RawActions,
+    StoreInstance,
+    StoreSubscriber,
+} from '../type/store-types';
 import { logger } from '../services/logger-service';
 import { trigger } from '../core/effect';
 
 export const flattenStore = <
     S extends object,
-    G extends object,
-    A extends object,
+    GDefs extends Record<string, (state: S) => any> = {},
+    A extends RawActions = {},
 >(store: {
     state: S;
-    getters: G;
+    getters: { [K in keyof GDefs]: { value: ReturnType<GDefs[K]> } };
     actions: A;
     subscribe?: (cb: StoreSubscriber) => () => void;
     notifyAll?: () => void;
-}): StoreInstance<S, G, A> => {
+    $reset: () => void;
+    $destroy: () => void;
+}): StoreInstance<S, GDefs, A> => {
     try {
         const flattenedProxy = new Proxy(store, {
             get(target, prop: string, receiver) {
@@ -24,15 +30,27 @@ export const flattenStore = <
 
                     // Check in getters (return the computed value)
                     if (prop in target.getters) {
-                        const getter = Reflect.get(target.getters, prop);
-                        if (
-                            getter &&
-                            typeof getter === 'object' &&
-                            'value' in getter
-                        ) {
-                            return getter.value;
+                        const getter: any = Reflect.get(target.getters, prop);
+                        try {
+                            // handle computed objects that expose `.value`
+                            if (
+                                getter &&
+                                typeof getter === 'object' &&
+                                'value' in getter
+                            ) {
+                                return getter.value;
+                            }
+                            if (typeof getter === 'function') {
+                                // call/bind? we return function – keep binding to flattened store
+                                return getter.bind(flattenedProxy);
+                            }
+                            return getter;
+                        } catch (err) {
+                            logger.warn(
+                                `FlattenStore: getter read failed for "${String(prop)}": ${String(err)}`,
+                            );
+                            return getter;
                         }
-                        return getter;
                     }
 
                     // Check in actions
@@ -61,7 +79,14 @@ export const flattenStore = <
                         // Broad notify via notifyAll (global subs for frameworks)
                         target.notifyAll?.();
                     }
-                    return result;
+                    const resultFallback = Reflect.set(
+                        target,
+                        prop,
+                        value,
+                        receiver,
+                    );
+                    target.notifyAll?.();
+                    return resultFallback;
                 } catch (error) {
                     logger.error(
                         `FlattenStore: Failed to set property "${prop}": ${error instanceof Error ? error.message : String(error)}`,
@@ -71,7 +96,7 @@ export const flattenStore = <
             },
         });
 
-        return flattenedProxy as unknown as StoreInstance<S, G, A>;
+        return flattenedProxy as unknown as StoreInstance<S, GDefs, A>;
     } catch (error) {
         logger.error(
             `FlattenStore: Failed to create flattened store: ${error instanceof Error ? error.message : String(error)}`,
