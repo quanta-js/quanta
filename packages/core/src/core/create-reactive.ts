@@ -1,23 +1,29 @@
-import { track, trigger } from './effect';
+import { targetMap, track, trigger } from './effect';
 import { logger } from '../services/logger-service';
+import { bubbleTrigger, parentMap } from '../utils/deep-trigger';
+
+// Cache Proxies per raw target (prevents double-wrapping)
+const reactiveMap = new WeakMap<object, object>();
 
 // handles Map and Set types specifically
 function createReactiveCollection(target: Map<any, any> | Set<any>) {
-    return new Proxy(target, {
+    // Cache for collections too
+    if (reactiveMap.has(target)) {
+        return reactiveMap.get(target);
+    }
+    const proxy = new Proxy(target, {
         get(target, prop: string | symbol) {
             try {
                 if (prop === 'size') {
-                    track(target, 'size'); // Track 'size' dependency for collections
-                    return target.size; // Directly return the size value
+                    track(target, 'size');
+                    return target.size;
                 }
-
-                // Handle methods like `get`, `set`, `add`, `delete`, etc.
                 if (prop === 'get') {
                     const method = Reflect.get(target, prop);
                     return (key: any) => {
                         try {
                             const value = method.call(target, key);
-                            track(target, key); // Track dependency for the specific key
+                            track(target, key);
                             return value;
                         } catch (error) {
                             logger.error(
@@ -31,17 +37,15 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
                         }
                     };
                 }
-
                 if (prop === 'set' || prop === 'add' || prop === 'delete') {
                     const method = Reflect.get(target, prop);
                     return (...args: any[]) => {
                         try {
                             const result = method.apply(target, args);
-                            trigger(target, 'size'); // Trigger size change notifications
-
+                            trigger(target, 'size');
                             if (prop === 'set') {
                                 const [key] = args;
-                                trigger(target, key); // Trigger reactivity for the modified key-value pair
+                                trigger(target, key);
                             }
                             return result;
                         } catch (error) {
@@ -56,14 +60,12 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
                         }
                     };
                 }
-
-                // Handle `clear` method which does not take arguments
                 if (prop === 'clear') {
                     const method = Reflect.get(target, prop);
                     return () => {
                         try {
-                            const result = method.apply(target); // No args passed to `clear`
-                            trigger(target, 'size'); // Trigger size change when cleared
+                            const result = method.apply(target);
+                            trigger(target, 'size');
                             return result;
                         } catch (error) {
                             logger.error(
@@ -77,8 +79,6 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
                         }
                     };
                 }
-
-                // For all other properties, track dependencies
                 track(target, prop);
                 return Reflect.get(target, prop);
             } catch (error) {
@@ -91,16 +91,23 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
             }
         },
     });
+    reactiveMap.set(target, proxy); // Cache the Proxy
+    return proxy;
 }
 
 // createReactive function to handle all data types
 export function createReactive(target: any) {
     try {
-        if (target instanceof Map || target instanceof Set) {
-            return createReactiveCollection(target); // Handle Map/Set specially
+        // Global cache check (prevents any double-wrapping)
+        if (reactiveMap.has(target)) {
+            return reactiveMap.get(target);
         }
 
-        return new Proxy(target, {
+        if (target instanceof Map || target instanceof Set) {
+            return createReactiveCollection(target);
+        }
+
+        const proxy = new Proxy(target, {
             get(
                 obj: { [key: string]: any },
                 prop: string | symbol,
@@ -114,15 +121,26 @@ export function createReactive(target: any) {
                         prop === 'size' &&
                         (obj instanceof Map || obj instanceof Set)
                     ) {
-                        track(obj, 'size'); // Special case for Map/Set size
-                        return result; // Return size immediately
+                        track(obj, 'size');
+                        return result;
                     }
 
-                    track(obj, prop); // Track dependencies for regular properties
+                    track(obj, prop);
 
                     // Handle nested reactivity for objects or arrays
                     if (typeof result === 'object' && result !== null) {
-                        return createReactive(result); // Create nested reactive objects
+                        // Cache-aware recursion + set parent on returned Proxy
+                        const nested = createReactive(result); // Returns existing/cached Proxy if wrapped
+                        if (
+                            typeof prop === 'string' ||
+                            typeof prop === 'symbol'
+                        ) {
+                            parentMap.set(result, { parent: obj, key: prop });
+                            logger.debug(
+                                `Reactive: Set parent for raw ${String(prop)} (${String(result)}) on ${String(obj)}`,
+                            );
+                        }
+                        return nested;
                     }
 
                     return result;
@@ -152,7 +170,13 @@ export function createReactive(target: any) {
                         oldValue !== value ||
                         (isNaN(oldValue) && isNaN(value))
                     ) {
-                        trigger(obj, prop); // Notify dependencies of change
+                        trigger(obj, prop);
+                        // Bubble only if setting a new object (for child mutations, trigger handles)
+                        if (typeof value === 'object' && value !== null) {
+                            // Wrap new value if needed, then bubble from it
+                            const wrappedValue = createReactive(value); // Cache-safe
+                            bubbleTrigger(wrappedValue, prop, targetMap);
+                        }
                     }
 
                     return result;
@@ -191,7 +215,7 @@ export function createReactive(target: any) {
             },
             has(obj: { [key: string]: any }, prop: string | symbol) {
                 try {
-                    track(obj, prop); // Track `in` operator
+                    track(obj, prop);
                     return Reflect.has(obj, prop);
                 } catch (error) {
                     logger.error(
@@ -206,7 +230,7 @@ export function createReactive(target: any) {
             },
             ownKeys(obj: { [key: string]: any }) {
                 try {
-                    track(obj, 'keys'); // Track `Object.keys()` or similar
+                    track(obj, 'keys');
                     return Reflect.ownKeys(obj);
                 } catch (error) {
                     logger.error(
@@ -224,7 +248,7 @@ export function createReactive(target: any) {
                 prop: string | symbol,
             ) {
                 try {
-                    track(obj, prop); // Track descriptor access
+                    track(obj, prop);
                     return Reflect.getOwnPropertyDescriptor(obj, prop);
                 } catch (error) {
                     logger.error(
@@ -238,6 +262,10 @@ export function createReactive(target: any) {
                 }
             },
         });
+
+        // Cache the top-level Proxy too
+        reactiveMap.set(target, proxy);
+        return proxy;
     } catch (error) {
         logger.error(
             `Reactive: Failed to create reactive object: ${

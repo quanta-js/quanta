@@ -7,7 +7,7 @@ import {
 import { reactive, computed } from '../state';
 import { flattenStore } from '../utils/flattenStore';
 import { Dependency } from './dependency';
-import { reactiveEffect, trigger } from './effect';
+import { reactiveEffect, targetMap, trigger } from './effect';
 import { createPersistenceManager } from '../persistence';
 import { logger } from '../services/logger-service';
 
@@ -33,6 +33,14 @@ export const createStore = <
         const initialState = options.state();
         const state = reactive(initialState);
 
+        // Pre-touch to cache Proxies + set parents before watcher
+        Object.keys(state).forEach((key) => {
+            const _val = (state as any)[key]; // Triggers get -> caches nested Proxy + parentMap
+        });
+        logger.debug(
+            `Store ${name}: Pre-touched deps: ${Object.keys(targetMap.get(state) || {})}`,
+        );
+
         // Create dependency tracker for store updates
         const dependency = new Dependency();
 
@@ -49,6 +57,9 @@ export const createStore = <
                     // Notify subscribers (React/Vue/Svelte integrations)
                     dependency.notify(state);
                 });
+                logger.debug(
+                    `Watcher: Tracked top-level deps: ${Object.keys(targetMap.get(state) || {})}`,
+                );
             } catch (err) {
                 logger.warn(
                     `createStore: Failed to register deep watcher for store "${name}": ${

@@ -1,8 +1,10 @@
 import { Dependency } from './dependency';
 import { logger } from '../services/logger-service';
 import { StoreSubscriber } from '../type/store-types';
+import { bubbleTrigger } from '../utils/deep-trigger';
 
 const targetMap = new WeakMap<object, Record<string | symbol, Dependency>>();
+export { targetMap };
 let activeEffect: StoreSubscriber | null = null;
 
 let isBatching = false;
@@ -99,6 +101,7 @@ export function trigger(target: object, prop: string | symbol) {
                 });
             }
         }
+        bubbleTrigger(target, prop, targetMap);
     } catch (error) {
         logger.error(
             `Effect: Trigger failed for property "${String(prop)}": ${
