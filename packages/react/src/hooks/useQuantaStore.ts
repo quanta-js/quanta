@@ -39,7 +39,6 @@ export function useQuantaStore<
     store: StoreInstance<S, GDefs, A>,
     selector?: (store: StoreInstance<S, GDefs, A>) => T,
 ): StoreInstance<S, GDefs, A> | T {
-    // Guard: Core subscribe required (per beta.2+)
     if (!store.subscribe) {
         const err = new Error(
             'QuantaJS store missing `subscribe`—ensure core v0.1.0-beta.2+.',
@@ -48,105 +47,95 @@ export function useQuantaStore<
         throw err;
     }
 
-    // Cache: Holds current flat snapshot (stable ref until mutation)
-    const snapshotRef = useRef<StoreInstance<S, GDefs, A> | null>(null);
+    if (!selector) {
+        // Snapshot embeds live Proxies (reactive nests), invalidates on notify
+        const snapshotRef = useRef<StoreInstance<S, GDefs, A> | null>(null);
 
-    // Initial cache: Flat { state props, actions } (shallow, stable actions)
-    const getInitialSnapshot = useCallback(() => {
-        const stateSnap = store.state ?? {}; // Fallback for empty initial
-        const snap: any = { ...stateSnap };
-        // Merge stable actions (bound to original for mutations)
-        Object.keys(store.actions ?? {}).forEach((key) => {
-            snap[key] = (store.actions as any)[key].bind(store);
-        });
-        // Add getters if computed (flat access)
-        if ((store as any).getters) {
-            Object.keys((store as any).getters).forEach((key) => {
+        const getSnapshot = useCallback(() => {
+            if (snapshotRef.current) return snapshotRef.current;
+
+            // Build from original flattened (queries get traps -> embeds Proxies for nests)
+            const snap: any = {};
+            // State props (reactive via get trap)
+            Object.keys(store.state || {}).forEach((key) => {
+                snap[key] = (store as any)[key];
+            });
+            // Getters (live resolve)
+            Object.keys(store.getters || {}).forEach((key) => {
                 const getter = (store as any).getters[key];
                 snap[key] = resolveGetterValue(getter, store);
             });
-        }
-        return snap as StoreInstance<S, GDefs, A>;
-    }, [store]);
+            // Actions (stable bind)
+            Object.keys(store.actions || {}).forEach((key) => {
+                snap[key] = (store.actions as any)[key].bind(store);
+            });
+            // Helpers
+            snap.$reset = store.$reset;
+            snap.$persist = store.$persist;
+            snap.$destroy = store.$destroy;
 
-    if (snapshotRef.current === null) {
-        snapshotRef.current = getInitialSnapshot();
+            snapshotRef.current = snap as StoreInstance<S, GDefs, A>;
+            return snap;
+        }, [store]);
+
+        const subscribe = useCallback(
+            (cb: () => void) => {
+                const coreCb: StoreSubscriber<S> = (_stateSnap?: S) => {
+                    snapshotRef.current = null; // Invalidate for fresh build on next getSnapshot
+                    cb(); // Mark dirty for re-render
+                };
+                return store.subscribe(coreCb);
+            },
+            [store],
+        );
+
+        const getServerSnapshot = useCallback(
+            () => getSnapshot(),
+            [getSnapshot],
+        );
+
+        return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
     }
 
-    // Sub: Listen to core notify, update cache with fresh state + stable actions, mark dirty
+    // Selector branch: Unchanged (queries original, conditional re-render)
+    const selectedRef = useRef<T | null>(null);
+    const getInitialSelected = useCallback(() => {
+        const initial = selector!(store); // Non-null assertion (selector present)
+        selectedRef.current = initial;
+        return initial;
+    }, [store, selector]);
+
     const subscribe = useCallback(
         (cb: () => void) => {
-            // Core cb: Receives state snap from notifyAll
-            const coreCb: StoreSubscriber<S> = (stateSnap?: S) => {
+            const coreCb: StoreSubscriber<S> = (_stateSnap?: S) => {
                 try {
-                    const freshState = stateSnap ?? store.state ?? {};
-                    const newSnap: any = { ...freshState };
-                    // Stable actions/getters (no rebinds—original bindings persist)
-                    Object.keys(store.actions ?? {}).forEach((key) => {
-                        const fn = (store.actions as any)[key];
-                        // If function and not already bound, bind to store so `this` inside action works
-                        newSnap[key] =
-                            typeof fn === 'function' ? fn.bind(store) : fn;
-                    });
-                    if ((store as any).getters) {
-                        Object.keys((store as any).getters).forEach((key) => {
-                            const getter = (store as any).getters[key];
-                            newSnap[key] = resolveGetterValue(getter, store);
-                        });
+                    const freshSelected = selector!(store);
+                    if (selectedRef.current !== freshSelected) {
+                        selectedRef.current = freshSelected;
+                        cb();
                     }
-                    snapshotRef.current = newSnap as StoreInstance<S, GDefs, A>;
-                    cb(); // Mark dirty for React
                 } catch (error) {
                     logger.warn(
-                        `useQuantaStore: Failed to update snapshot: ${error instanceof Error ? error.message : String(error)}`,
+                        `useQuantaStore: Selector update failed: ${String(error)}`,
                     );
                 }
             };
             return store.subscribe(coreCb);
         },
-        [store],
+        [store, selector],
     );
 
-    // Snapshot: Return cached (stable until updated) or selector-applied
     const getSnapshot = useCallback(() => {
-        try {
-            if (!snapshotRef.current) {
-                snapshotRef.current = getInitialSnapshot();
-            }
-            return selector
-                ? selector(snapshotRef.current)
-                : snapshotRef.current;
-        } catch (error) {
-            logger.error(
-                `useQuantaStore: getSnapshot failed: ${error instanceof Error ? error.message : String(error)}`,
-            );
-            throw error;
+        if (selectedRef.current === null) {
+            getInitialSelected();
         }
-    }, [selector, getInitialSnapshot]);
+        return selectedRef.current!;
+    }, [getInitialSelected]);
 
-    // Server snapshot: Initial only (no subs/mutations)
-    const getServerSnapshot = useCallback(() => {
-        try {
-            const initial = getInitialSnapshot();
-            return selector ? selector(initial) : initial;
-        } catch (error) {
-            logger.error(
-                `useQuantaStore: getServerSnapshot failed: ${error instanceof Error ? error.message : String(error)}`,
-            );
-            throw error;
-        }
-    }, [selector, getInitialSnapshot]);
-
-    const flattened = useSyncExternalStore(
-        subscribe,
-        getSnapshot,
-        getServerSnapshot,
+    const getServerSnapshot = useCallback(
+        () => getInitialSelected(),
+        [getInitialSelected],
     );
 
-    return {
-        ...flattened,
-        $reset: store.$reset,
-        $persist: store.$persist,
-        $destroy: store.$destroy,
-    };
+    return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
