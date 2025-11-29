@@ -113,6 +113,7 @@ export function DevTools() {
                                     key={name}
                                     onClick={() => setSelectedStore(name)}
                                     className={`w-full mb-1 text-left px-3 py-2 rounded-md flex items-center gap-2 transition ${selectedStore === name ? 'text-[rgba(56,178,172,1)] hover:text-slate-100 bg-[rgba(255,255,255,0.02)]' : 'text-slate-400 hover:text-slate-200 bg-transparent'}`}
+                                    title={name}
                                 >
                                     <span className="font-mono text-xs text-slate-400">
                                         <Icon

@@ -3,10 +3,14 @@ import {
     Play,
     Database,
     ChevronRight,
+    ChevronUp,
+    ChevronDown,
     RotateCcw,
     Trash2,
     Search,
     CircleX,
+    Check,
+    Copy,
 } from 'lucide-preact'; // import only what you need
 
 type IconName =
@@ -14,20 +18,28 @@ type IconName =
     | 'play'
     | 'database'
     | 'chevron-right'
+    | 'chevron-up'
+    | 'chevron-down'
     | 'rotate-ccw'
     | 'trash'
     | 'search'
-    | 'circle-x';
+    | 'circle-x'
+    | 'check'
+    | 'copy';
 
 const ICON_MAP: Record<IconName, any> = {
     x: X,
     play: Play,
     database: Database,
     'chevron-right': ChevronRight,
+    'chevron-up': ChevronUp,
+    'chevron-down': ChevronDown,
     'rotate-ccw': RotateCcw,
     trash: Trash2,
     search: Search,
     'circle-x': CircleX,
+    check: Check,
+    copy: Copy,
 };
 
 interface IconProps {

@@ -10,7 +10,8 @@
     "lint:fix": "pnpm -r lint:fix",
     "format": "prettier --write \"packages/**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
     "changeset": "changeset",
-    "version:update": "pnpm changeset version && pnpm install"
+    "version:update": "pnpm changeset version && pnpm install",
+    "publish": "pnpm build && pnpm changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",

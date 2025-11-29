@@ -1,4 +1,5 @@
 import Icon from './ui/icon';
+import { safeSerializeCompact } from '../utils/safeSerialize';
 
 interface StoreInspectorProps {
     stores: Record<string, any>;
@@ -10,7 +11,7 @@ const JSONTree = ({ data, level = 0 }: { data: any; level?: number }) => {
     if (typeof data !== 'object' || data === null) {
         return (
             <span className="text-green-600 dark:text-green-400">
-                {JSON.stringify(data)}
+                {safeSerializeCompact(data)}
             </span>
         );
     }
@@ -135,7 +136,7 @@ export const StoreInspector: React.FC<StoreInspectorProps> = ({
                                 Getters
                             </h3>
                             {stores[selectedStore].getters &&
-                            Object.keys(stores[selectedStore].getters).length >
+                                Object.keys(stores[selectedStore].getters).length >
                                 0 ? (
                                 <div className="space-y-1">
                                     {Object.entries(
@@ -149,7 +150,7 @@ export const StoreInspector: React.FC<StoreInspectorProps> = ({
                                                 {key}:
                                             </span>
                                             <span className="text-yellow-400 break-all">
-                                                {JSON.stringify(getter.value)}
+                                                {safeSerializeCompact(getter.value)}
                                             </span>
                                         </div>
                                     ))}
@@ -164,7 +165,7 @@ export const StoreInspector: React.FC<StoreInspectorProps> = ({
                         {/* Actions Section */}
                         {stores[selectedStore].actions &&
                             Object.keys(stores[selectedStore].actions).length >
-                                0 && (
+                            0 && (
                                 <div className="bg-slate-900/50 rounded-lg border border-slate-800 p-4">
                                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-800 pb-2">
                                         Actions
