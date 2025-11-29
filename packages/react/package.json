@@ -56,7 +56,7 @@
         "@quantajs/devtools": "workspace:*"
     },
     "devDependencies": {
-        "@types/react": "^19.2.2",
+        "@types/react": "^19.2.7",
         "react": "^19.2.0"
     },
     "publishConfig": {
