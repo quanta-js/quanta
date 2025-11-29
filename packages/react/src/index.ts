@@ -5,6 +5,7 @@ export { useCreateStore } from './hooks/useCreateStore';
 
 // Components
 export { QuantaProvider } from './components/QuantaProvider';
+export { QuantaDevTools } from './components/QuantaDevTools';
 
 // Context
 export { QuantaContext, useQuantaContext } from './context/QuantaContext';

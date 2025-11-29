@@ -1,6 +1,7 @@
 import { targetMap, track, trigger } from './effect';
 import { logger } from '../services/logger-service';
 import { bubbleTrigger, parentMap } from '../utils/deep-trigger';
+import { devtools } from '../devtools';
 
 // Cache Proxies per raw target (prevents double-wrapping)
 const reactiveMap = new WeakMap<object, object>();
@@ -46,6 +47,12 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
                             if (prop === 'set') {
                                 const [key] = args;
                                 trigger(target, key);
+                                devtools.notifyStateChange(
+                                    target,
+                                    key,
+                                    args[1],
+                                    parentMap,
+                                );
                             }
                             return result;
                         } catch (error) {
@@ -66,6 +73,12 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
                         try {
                             const result = method.apply(target);
                             trigger(target, 'size');
+                            devtools.notifyStateChange(
+                                target,
+                                'clear',
+                                undefined,
+                                parentMap,
+                            );
                             return result;
                         } catch (error) {
                             logger.error(
@@ -177,6 +190,8 @@ export function createReactive(target: any) {
                             const wrappedValue = createReactive(value); // Cache-safe
                             bubbleTrigger(wrappedValue, prop, targetMap);
                         }
+
+                        devtools.notifyStateChange(obj, prop, value, parentMap);
                     }
 
                     return result;
@@ -199,6 +214,12 @@ export function createReactive(target: any) {
                     // Trigger updates if the property was deleted
                     if (hadKey) {
                         trigger(obj, prop);
+                        devtools.notifyStateChange(
+                            obj,
+                            prop,
+                            undefined,
+                            parentMap,
+                        );
                     }
 
                     return result;
