@@ -10,6 +10,7 @@ import { Dependency } from './dependency';
 import { reactiveEffect, targetMap, trigger } from './effect';
 import { createPersistenceManager } from '../persistence';
 import { logger } from '../services/logger-service';
+import { devtools } from '../devtools';
 
 const storeRegistry = new Map<string, StoreInstance<any, any, any>>();
 const initialStateMap = new WeakMap<StoreInstance<any, any, any>, any>();
@@ -227,7 +228,11 @@ export const createStore = <
             for (const key in options.actions) {
                 try {
                     const actionFn = options.actions[key];
-                    (store.actions as any)[key] = actionFn.bind(flattenedStore);
+                    const boundAction = actionFn.bind(flattenedStore);
+                    (store.actions as any)[key] = (...args: any[]) => {
+                        devtools.notifyActionCall(name, key, args);
+                        return boundAction(...args);
+                    };
                 } catch (error) {
                     logger.error(
                         `Store: Failed to create action "${String(key)}" for store "${name}": ${error instanceof Error ? error.message : String(error)}`,
@@ -239,6 +244,7 @@ export const createStore = <
 
         // Register the store
         storeRegistry.set(name, flattenedStore);
+        devtools.registerStore(name, store);
 
         return flattenedStore;
     } catch (error) {

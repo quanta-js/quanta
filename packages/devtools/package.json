@@ -1,0 +1,65 @@
+{
+    "name": "@quantajs/devtools",
+    "private": false,
+    "author": {
+        "name": "Jeel Gajera",
+        "url": "https://github.com/JeelGajera"
+    },
+    "description": "DevTools for QuantaJS",
+    "keywords": [
+        "quantajs",
+        "quanta",
+        "state-management",
+        "reactivity"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/quanta-js/quanta.git"
+    },
+    "bugs": {
+        "url": "https://github.com/quanta-js/quanta/issues"
+    },
+    "homepage": "https://quantajs.com",
+    "version": "2.0.0-beta.6",
+    "type": "module",
+    "license": "MIT",
+    "main": "./dist/index.umd.js",
+    "module": "./dist/index.es.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.es.js",
+            "require": "./dist/index.umd.js"
+        }
+    },
+    "scripts": {
+        "dev": "vite",
+        "build": "npm run clean && vite build",
+        "clean": "rimraf dist",
+        "lint": "eslint . --ext .ts,.tsx",
+        "lint:fix": "eslint . --ext .ts,.tsx --fix"
+    },
+    "peerDependencies": {
+        "@quantajs/core": "workspace:*"
+    },
+    "dependencies": {
+        "clsx": "^2.1.1",
+        "lucide-preact": "^0.555.0",
+        "preact": "^10.27.2",
+        "tailwind-merge": "^2.5.5",
+        "tailwindcss": "^4.0.0"
+    },
+    "devDependencies": {
+        "@types/react": "^18.3.12",
+        "@types/react-dom": "^18.3.1",
+        "@vitejs/plugin-react": "^4.3.4"
+    },
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    },
+    "files": [
+        "dist"
+    ]
+}

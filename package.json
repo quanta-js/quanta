@@ -35,5 +35,8 @@
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.17"
+  }
 }

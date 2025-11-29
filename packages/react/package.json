@@ -52,7 +52,8 @@
         "react": ">=16.8.0"
     },
     "dependencies": {
-        "@quantajs/core": "workspace:*"
+        "@quantajs/core": "workspace:*",
+        "@quantajs/devtools": "workspace:*"
     },
     "devDependencies": {
         "@types/react": "^19.2.2",
