@@ -1,5 +1,11 @@
 # @quantajs/core
 
+## 2.0.0-beta.9
+
+### Major Changes
+
+- feat(devtools): migrate to Preact + Shadow DOM and add test harness
+
 ## 2.0.0-beta.8
 
 ### Major Changes
