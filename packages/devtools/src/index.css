@@ -1,38 +1,80 @@
-@import 'tailwindcss/theme.css';
-@import 'tailwindcss/utilities.css';
+@import 'tailwindcss';
 
-.quanta-devtools-root {
-    font-family:
-        ui-sans-serif,
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        'Segoe UI',
-        Roboto,
-        'Helvetica Neue',
-        Arial,
-        'Noto Sans',
-        sans-serif,
-        'Apple Color Emoji',
-        'Segoe UI Emoji',
-        'Segoe UI Symbol',
-        'Noto Color Emoji';
+/* Base reset for shadow DOM */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  /* Set base styles on root */
+  .quanta-devtools-root {
+    font-family: 'Courier New', Courier, monospace;
+    color: #e2e8f0;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Ensure proper display */
+  div,
+  section,
+  article,
+  aside,
+  nav,
+  header,
+  footer,
+  main {
+    display: block;
+  }
+
+  /* Button reset */
+  button {
+    cursor: pointer;
+    font-family: inherit;
+    background: transparent;
+    border: none;
+    color: inherit;
+  }
+
+  /* Input reset */
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+    color: inherit;
+  }
+
+  /* Image reset */
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
 }
 
-.quanta-devtools-root ::-webkit-scrollbar {
+/* Custom utilities */
+@layer utilities {
+  /* Custom scrollbar */
+  .quanta-devtools-root ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
-}
+  }
 
-.quanta-devtools-root ::-webkit-scrollbar-track {
+  .quanta-devtools-root ::-webkit-scrollbar-track {
     background: rgba(15, 23, 42, 0.5);
-}
+  }
 
-.quanta-devtools-root ::-webkit-scrollbar-thumb {
+  .quanta-devtools-root ::-webkit-scrollbar-thumb {
     background: rgba(56, 178, 172, 1);
     border-radius: 3px;
-}
+  }
 
-.quanta-devtools-root ::-webkit-scrollbar-thumb:hover {
+  .quanta-devtools-root ::-webkit-scrollbar-thumb:hover {
     background: rgba(44, 122, 123, 1);
+  }
 }

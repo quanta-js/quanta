@@ -40,8 +40,8 @@ export const StoreInspector: React.FC<StoreInspectorProps> = ({
                     <div className="space-y-4">
                         {/* Store Management */}
                         <div className="bg-slate-900/50 rounded-lg border border-slate-800 p-4">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-800 pb-2">
-                                Store Management
+                            <h3 className="text-xs font-bold text-slate-500 tracking-wider mb-3 border-b border-slate-800 pb-2">
+                                <span className='uppercase'>Store Management</span> ({selectedStore})
                             </h3>
                             <div className="flex flex-col gap-3">
                                 {/* Persistence Status & Controls */}
@@ -150,7 +150,9 @@ export const StoreInspector: React.FC<StoreInspectorProps> = ({
                                                 {key}:
                                             </span>
                                             <span className="text-yellow-400 break-all">
-                                                {safeSerializeCompact(getter.value)}
+                                                {safeSerializeCompact(
+                                                    getter.value,
+                                                )}
                                             </span>
                                         </div>
                                     ))}

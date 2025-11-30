@@ -2,6 +2,7 @@ import { render, h } from 'preact';
 import { DevTools } from './DevTools';
 // @ts-ignore
 import styles from './index.css?inline';
+import shadowStyles from './shadow-styles.css?inline';
 
 export interface DevToolsOptions {
     /**
@@ -50,14 +51,6 @@ export function mountDevTools(options: DevToolsOptions = {}) {
 
     console.log('[Quanta DevTools] Mounting...');
 
-    // Inject styles if not already present
-    if (!document.getElementById('quanta-devtools-styles')) {
-        const style = document.createElement('style');
-        style.id = 'quanta-devtools-styles';
-        style.innerHTML = styles;
-        document.head.appendChild(style);
-    }
-
     let rootElement: HTMLElement | null;
 
     if (typeof target === 'string') {
@@ -71,17 +64,32 @@ export function mountDevTools(options: DevToolsOptions = {}) {
         return () => {};
     }
 
-    // Create a container for the devtools
-    const container = document.createElement('div');
-    container.id = 'quanta-devtools-root';
-    rootElement.appendChild(container);
+    // Create shadow host
+    const shadowHost = document.createElement('div');
+    shadowHost.id = 'quanta-devtools-shadow-host';
+    
+    // Attach shadow DOM
+    const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
 
-    // Render using Preact
-    render(h(DevTools, {}), container);
+    // Inject Tailwind CSS into shadow DOM
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = shadowStyles;
+    shadowRoot.appendChild(styleSheet);
 
-    // Return a cleanup function
+    // Create app container
+    const appRoot = document.createElement('div');
+    appRoot.className = 'quanta-devtools-root';
+    shadowRoot.appendChild(appRoot);
+
+    // Append to target
+    rootElement.appendChild(shadowHost);
+
+    // Render Preact app
+    render(h(DevTools, {}), appRoot);
+
+    // Return cleanup
     return () => {
-        render(null, container); // Unmount in Preact
-        container.remove();
+        render(null, appRoot);
+        shadowHost.remove();
     };
 }

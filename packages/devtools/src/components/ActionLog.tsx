@@ -59,17 +59,20 @@ const PayloadCell = ({ args }: { args: any[] }) => {
                             title={isExpanded ? 'Collapse' : 'Expand'}
                         >
                             <Icon
-                                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                name={
+                                    isExpanded ? 'chevron-up' : 'chevron-down'
+                                }
                                 size={14}
                             />
                         </button>
                     )}
                     <button
                         onClick={handleCopy}
-                        className={`p-1 bg-transparent hover:bg-slate-800 rounded transition-colors ${copied
+                        className={`p-1 bg-transparent hover:bg-slate-800 rounded transition-colors ${
+                            copied
                                 ? 'text-green-400'
                                 : 'text-slate-500 hover:text-slate-300'
-                            }`}
+                        }`}
                         title={copied ? 'Copied!' : 'Copy payload'}
                     >
                         <Icon name={copied ? 'check' : 'copy'} size={14} />

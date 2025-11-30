@@ -1,0 +1,32 @@
+@import 'tailwindcss';
+
+/* This file will be injected into Shadow DOM */
+:host {
+    all: initial;
+    display: block;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+.quanta-devtools-root ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.quanta-devtools-root ::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5);
+}
+
+.quanta-devtools-root ::-webkit-scrollbar-thumb {
+    background: rgba(56, 178, 172, 0.7);
+    border-radius: 3px;
+}
+
+.quanta-devtools-root ::-webkit-scrollbar-thumb:hover {
+    background: rgba(44, 122, 123, 1);
+}

@@ -56,9 +56,9 @@ import { mountDevTools } from '@quantajs/devtools';
 mountDevTools({ visible: true });
 
 // Mount to custom element
-mountDevTools({ 
-    visible: true, 
-    target: document.getElementById('devtools-container') 
+mountDevTools({
+    visible: true,
+    target: document.getElementById('devtools-container'),
 });
 ```
 
@@ -109,7 +109,7 @@ interface DevToolsOptions {
      * If not provided, auto-detects development environment.
      */
     visible?: boolean;
-    
+
     /**
      * Target element to mount into.
      * Defaults to 'body'.
