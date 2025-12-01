@@ -46,7 +46,7 @@
     "dependencies": {
         "clsx": "^2.1.1",
         "lucide-preact": "^0.555.0",
-        "preact": "^10.27.2",
+        "preact": "^10.28.0",
         "tailwind-merge": "^2.5.5"
     },
     "devDependencies": {
