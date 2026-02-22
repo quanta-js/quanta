@@ -157,7 +157,7 @@ export function safeSerializeCompact(obj: any): string {
 
     try {
         return JSON.stringify(serialize(obj, 0));
-    } catch (error) {
+    } catch (_error) {
         return '[Error]';
     }
 }

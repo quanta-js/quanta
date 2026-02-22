@@ -16,15 +16,14 @@ interface ActionLogProps {
 
 const MAX_PREVIEW_LENGTH = 100;
 
-const PayloadCell = ({ args }: { args: any[] }) => {
+function PayloadCell({ args }: { args: any[] }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    // Safely serialize the payload
     const serialized = safeSerializeCompact(args);
     const isTruncated = serialized.length > MAX_PREVIEW_LENGTH;
     const preview = isTruncated
-        ? serialized.slice(0, MAX_PREVIEW_LENGTH) + '...'
+        ? serialized.slice(0, MAX_PREVIEW_LENGTH) + '…'
         : serialized;
 
     const handleCopy = async () => {
@@ -38,25 +37,39 @@ const PayloadCell = ({ args }: { args: any[] }) => {
     };
 
     return (
-        <td className="px-4 py-3 text-xs text-slate-400 font-mono">
-            <div className="flex items-start gap-2">
-                <div className="flex-1 min-w-0">
+        <td class="qdt-actions-payload">
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '6px',
+                }}
+            >
+                <div style={{ flex: 1, minWidth: 0 }}>
                     {isExpanded ? (
-                        <div className="whitespace-pre-wrap break-all bg-slate-900/50 p-2 rounded border border-slate-800 max-h-48 overflow-y-auto">
+                        <div class="qdt-actions-payload-expanded">
                             {serialized}
                         </div>
                     ) : (
-                        <div className="truncate max-w-[200px]" title={preview}>
+                        <div class="qdt-actions-payload-text" title={preview}>
                             {preview}
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '2px',
+                        flexShrink: 0,
+                    }}
+                >
                     {isTruncated && (
                         <button
+                            class="qdt-btn-ghost"
                             onClick={() => setIsExpanded(!isExpanded)}
-                            className="p-1 bg-transparent hover:bg-slate-800 rounded transition-colors text-cyan-400 hover:text-cyan-300"
                             title={isExpanded ? 'Collapse' : 'Expand'}
+                            style={{ opacity: 1 }}
                         >
                             <Icon
                                 name={
@@ -67,13 +80,13 @@ const PayloadCell = ({ args }: { args: any[] }) => {
                         </button>
                     )}
                     <button
+                        class="qdt-btn-ghost"
                         onClick={handleCopy}
-                        className={`p-1 bg-transparent hover:bg-slate-800 rounded transition-colors ${
-                            copied
-                                ? 'text-green-400'
-                                : 'text-slate-500 hover:text-slate-300'
-                        }`}
                         title={copied ? 'Copied!' : 'Copy payload'}
+                        style={{
+                            opacity: 1,
+                            color: copied ? 'var(--json-string)' : undefined,
+                        }}
                     >
                         <Icon name={copied ? 'check' : 'copy'} size={14} />
                     </button>
@@ -81,52 +94,41 @@ const PayloadCell = ({ args }: { args: any[] }) => {
             </div>
         </td>
     );
-};
+}
 
-export const ActionLog: React.FC<ActionLogProps> = ({ actions }) => {
+export function ActionLog({ actions }: ActionLogProps) {
     if (actions.length === 0) {
         return (
-            <div className="h-full flex flex-col items-center justify-center text-slate-600">
-                <Icon size={32} name="play" className="mb-2 opacity-20" />
-                <p>No actions recorded yet</p>
+            <div class="qdt-empty">
+                <Icon name="activity" size={28} />
+                <span>No actions recorded yet</span>
             </div>
         );
     }
 
     return (
-        <div className="h-full overflow-y-auto">
-            <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-900 sticky top-0 z-10">
+        <div style={{ height: '100%', overflowY: 'auto' }}>
+            <table class="qdt-actions-table">
+                <thead>
                     <tr>
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800">
-                            Time
-                        </th>
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800">
-                            Store
-                        </th>
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800">
-                            Action
-                        </th>
-                        <th className="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800">
-                            Payload
-                        </th>
+                        <th>Time</th>
+                        <th>Store</th>
+                        <th>Action</th>
+                        <th>Payload</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/50">
+                <tbody>
                     {actions.map((action) => (
-                        <tr
-                            key={action.id}
-                            className="hover:bg-slate-900/50 transition-colors"
-                        >
-                            <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
+                        <tr key={action.id}>
+                            <td class="qdt-actions-time">
                                 {new Date(
                                     action.timestamp,
                                 ).toLocaleTimeString()}
                             </td>
-                            <td className="px-4 py-3 text-sm font-medium text-slate-200">
+                            <td class="qdt-actions-store">
                                 {action.storeName}
                             </td>
-                            <td className="px-4 py-3 text-sm text-cyan-400 font-mono">
+                            <td class="qdt-actions-name">
                                 {action.actionName}
                             </td>
                             <PayloadCell args={action.args} />
@@ -136,4 +138,4 @@ export const ActionLog: React.FC<ActionLogProps> = ({ actions }) => {
             </table>
         </div>
     );
-};
+}

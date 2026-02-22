@@ -5,11 +5,13 @@ import type {
     StoreSubscriber,
 } from '@quantajs/core';
 import { logger } from '@quantajs/core';
-import { resolveGetterValue } from '../utils/resolve-getters';
+
+/** Sentinel to distinguish "not yet initialized" from legitimate `null` */
+const UNSET = Symbol('unset');
 
 /**
- * Hook to subscribe to a QuantaJS store and get reactive updates
- * Simple implementation that relies on QuantaJS core's reactivity system
+ * Hook to subscribe to a QuantaJS store and get reactive updates.
+ * Uses useSyncExternalStore for concurrent-safe React integration.
  */
 // 1) No selector → return full store instance
 export function useQuantaStore<
@@ -48,69 +50,45 @@ export function useQuantaStore<
     }
 
     if (!selector) {
-        // Snapshot embeds live Proxies (reactive nests), invalidates on notify
-        const snapshotRef = useRef<StoreInstance<S, GDefs, A> | null>(null);
-
-        const getSnapshot = useCallback(() => {
-            if (snapshotRef.current) return snapshotRef.current;
-
-            // Build from original flattened (queries get traps -> embeds Proxies for nests)
-            const snap: any = {};
-            // State props (reactive via get trap)
-            Object.keys(store.state || {}).forEach((key) => {
-                snap[key] = (store as any)[key];
-            });
-            // Getters (live resolve)
-            Object.keys(store.getters || {}).forEach((key) => {
-                const getter = (store as any).getters[key];
-                snap[key] = resolveGetterValue(getter, store);
-            });
-            // Actions (stable bind)
-            Object.keys(store.actions || {}).forEach((key) => {
-                snap[key] = (store.actions as any)[key].bind(store);
-            });
-            // Helpers
-            snap.$reset = store.$reset;
-            snap.$persist = store.$persist;
-            snap.$destroy = store.$destroy;
-
-            snapshotRef.current = snap as StoreInstance<S, GDefs, A>;
-            return snap;
-        }, [store]);
+        // No selector: use version counter to signal React that store changed,
+        // then return the store proxy directly (avoids rebuilding snapshot objects)
+        const versionRef = useRef(0);
 
         const subscribe = useCallback(
             (cb: () => void) => {
-                const coreCb: StoreSubscriber<S> = (_stateSnap?: S) => {
-                    snapshotRef.current = null; // Invalidate for fresh build on next getSnapshot
-                    cb(); // Mark dirty for re-render
+                const coreCb: StoreSubscriber<S> = () => {
+                    versionRef.current++;
+                    cb(); // Signal React to re-render
                 };
                 return store.subscribe(coreCb);
             },
             [store],
         );
 
-        const getServerSnapshot = useCallback(
-            () => getSnapshot(),
-            [getSnapshot],
-        );
+        const getSnapshot = useCallback(() => versionRef.current, []);
 
-        return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+        // Subscribe to changes using version counter
+        useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+        // Return the live store proxy — React re-renders when version changes
+        return store;
     }
 
-    // Selector branch: Unchanged (queries original, conditional re-render)
-    const selectedRef = useRef<T | null>(null);
+    // Selector branch: only re-render when selected value changes
+    const selectedRef = useRef<T | typeof UNSET>(UNSET);
+
     const getInitialSelected = useCallback(() => {
-        const initial = selector!(store); // Non-null assertion (selector present)
+        const initial = selector!(store);
         selectedRef.current = initial;
         return initial;
     }, [store, selector]);
 
     const subscribe = useCallback(
         (cb: () => void) => {
-            const coreCb: StoreSubscriber<S> = (_stateSnap?: S) => {
+            const coreCb: StoreSubscriber<S> = () => {
                 try {
                     const freshSelected = selector!(store);
-                    if (selectedRef.current !== freshSelected) {
+                    if (!Object.is(selectedRef.current, freshSelected)) {
                         selectedRef.current = freshSelected;
                         cb();
                     }
@@ -126,10 +104,10 @@ export function useQuantaStore<
     );
 
     const getSnapshot = useCallback(() => {
-        if (selectedRef.current === null) {
+        if (selectedRef.current === UNSET) {
             getInitialSelected();
         }
-        return selectedRef.current!;
+        return selectedRef.current as T;
     }, [getInitialSelected]);
 
     const getServerSnapshot = useCallback(

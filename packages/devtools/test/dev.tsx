@@ -25,10 +25,18 @@ const userStore = createStore('userStore', {
         },
         logout() {
             this.state.isAuthenticated = false;
-            this.state.user = { id: 0, name: '', email: '', preferences: { theme: 'dark', notifications: false } };
+            this.state.user = {
+                id: 0,
+                name: '',
+                email: '',
+                preferences: { theme: 'dark', notifications: false },
+            };
         },
         updatePreferences(preferences: Record<string, any>) {
-            this.state.user.preferences = { ...this.state.user.preferences, ...preferences };
+            this.state.user.preferences = {
+                ...this.state.user.preferences,
+                ...preferences,
+            };
         },
     },
 });
@@ -45,17 +53,27 @@ const cartStore = createStore('cartStore', {
     }),
     actions: {
         addItem(item: any) {
-            const existingItem = this.state.items.find((i: any) => i.id === item.id);
+            const existingItem = this.state.items.find(
+                (i: any) => i.id === item.id,
+            );
             if (existingItem) {
                 existingItem.quantity += 1;
             } else {
                 this.state.items.push({ ...item, quantity: 1 });
             }
-            this.state.total = this.state.items.reduce((sum: number, i: any) => sum + i.price * i.quantity, 0);
+            this.state.total = this.state.items.reduce(
+                (sum: number, i: any) => sum + i.price * i.quantity,
+                0,
+            );
         },
         removeItem(itemId: number) {
-            this.state.items = this.state.items.filter((i: any) => i.id !== itemId);
-            this.state.total = this.state.items.reduce((sum: number, i: any) => sum + i.price * i.quantity, 0);
+            this.state.items = this.state.items.filter(
+                (i: any) => i.id !== itemId,
+            );
+            this.state.total = this.state.items.reduce(
+                (sum: number, i: any) => sum + i.price * i.quantity,
+                0,
+            );
         },
         applyDiscount(discount: number) {
             this.state.discount = discount;
@@ -82,7 +100,9 @@ const appStore = createStore('appStore', {
     }),
     actions: {
         toggleFeature(featureName: string) {
-            (this.state.features as any)[featureName] = !(this.state.features as any)[featureName];
+            (this.state.features as any)[featureName] = !(
+                this.state.features as any
+            )[featureName];
         },
         updateServerStatus(status: string) {
             this.state.serverStatus = status;
@@ -192,9 +212,13 @@ const setupEventListeners = () => {
         userStore.logout();
     });
 
-    document.getElementById('update-prefs-btn')?.addEventListener('click', () => {
-        userStore.updatePreferences({ theme: Math.random() > 0.5 ? 'dark' : 'light' });
-    });
+    document
+        .getElementById('update-prefs-btn')
+        ?.addEventListener('click', () => {
+            userStore.updatePreferences({
+                theme: Math.random() > 0.5 ? 'dark' : 'light',
+            });
+        });
 
     // Cart Store actions
     document.getElementById('add-item-btn')?.addEventListener('click', () => {
@@ -206,35 +230,46 @@ const setupEventListeners = () => {
         });
     });
 
-    document.getElementById('remove-item-btn')?.addEventListener('click', () => {
-        const items = cartStore.getState().items;
-        if (items.length > 0) {
-            cartStore.removeItem(items[0].id);
-        }
-    });
+    document
+        .getElementById('remove-item-btn')
+        ?.addEventListener('click', () => {
+            const items = cartStore.getState().items;
+            if (items.length > 0) {
+                cartStore.removeItem(items[0].id);
+            }
+        });
 
-    document.getElementById('apply-discount-btn')?.addEventListener('click', () => {
-        cartStore.applyDiscount(Math.floor(Math.random() * 30) + 5);
-    });
+    document
+        .getElementById('apply-discount-btn')
+        ?.addEventListener('click', () => {
+            cartStore.applyDiscount(Math.floor(Math.random() * 30) + 5);
+        });
 
     document.getElementById('clear-cart-btn')?.addEventListener('click', () => {
         cartStore.clearCart();
     });
 
     // App Store actions
-    document.getElementById('toggle-dark-btn')?.addEventListener('click', () => {
-        appStore.toggleFeature('darkMode');
-    });
+    document
+        .getElementById('toggle-dark-btn')
+        ?.addEventListener('click', () => {
+            appStore.toggleFeature('darkMode');
+        });
 
-    document.getElementById('toggle-analytics-btn')?.addEventListener('click', () => {
-        appStore.toggleFeature('analytics');
-    });
+    document
+        .getElementById('toggle-analytics-btn')
+        ?.addEventListener('click', () => {
+            appStore.toggleFeature('analytics');
+        });
 
-    document.getElementById('server-status-btn')?.addEventListener('click', () => {
-        const statuses = ['online', 'offline', 'maintenance'];
-        const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-        appStore.updateServerStatus(randomStatus);
-    });
+    document
+        .getElementById('server-status-btn')
+        ?.addEventListener('click', () => {
+            const statuses = ['online', 'offline', 'maintenance'];
+            const randomStatus =
+                statuses[Math.floor(Math.random() * statuses.length)];
+            appStore.updateServerStatus(randomStatus);
+        });
 
     document.getElementById('sync-btn')?.addEventListener('click', () => {
         appStore.sync();

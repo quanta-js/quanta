@@ -74,19 +74,10 @@ export const flattenStore = <
                         ? Reflect.set(target.state, prop, value) // Mutate reactive state
                         : Reflect.set(target, prop, value, receiver); // Fallback
                     if (result && wasInState) {
-                        // Trigger core reactivity (per-key)
+                        // Trigger core reactivity (per-key) — subscribers notified through reactive pipeline
                         trigger(target.state, prop);
-                        // Broad notify via notifyAll (global subs for frameworks)
-                        target.notifyAll?.();
                     }
-                    const resultFallback = Reflect.set(
-                        target,
-                        prop,
-                        value,
-                        receiver,
-                    );
-                    target.notifyAll?.();
-                    return resultFallback;
+                    return result;
                 } catch (error) {
                     logger.error(
                         `FlattenStore: Failed to set property "${prop}": ${error instanceof Error ? error.message : String(error)}`,

@@ -18,49 +18,45 @@ export function useWatch<
     watchFn: (store: StoreInstance<S, GDefs, A>) => T,
     callback: (newValue: T) => void,
 ): void {
-    try {
-        const callbackRef = useRef(callback);
-        callbackRef.current = callback;
+    // Stabilize callback and watchFn with refs to avoid effect re-runs on every render
+    const callbackRef = useRef(callback);
+    callbackRef.current = callback;
 
-        useEffect(() => {
-            try {
-                watch(
-                    () => {
-                        try {
-                            return watchFn(store);
-                        } catch (error) {
-                            logger.error(
-                                `useWatch: Failed to execute watch function: ${error instanceof Error ? error.message : String(error)}`,
-                            );
-                            throw error;
-                        }
-                    },
-                    (newValue: T) => {
-                        try {
-                            callbackRef.current(newValue);
-                        } catch (error) {
-                            logger.error(
-                                `useWatch: Failed to execute watch callback: ${error instanceof Error ? error.message : String(error)}`,
-                            );
-                            throw error;
-                        }
-                    },
-                );
-            } catch (error) {
-                logger.error(
-                    `useWatch: Failed to set up watcher: ${error instanceof Error ? error.message : String(error)}`,
-                );
-                throw error;
-            }
+    const watchFnRef = useRef(watchFn);
+    watchFnRef.current = watchFn;
 
-            // Note: The core watch function doesn't return a cleanup function
-            // so we can't clean up the watcher when the component unmounts
-            // This is a limitation of the current core implementation
-        }, [store, watchFn]);
-    } catch (error) {
-        logger.error(
-            `useWatch: Hook execution failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        throw error;
-    }
+    useEffect(() => {
+        try {
+            const cleanup = watch(
+                () => {
+                    try {
+                        return watchFnRef.current(store);
+                    } catch (error) {
+                        logger.error(
+                            `useWatch: Failed to execute watch function: ${error instanceof Error ? error.message : String(error)}`,
+                        );
+                        throw error;
+                    }
+                },
+                (newValue: T) => {
+                    try {
+                        callbackRef.current(newValue);
+                    } catch (error) {
+                        logger.error(
+                            `useWatch: Failed to execute watch callback: ${error instanceof Error ? error.message : String(error)}`,
+                        );
+                        throw error;
+                    }
+                },
+            );
+
+            // Return cleanup function to prevent memory leaks
+            return typeof cleanup === 'function' ? cleanup : undefined;
+        } catch (error) {
+            logger.error(
+                `useWatch: Failed to set up watcher: ${error instanceof Error ? error.message : String(error)}`,
+            );
+            throw error;
+        }
+    }, [store]); // Only re-run when store changes — watchFn/callback stabilized via refs
 }

@@ -7,7 +7,7 @@ import {
 import { reactive, computed } from '../state';
 import { flattenStore } from '../utils/flattenStore';
 import { Dependency } from './dependency';
-import { reactiveEffect, targetMap, trigger } from './effect';
+import { reactiveEffect, trigger } from './effect';
 import { createPersistenceManager } from '../persistence';
 import { logger } from '../services/logger-service';
 import { devtools } from '../devtools';
@@ -32,15 +32,36 @@ export const createStore = <
 
         // Create reactive state
         const initialState = options.state();
-        const state = reactive(initialState);
 
-        // Pre-touch to cache Proxies + set parents before watcher
-        Object.keys(state).forEach((key) => {
-            const _val = (state as any)[key]; // Triggers get -> caches nested Proxy + parentMap
-        });
-        logger.debug(
-            `Store ${name}: Pre-touched deps: ${Object.keys(targetMap.get(state) || {})}`,
-        );
+        // Validate no name collisions between state, getters, and actions
+        const stateKeys = new Set(Object.keys(initialState));
+        if (options.getters) {
+            for (const key of Object.keys(options.getters)) {
+                if (stateKeys.has(key)) {
+                    // Getters shadowing state is valid — getter takes priority on flat store
+                    logger.warn(
+                        `Store "${name}": getter "${key}" shadows state property (getter will take priority on flat store).`,
+                    );
+                }
+            }
+        }
+        if (options.actions) {
+            const getterKeys = new Set(Object.keys(options.getters || {}));
+            for (const key of Object.keys(options.actions)) {
+                if (stateKeys.has(key)) {
+                    throw new Error(
+                        `Store "${name}": action "${key}" conflicts with state property of the same name.`,
+                    );
+                }
+                if (getterKeys.has(key)) {
+                    throw new Error(
+                        `Store "${name}": action "${key}" conflicts with getter of the same name.`,
+                    );
+                }
+            }
+        }
+
+        const state = reactive(initialState);
 
         // Create dependency tracker for store updates
         const dependency = new Dependency();
@@ -58,13 +79,9 @@ export const createStore = <
                     // Notify subscribers (React/Vue/Svelte integrations)
                     dependency.notify(state);
                 });
-                logger.debug(
-                    `Watcher: Tracked top-level deps: ${Object.keys(targetMap.get(state) || {})}`,
-                );
             } catch (err) {
                 logger.warn(
-                    `createStore: Failed to register deep watcher for store "${name}": ${
-                        err instanceof Error ? err.message : String(err)
+                    `createStore: Failed to register deep watcher for store "${name}": ${err instanceof Error ? err.message : String(err)
                     }`,
                 );
             }
@@ -176,26 +193,34 @@ export const createStore = <
             },
             $reset: () => {
                 try {
-                    const initial = initialStateMap.get(store);
-                    if (!initial) {
-                        const errorMessage = `Initial state not found for store "${name}"`;
+                    const stateFactory = initialStateMap.get(store);
+                    if (!stateFactory) {
+                        const errorMessage = `State factory not found for store "${name}"`;
                         logger.error(`Store: ${errorMessage}`);
                         throw new Error(errorMessage);
                     }
 
-                    // Update state properties with initial values
-                    for (const key in initial) {
-                        if ((store.state as any)[key] !== initial[key]) {
-                            (store.state as any)[key] = initial[key];
-                            trigger(store.state, key); // Trigger reactivity for changed properties
+                    // Re-invoke factory for fresh object references
+                    const freshState = stateFactory();
+
+                    // Update state properties with fresh values
+                    for (const key in freshState) {
+                        if (
+                            !Object.is(
+                                (store.state as any)[key],
+                                freshState[key],
+                            )
+                        ) {
+                            (store.state as any)[key] = freshState[key];
+                            trigger(store.state, key);
                         }
                     }
 
                     // Remove properties not in initial state
                     for (const key in store.state) {
-                        if (!(key in initial)) {
+                        if (!(key in freshState)) {
                             delete (store.state as any)[key];
-                            trigger(store.state, key); // Trigger reactivity for deleted properties
+                            trigger(store.state, key);
                         }
                     }
                 } catch (error) {
@@ -211,6 +236,7 @@ export const createStore = <
                     store.$persist?.destroy?.();
                     dependency.clear();
                     subscribers.clear();
+                    storeRegistry.delete(name);
                     logger.debug(`Store: Destroyed "${name}"`);
                 } catch (error) {
                     logger.error(
@@ -220,8 +246,8 @@ export const createStore = <
             },
         };
 
-        // Save initial state
-        initialStateMap.set(store, initialState);
+        // Save state factory for $reset (re-invokes for fresh references)
+        initialStateMap.set(store, options.state);
 
         const flattenedStore = flattenStore<S, GDefs, A>(store);
         if (options.actions) {

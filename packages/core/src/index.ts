@@ -1,5 +1,6 @@
 export { reactive, computed, watch } from './state';
 export { createStore, useStore } from './core';
+export { batchEffects } from './core/effect';
 
 // Persistence exports
 export * from './persistence';

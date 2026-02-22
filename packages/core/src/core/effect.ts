@@ -1,9 +1,9 @@
 import { Dependency } from './dependency';
 import { logger } from '../services/logger-service';
 import { StoreSubscriber } from '../type/store-types';
-import { bubbleTrigger } from '../utils/deep-trigger';
+import { bubbleTrigger, parentMap } from '../utils/deep-trigger';
 
-const targetMap = new WeakMap<object, Record<string | symbol, Dependency>>();
+const targetMap = new WeakMap<object, Map<string | symbol, Dependency>>();
 export { targetMap };
 let activeEffect: StoreSubscriber | null = null;
 
@@ -53,43 +53,25 @@ export function batchEffects(fn: StoreSubscriber) {
 export function trigger(target: object, prop: string | symbol) {
     try {
         const depsMap = targetMap.get(target);
-        if (depsMap && depsMap[prop]) {
-            const effects = depsMap[prop].getSubscribers;
-            const effectCount = effects.size;
+        if (depsMap && depsMap.has(prop)) {
+            const effects = depsMap.get(prop)!.getSubscribers;
 
-            if (effectCount > 0) {
+            if (effects.size > 0) {
                 effects.forEach((effect) => {
                     if (isBatching) {
-                        effectQueue.add(effect); // Queue effects
+                        effectQueue.add(effect);
                     } else {
                         if (effectStack.includes(effect)) {
-                            const errorMessage = `Circular dependency detected: Effect "${
-                                effect.name || 'anonymous'
-                            }" triggered itself. Stack trace: ${effectStack
-                                .map((e) => e.name || 'anonymous')
-                                .join(' -> ')}`;
+                            const errorMessage = `Circular dependency detected: Effect "${effect.name || 'anonymous'}" triggered itself.`;
                             logger.error(`Effect: ${errorMessage}`);
-
-                            // Provide detailed circular dependency information
-                            const circularPath = [...effectStack, effect].map(
-                                (e) => e.name || 'anonymous',
-                            );
-                            logger.error(
-                                `Effect: Circular dependency path: ${circularPath.join(
-                                    ' -> ',
-                                )}`,
-                            );
-
                             throw new Error(errorMessage);
                         }
 
                         try {
-                            effect(); // Run immediately if not batching
+                            effect();
                         } catch (error) {
                             logger.error(
-                                `Effect: Failed to execute effect "${
-                                    effect.name || 'anonymous'
-                                }": ${
+                                `Effect: Failed to execute effect "${effect.name || 'anonymous'}": ${
                                     error instanceof Error
                                         ? error.message
                                         : String(error)
@@ -101,7 +83,10 @@ export function trigger(target: object, prop: string | symbol) {
                 });
             }
         }
-        bubbleTrigger(target, prop, targetMap);
+        // Only bubble if this target has a registered parent (skip for root-level state)
+        if (parentMap.has(target)) {
+            bubbleTrigger(target, prop, targetMap);
+        }
     } catch (error) {
         logger.error(
             `Effect: Trigger failed for property "${String(prop)}": ${
@@ -117,15 +102,16 @@ export function track(target: object, prop: string | symbol) {
     try {
         let depsMap = targetMap.get(target);
         if (!depsMap) {
-            targetMap.set(target, (depsMap = {}));
+            depsMap = new Map();
+            targetMap.set(target, depsMap);
         }
 
-        if (!depsMap[prop]) {
-            depsMap[prop] = new Dependency();
+        if (!depsMap.has(prop)) {
+            depsMap.set(prop, new Dependency());
         }
 
         if (activeEffect) {
-            depsMap[prop].depend(activeEffect);
+            depsMap.get(prop)!.depend(activeEffect);
         }
     } catch (error) {
         logger.error(
@@ -138,44 +124,27 @@ export function track(target: object, prop: string | symbol) {
 }
 
 // Reactive effect to handle reactivity with comprehensive error handling
-export function reactiveEffect(effect: StoreSubscriber) {
+export function reactiveEffect(effectFn: StoreSubscriber) {
     const wrappedEffect = () => {
-        if (effectStack.includes(effect)) {
+        if (effectStack.includes(wrappedEffect)) {
             const errorMessage = `Circular dependency detected: Effect "${
-                effect.name || 'anonymous'
+                effectFn.name || 'anonymous'
             }" triggered itself. Stack trace: ${effectStack
                 .map((e) => e.name || 'anonymous')
                 .join(' -> ')}`;
             logger.error(`Effect: ${errorMessage}`);
-
-            // Provide detailed circular dependency information
-            const circularPath = [...effectStack, effect].map(
-                (e) => e.name || 'anonymous',
-            );
-            logger.error(
-                `Effect: Circular dependency path: ${circularPath.join(' -> ')}`,
-            );
-            logger.error(
-                `Effect: Current effect stack depth: ${effectStack.length}`,
-            );
-
             throw new Error(errorMessage);
         }
 
         try {
-            effectStack.push(effect);
-            activeEffect = effect;
-            effect();
+            effectStack.push(wrappedEffect);
+            activeEffect = wrappedEffect;
+            effectFn();
         } catch (error) {
             logger.error(
-                `Effect: Effect "${effect.name || 'anonymous'}" failed: ${
+                `Effect: Effect "${effectFn.name || 'anonymous'}" failed: ${
                     error instanceof Error ? error.message : String(error)
                 }`,
-            );
-            logger.error(
-                `Effect: Effect stack at failure: ${effectStack
-                    .map((e) => e.name || 'anonymous')
-                    .join(' -> ')}`,
             );
             throw error;
         } finally {

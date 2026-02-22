@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { createStore, logger } from '@quantajs/core';
 import type {
     StateDefinition,
@@ -8,8 +8,8 @@ import type {
 } from '@quantajs/core';
 
 /**
- * Hook to create a QuantaJS store instance within a React component
- * Creates store only once and reuses it across re-renders
+ * Hook to create a QuantaJS store instance within a React component.
+ * Creates store only once and cleans up on unmount.
  */
 export function useCreateStore<
     S extends object,
@@ -21,31 +21,29 @@ export function useCreateStore<
     getters?: GetterDefinitions<S, GDefs>,
     actions?: ActionDefinition<S, GDefs, A>,
 ): StoreInstance<S, GDefs, A> {
-    try {
-        const storeRef = useRef<StoreInstance<S, GDefs, A> | undefined>(
-            undefined,
-        );
+    const storeRef = useRef<StoreInstance<S, GDefs, A> | undefined>(undefined);
 
-        if (!storeRef.current) {
-            try {
-                storeRef.current = createStore(name, {
-                    state,
-                    getters,
-                    actions,
-                });
-            } catch (error) {
-                logger.error(
-                    `useCreateStore: Failed to create store "${name}": ${error instanceof Error ? error.message : String(error)}`,
-                );
-                throw error;
-            }
+    if (!storeRef.current) {
+        try {
+            storeRef.current = createStore(name, {
+                state,
+                getters,
+                actions,
+            });
+        } catch (error) {
+            logger.error(
+                `useCreateStore: Failed to create store "${name}": ${error instanceof Error ? error.message : String(error)}`,
+            );
+            throw error;
         }
-
-        return storeRef.current;
-    } catch (error) {
-        logger.error(
-            `useCreateStore: Hook execution failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        throw error;
     }
+
+    // Cleanup on unmount — destroys store and deregisters from registry
+    useEffect(() => {
+        return () => {
+            storeRef.current?.$destroy?.();
+        };
+    }, []);
+
+    return storeRef.current;
 }

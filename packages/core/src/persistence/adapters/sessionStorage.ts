@@ -13,7 +13,8 @@ export class SessionStorageAdapter implements PersistenceAdapter {
     read() {
         try {
             const data = sessionStorage.getItem(this.key);
-            return data ? JSON.parse(data) : null;
+            // Return raw string — persistence manager handles deserialization
+            return data ?? null;
         } catch (error) {
             logger.warn(
                 `Failed to read from sessionStorage: ${error instanceof Error ? error.message : String(error)}`,
@@ -24,7 +25,9 @@ export class SessionStorageAdapter implements PersistenceAdapter {
 
     write(data: any) {
         try {
-            sessionStorage.setItem(this.key, JSON.stringify(data));
+            // Data is already serialized by the persistence manager — write directly
+            const raw = typeof data === 'string' ? data : JSON.stringify(data);
+            sessionStorage.setItem(this.key, raw);
         } catch (error) {
             if (error instanceof Error && error.name === 'QuotaExceededError') {
                 logger.warn('SessionStorage quota exceeded');
@@ -37,18 +40,7 @@ export class SessionStorageAdapter implements PersistenceAdapter {
         sessionStorage.removeItem(this.key);
     }
 
-    subscribe(callback: (data: any) => void) {
-        const handler = (e: StorageEvent) => {
-            if (e.key === this.key && e.newValue) {
-                try {
-                    callback(JSON.parse(e.newValue));
-                } catch (error) {
-                    logger.warn('Failed to parse storage event data:', error);
-                }
-            }
-        };
-
-        window.addEventListener('storage', handler);
-        return () => window.removeEventListener('storage', handler);
-    }
+    // Note: SessionStorage's 'storage' event only fires in OTHER tabs/windows,
+    // and sessionStorage is scoped to a single tab. Cross-tab sync is not
+    // meaningful for sessionStorage, so subscribe is intentionally omitted.
 }

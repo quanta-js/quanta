@@ -4,10 +4,10 @@ import { logger } from '../services/logger-service';
 /**
  * Options for configuring a watcher.
  *
- *
  * @property {boolean} [deep]
  * Whether to perform deep watching (i.e., recursively track nested object changes).
- * When `true`, changes inside nested structures are detected using polling and JSON diffing.
+ * When `true`, the watcher recursively accesses all nested properties to register
+ * reactive dependencies, so any nested change triggers the callback.
  *
  * @property {boolean} [immediate]
  * Whether to invoke the watcher callback immediately upon setup,
@@ -18,75 +18,78 @@ interface WatchOptions {
     immediate?: boolean;
 }
 
+/** Sentinel value to distinguish "not yet initialized" from legitimate `undefined` */
+const UNSET = Symbol('unset');
+
+/**
+ * Recursively access all properties of an object to register deep reactive dependencies.
+ * This replaces the old setInterval/JSON.stringify polling approach.
+ */
+function deepAccess(obj: any, visited: WeakSet<object> = new WeakSet()): void {
+    if (obj === null || typeof obj !== 'object') return;
+    if (visited.has(obj)) return; // Prevent circular reference loops
+    visited.add(obj);
+
+    if (obj instanceof Map) {
+        obj.forEach((value, key) => {
+            deepAccess(key, visited);
+            deepAccess(value, visited);
+        });
+    } else if (obj instanceof Set) {
+        obj.forEach((value) => deepAccess(value, visited));
+    } else if (Array.isArray(obj)) {
+        for (let i = 0; i < obj.length; i++) {
+            deepAccess(obj[i], visited);
+        }
+    } else {
+        for (const key of Object.keys(obj)) {
+            deepAccess(obj[key], visited);
+        }
+    }
+}
+
 const watch = <T>(
     source: () => T,
     callback: (value: T, oldValue?: T) => void,
     options: WatchOptions = {},
 ) => {
     const { deep = false, immediate = true } = options;
-    let oldValue: T | undefined;
-    if (!deep) {
-        // effect-based (shallow deps)
-        try {
-            const effect = reactiveEffect(() => {
-                try {
-                    const value = source();
-                    if (immediate && oldValue === undefined) {
-                        callback(value, value);
-                    } else if (oldValue !== undefined && value !== oldValue) {
-                        callback(value, oldValue);
-                    }
-                    oldValue = value;
-                } catch (error) {
-                    logger.error(
-                        `Watch: Failed to execute watch source function: ${error instanceof Error ? error.message : String(error)}`,
-                    );
-                    throw error;
-                }
-            });
-            return effect;
-        } catch (error) {
-            logger.error(
-                `Watch: Failed to create watcher: ${error instanceof Error ? error.message : String(error)}`,
-            );
-            throw error;
-        }
-    } else {
-        // Deep mode: Poll source, compare JSON for changes (nested-safe)
-        const getJson = (val: T) => JSON.stringify(val);
-        let pollId: NodeJS.Timeout | null = null;
-        const pollMs = 100;
+    let oldValue: T | typeof UNSET = UNSET;
 
-        const poll = () => {
+    try {
+        const effect = reactiveEffect(() => {
             try {
                 const value = source();
-                const json = getJson(value);
-                if (oldValue === undefined) {
-                    if (immediate) callback(value, value);
-                } else {
-                    const oldJson = getJson(oldValue);
-                    if (json !== oldJson) {
-                        callback(value, oldValue);
-                    }
+
+                // Deep mode: recursively access all nested properties for tracking
+                if (deep) {
+                    deepAccess(value);
                 }
-                oldValue = value;
+
+                if (oldValue === UNSET) {
+                    // First run
+                    oldValue = value;
+                    if (immediate) {
+                        callback(value, undefined);
+                    }
+                } else if (!Object.is(value, oldValue)) {
+                    const prev = oldValue;
+                    oldValue = value;
+                    callback(value, prev);
+                }
             } catch (error) {
-                logger.warn(
-                    `Watch (deep): Poll failed: ${error instanceof Error ? error.message : String(error)}`,
+                logger.error(
+                    `Watch: Failed to execute watch source function: ${error instanceof Error ? error.message : String(error)}`,
                 );
+                throw error;
             }
-        };
-
-        poll();
-        pollId = setInterval(poll, pollMs);
-
-        // Return cleanup
-        return () => {
-            if (pollId) {
-                clearInterval(pollId);
-                pollId = null;
-            }
-        };
+        });
+        return effect;
+    } catch (error) {
+        logger.error(
+            `Watch: Failed to create watcher: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        throw error;
     }
 };
 

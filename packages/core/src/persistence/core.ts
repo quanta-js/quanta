@@ -1,4 +1,4 @@
-import { debounce } from '../utils/debouce';
+import { debounce } from '../utils/debounce';
 import type {
     PersistenceConfig,
     PersistedData,

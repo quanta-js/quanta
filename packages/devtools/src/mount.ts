@@ -1,7 +1,6 @@
 import { render, h } from 'preact';
 import { DevTools } from './DevTools';
 // @ts-ignore
-import styles from './index.css?inline';
 import shadowStyles from './shadow-styles.css?inline';
 
 export interface DevToolsOptions {
@@ -67,7 +66,7 @@ export function mountDevTools(options: DevToolsOptions = {}) {
     // Create shadow host
     const shadowHost = document.createElement('div');
     shadowHost.id = 'quanta-devtools-shadow-host';
-    
+
     // Attach shadow DOM
     const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
 
@@ -78,7 +77,7 @@ export function mountDevTools(options: DevToolsOptions = {}) {
 
     // Create app container
     const appRoot = document.createElement('div');
-    appRoot.className = 'quanta-devtools-root';
+    appRoot.className = 'qdt';
     shadowRoot.appendChild(appRoot);
 
     // Append to target

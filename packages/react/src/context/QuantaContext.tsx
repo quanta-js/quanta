@@ -6,7 +6,8 @@ export interface QuantaContextValue {
     stores: { [name: string]: StoreInstance<any, any, any> };
 }
 
-export const QuantaContext = createContext<QuantaContextValue>({ stores: {} });
+// Use null default so we can detect when used outside a Provider
+export const QuantaContext = createContext<QuantaContextValue | null>(null);
 
 /**
  * Hook to access the QuantaJS store from the context
@@ -14,21 +15,15 @@ export const QuantaContext = createContext<QuantaContextValue>({ stores: {} });
  * @throws Error if used outside of QuantaProvider
  */
 export function useQuantaContext(): QuantaContextValue {
-    try {
-        const context = useContext(QuantaContext);
+    const context = useContext(QuantaContext);
 
-        if (!context) {
-            const errorMessage =
-                'useQuantaContext must be used within a QuantaProvider';
-            logger.error(`QuantaContext: ${errorMessage}`);
-            throw new Error(errorMessage);
-        }
-
-        return context;
-    } catch (error) {
-        logger.error(
-            `QuantaContext: Failed to access context: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        throw error;
+    if (context === null) {
+        const errorMessage =
+            'useQuantaContext must be used within a QuantaProvider. ' +
+            'Wrap your component tree with <QuantaProvider stores={...}>.';
+        logger.error(`QuantaContext: ${errorMessage}`);
+        throw new Error(errorMessage);
     }
+
+    return context;
 }

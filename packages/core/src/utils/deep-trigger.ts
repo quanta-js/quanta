@@ -8,18 +8,36 @@ const parentMap = new WeakMap<
 
 export { parentMap };
 
-// Bubbl: Triggers parent deps on mutation
+/**
+ * Set the parent mapping for a reactive child object.
+ * Warns in dev mode if the object is referenced from multiple parents,
+ * as only the last parent will receive bubble triggers.
+ */
+export function setParent(
+    child: object,
+    parent: object,
+    key: string | symbol,
+): void {
+    if (parentMap.has(child)) {
+        const existing = parentMap.get(child)!;
+        if (existing.parent !== parent) {
+            logger.warn(
+                `Reactive: Object at "${String(key)}" is referenced from multiple parents. Only the last parent will receive bubble triggers.`,
+            );
+        }
+    }
+    parentMap.set(child, { parent, key });
+}
+
+// Bubbles: Triggers parent deps on mutation
 export function bubbleTrigger(
     target: object,
     prop: string | symbol,
-    targetMap: WeakMap<object, Record<string | symbol, Dependency>>, // Injected for deps access
+    targetMap: WeakMap<object, Map<string | symbol, Dependency>>,
 ): void {
-    logger.debug(
-        `DeepTrigger: Entry - Bubbling from ${String(prop)} on ${String(target)}`,
-    );
     try {
         let current = target;
-        const visited = new Set<object>(); // Cycle guard
+        const visited = new Set<object>();
 
         while (true) {
             if (visited.has(current)) {
@@ -31,9 +49,6 @@ export function bubbleTrigger(
             visited.add(current);
 
             const info = parentMap.get(current);
-            logger.debug(
-                `DeepTrigger: Checking parent for ${String(current)}: ${!!info ? 'Found' : 'None'}`,
-            );
             if (!info) break; // Root reached
 
             const { parent, key } = info;
@@ -41,18 +56,12 @@ export function bubbleTrigger(
 
             // Notify parent's dep for this child key
             const parentDeps = targetMap.get(parent);
-            const hasDep = parentDeps?.[key] ? 'Yes' : 'No';
-            logger.debug(
-                `DeepTrigger: Parent ${String(parent)} has dep on ${String(key)}? ${hasDep}`,
-            );
-            if (parentDeps?.[key]) {
-                parentDeps[key].notify(); // Fires effects on parent (e.g., watcher re-run)
-                logger.debug(
-                    `DeepTrigger: Bubbled ${String(key)} on ${String(parent)}`,
-                );
+            const dep = parentDeps?.get(key);
+            if (dep) {
+                dep.notify();
             }
 
-            current = parent; // Climb
+            current = parent;
         }
     } catch (error) {
         logger.error(
@@ -73,5 +82,5 @@ export function getParentChain(
         chain.push(info);
         current = info.parent;
     }
-    return chain.reverse(); // Root-first for debug
+    return chain.reverse();
 }

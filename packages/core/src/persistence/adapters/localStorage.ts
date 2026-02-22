@@ -13,7 +13,8 @@ export class LocalStorageAdapter implements PersistenceAdapter {
     read() {
         try {
             const data = localStorage.getItem(this.key);
-            return data ? JSON.parse(data) : null;
+            // Return raw string — persistence manager handles deserialization
+            return data ?? null;
         } catch (error) {
             logger.warn(
                 `Failed to read from localStorage: ${error instanceof Error ? error.message : String(error)}`,
@@ -24,7 +25,9 @@ export class LocalStorageAdapter implements PersistenceAdapter {
 
     write(data: any) {
         try {
-            localStorage.setItem(this.key, JSON.stringify(data));
+            // Data is already serialized by the persistence manager — write directly
+            const raw = typeof data === 'string' ? data : JSON.stringify(data);
+            localStorage.setItem(this.key, raw);
         } catch (error) {
             if (error instanceof Error && error.name === 'QuotaExceededError') {
                 logger.warn('LocalStorage quota exceeded');
@@ -40,11 +43,7 @@ export class LocalStorageAdapter implements PersistenceAdapter {
     subscribe(callback: (data: any) => void) {
         const handler = (e: StorageEvent) => {
             if (e.key === this.key && e.newValue) {
-                try {
-                    callback(JSON.parse(e.newValue));
-                } catch (error) {
-                    logger.warn('Failed to parse storage event data:', error);
-                }
+                callback(e.newValue);
             }
         };
 

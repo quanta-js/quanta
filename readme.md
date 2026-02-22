@@ -28,8 +28,8 @@ pnpm add @quantajs/core
 ```javascript
 import { createStore } from "@quantajs/core";
 
-const counter = createStore({
-  state: { count: 0 },
+const counter = createStore("counter", {
+  state: () => ({ count: 0 }),
   actions: {
     increment() {
       this.count++;

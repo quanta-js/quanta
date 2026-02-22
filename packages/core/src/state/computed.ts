@@ -1,4 +1,4 @@
-import { reactiveEffect, track } from '../core/effect';
+import { reactiveEffect, track, trigger } from '../core/effect';
 import { logger } from '../services/logger-service';
 
 const computed = <G>(getter: () => G) => {
@@ -6,11 +6,21 @@ const computed = <G>(getter: () => G) => {
         let value: G;
         let dirty = true;
 
-        // Wrap the getter in a reactive effect to track dependencies
-        const effect = reactiveEffect(() => {
+        // The effect re-runs when dependencies change, marking dirty for lazy recompute
+        reactiveEffect(() => {
             try {
-                value = getter();
-                dirty = false; // Reset the dirty flag after computing
+                // Run getter to track dependencies
+                const newValue = getter();
+                if (dirty) {
+                    // First run or explicit recompute — store the value
+                    value = newValue;
+                    dirty = false;
+                } else {
+                    // Dependency changed — mark dirty for lazy recompute
+                    dirty = true;
+                    // Notify anyone watching this computed's value
+                    trigger(obj, 'value');
+                }
             } catch (error) {
                 logger.error(
                     `Computed: Failed to compute value: ${error instanceof Error ? error.message : String(error)}`,
@@ -23,7 +33,9 @@ const computed = <G>(getter: () => G) => {
             get value() {
                 try {
                     if (dirty) {
-                        effect(); // Run the effect to compute the value if dirty
+                        // Lazy recompute — only runs when accessed AND dirty
+                        value = getter();
+                        dirty = false;
                     }
                     track(obj, 'value'); // Track access to the computed value
                     return value;

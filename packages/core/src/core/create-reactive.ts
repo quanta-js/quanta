@@ -1,7 +1,20 @@
-import { targetMap, track, trigger } from './effect';
+import { track, trigger, batchEffects } from './effect';
 import { logger } from '../services/logger-service';
-import { bubbleTrigger, parentMap } from '../utils/deep-trigger';
+import { parentMap, setParent } from '../utils/deep-trigger';
 import { devtools } from '../devtools';
+
+// Array methods that mutate — intercepted to batch triggers
+const ARRAY_MUTATORS = [
+    'push',
+    'pop',
+    'shift',
+    'unshift',
+    'splice',
+    'sort',
+    'reverse',
+    'fill',
+    'copyWithin',
+];
 
 // Cache Proxies per raw target (prevents double-wrapping)
 const reactiveMap = new WeakMap<object, object>();
@@ -138,20 +151,34 @@ export function createReactive(target: any) {
                         return result;
                     }
 
+                    // Intercept mutating array methods to batch triggers
+                    if (
+                        Array.isArray(obj) &&
+                        typeof prop === 'string' &&
+                        typeof result === 'function' &&
+                        ARRAY_MUTATORS.includes(prop)
+                    ) {
+                        return (...args: any[]) => {
+                            batchEffects(() => {
+                                result.apply(obj, args);
+                            });
+                            // Trigger once for length and the mutation method
+                            trigger(obj, 'length');
+                            return obj.length;
+                        };
+                    }
+
                     track(obj, prop);
 
                     // Handle nested reactivity for objects or arrays
                     if (typeof result === 'object' && result !== null) {
                         // Cache-aware recursion + set parent on returned Proxy
-                        const nested = createReactive(result); // Returns existing/cached Proxy if wrapped
+                        const nested = createReactive(result);
                         if (
                             typeof prop === 'string' ||
                             typeof prop === 'symbol'
                         ) {
-                            parentMap.set(result, { parent: obj, key: prop });
-                            logger.debug(
-                                `Reactive: Set parent for raw ${String(prop)} (${String(result)}) on ${String(obj)}`,
-                            );
+                            setParent(result, obj, prop);
                         }
                         return nested;
                     }
@@ -178,17 +205,12 @@ export function createReactive(target: any) {
                     const oldValue = obj[prop];
                     const result = Reflect.set(obj, prop, value, receiver);
 
-                    // Trigger updates if value changes
-                    if (
-                        oldValue !== value ||
-                        (isNaN(oldValue) && isNaN(value))
-                    ) {
+                    // Trigger updates if value actually changed (Object.is handles NaN, -0 correctly)
+                    if (!Object.is(oldValue, value)) {
                         trigger(obj, prop);
-                        // Bubble only if setting a new object (for child mutations, trigger handles)
+                        // Set parent mapping for new nested objects
                         if (typeof value === 'object' && value !== null) {
-                            // Wrap new value if needed, then bubble from it
-                            const wrappedValue = createReactive(value); // Cache-safe
-                            bubbleTrigger(wrappedValue, prop, targetMap);
+                            createReactive(value); // Cache-safe wrap
                         }
 
                         devtools.notifyStateChange(obj, prop, value, parentMap);

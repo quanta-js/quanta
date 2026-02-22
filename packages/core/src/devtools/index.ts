@@ -14,8 +14,21 @@ type DevToolsListener = (event: DevToolsEvent) => void;
 class DevToolsBridge {
     private listeners: Set<DevToolsListener> = new Set();
     private stores: Map<string, any> = new Map();
+    private stateMap: WeakMap<object, string> = new WeakMap();
+
+    /** Enable/disable devtools event emission (disable in production for zero overhead) */
+    private _enabled = true;
+
+    get enabled() {
+        return this._enabled;
+    }
+
+    set enabled(value: boolean) {
+        this._enabled = value;
+    }
 
     emit(event: DevToolsEvent) {
+        if (!this._enabled) return;
         this.listeners.forEach((listener) => listener(event));
     }
 
@@ -30,9 +43,8 @@ class DevToolsBridge {
         };
     }
 
-    private stateMap: WeakMap<object, string> = new WeakMap();
-
     registerStore(name: string, store: any) {
+        if (!this._enabled) return;
         this.stores.set(name, store);
         if (store.state) {
             this.stateMap.set(store.state, name);
@@ -50,6 +62,8 @@ class DevToolsBridge {
         value: any,
         parentMap?: WeakMap<object, any>,
     ) {
+        if (!this._enabled || this.listeners.size === 0) return;
+
         // Try to find the root and path
         let current = target;
         const path: string[] = [String(prop)];
@@ -58,7 +72,7 @@ class DevToolsBridge {
         // Traverse up if we have a parent map and haven't found the store yet
         if (!storeName && parentMap) {
             let depth = 0;
-            const maxDepth = 50; // Prevent infinite loops
+            const maxDepth = 50;
 
             while (!storeName && depth < maxDepth) {
                 const parentInfo = parentMap.get(current);
@@ -84,6 +98,7 @@ class DevToolsBridge {
     }
 
     notifyActionCall(storeName: string, actionName: string, args: any[]) {
+        if (!this._enabled || this.listeners.size === 0) return;
         this.emit({
             type: 'ACTION_CALL',
             payload: { storeName, actionName, args },
