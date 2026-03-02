@@ -1,4 +1,4 @@
-import { StoreSubscriber } from 'type/store-types';
+import { StoreSubscriber } from '../type/store-types';
 import { logger } from '../services/logger-service';
 
 export class Dependency<S = any> {

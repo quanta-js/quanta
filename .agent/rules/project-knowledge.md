@@ -1,10 +1,12 @@
+---
+trigger: always_on
+---
+
 # QuantaJS — In-Depth Project Knowledge
 
 ## What Is QuantaJS?
 
-QuantaJS is a **framework-agnostic reactive state management library** published as three npm packages under `@quantajs/*`. It uses JavaScript `Proxy` to automatically track property access and trigger re-renders when state changes — similar to Vue 3's reactivity system, but designed to work with any framework (React, Vue, Svelte, vanilla JS).
-
-**Current version:** `2.0.0-beta.9`
+QuantaJS is a **framework-agnostic reactive state management library** published as three npm packages under `@quantajs/*`. It uses JavaScript `Proxy` to automatically track property access and trigger re-renders when state changes, designed to work with any framework (React, Vue, Svelte, vanilla JS).
 
 ---
 

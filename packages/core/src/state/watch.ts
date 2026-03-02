@@ -1,4 +1,4 @@
-import { reactiveEffect } from '../core/effect';
+import { reactiveEffect, pauseTracking, resumeTracking } from '../core/effect';
 import { logger } from '../services/logger-service';
 
 /**
@@ -66,16 +66,33 @@ const watch = <T>(
                     deepAccess(value);
                 }
 
-                if (oldValue === UNSET) {
-                    // First run
-                    oldValue = value;
-                    if (immediate) {
-                        callback(value, undefined);
+                // ⚠️ CRITICAL: Pause tracking before invoking the callback.
+                // Without this, any reactive reads inside the callback would be
+                // tracked as dependencies of this watch effect, causing
+                // cascading re-triggers and exponential slowdown.
+                const prev = pauseTracking();
+                try {
+                    if (oldValue === UNSET) {
+                        // First run
+                        oldValue = value;
+                        if (immediate) {
+                            callback(value, undefined);
+                        }
+                    } else if (deep) {
+                        // Deep mode: the effect only re-runs when a tracked
+                        // nested dependency actually changes, so always invoke
+                        // callback. Object.is would always be true for the
+                        // same proxy reference.
+                        const prev = oldValue;
+                        oldValue = value;
+                        callback(value, prev);
+                    } else if (!Object.is(value, oldValue)) {
+                        const prev = oldValue;
+                        oldValue = value;
+                        callback(value, prev);
                     }
-                } else if (!Object.is(value, oldValue)) {
-                    const prev = oldValue;
-                    oldValue = value;
-                    callback(value, prev);
+                } finally {
+                    resumeTracking(prev);
                 }
             } catch (error) {
                 logger.error(

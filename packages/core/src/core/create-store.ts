@@ -7,7 +7,12 @@ import {
 import { reactive, computed } from '../state';
 import { flattenStore } from '../utils/flattenStore';
 import { Dependency } from './dependency';
-import { reactiveEffect, trigger } from './effect';
+import {
+    reactiveEffect,
+    trigger,
+    pauseTracking,
+    resumeTracking,
+} from './effect';
 import { createPersistenceManager } from '../persistence';
 import { logger } from '../services/logger-service';
 import { devtools } from '../devtools';
@@ -76,12 +81,20 @@ export const createStore = <
                         const _ = (state as any)[key];
                     }
 
-                    // Notify subscribers (React/Vue/Svelte integrations)
-                    dependency.notify(state);
+                    // ⚠️ Pause tracking before notifying subscribers.
+                    // Without this, subscriber callbacks that read reactive
+                    // state would pollute this effect's dependency set.
+                    const prev = pauseTracking();
+                    try {
+                        dependency.notify(state);
+                    } finally {
+                        resumeTracking(prev);
+                    }
                 });
             } catch (err) {
                 logger.warn(
-                    `createStore: Failed to register deep watcher for store "${name}": ${err instanceof Error ? err.message : String(err)
+                    `createStore: Failed to register deep watcher for store "${name}": ${
+                        err instanceof Error ? err.message : String(err)
                     }`,
                 );
             }

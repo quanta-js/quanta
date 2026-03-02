@@ -49,10 +49,6 @@
     "devDependencies": {
         "@preact/preset-vite": "^2.10.3"
     },
-    "publishConfig": {
-        "access": "public",
-        "registry": "https://registry.npmjs.org/"
-    },
     "files": [
         "dist"
     ]
