@@ -7,6 +7,34 @@ const targetMap = new WeakMap<object, Map<string | symbol, Dependency>>();
 export { targetMap };
 let activeEffect: StoreSubscriber | null = null;
 
+/**
+ * Temporarily pause dependency tracking.
+ * Any reactive reads while tracking is paused will NOT register dependencies.
+ * Must be paired with `resumeTracking()`.
+ *
+ * @returns The previously active effect, to pass to `resumeTracking()`.
+ */
+export function pauseTracking(): StoreSubscriber | null {
+    const prev = activeEffect;
+    activeEffect = null;
+    return prev;
+}
+
+/**
+ * Resume dependency tracking after a `pauseTracking()` call.
+ *
+ * @param prev - The return value from the matching `pauseTracking()` call.
+ */
+export function resumeTracking(prev: StoreSubscriber | null): void {
+    activeEffect = prev;
+}
+
+/**
+ * Per-effect set of Dependency objects the effect is subscribed to.
+ * Used by reactiveEffect to clean up stale subscriptions before re-running.
+ */
+const effectDeps = new WeakMap<StoreSubscriber, Set<Dependency>>();
+
 let isBatching = false;
 const effectQueue = new Set<StoreSubscriber>();
 const effectStack: StoreSubscriber[] = [];
@@ -111,7 +139,13 @@ export function track(target: object, prop: string | symbol) {
         }
 
         if (activeEffect) {
-            depsMap.get(prop)!.depend(activeEffect);
+            const dep = depsMap.get(prop)!;
+            dep.depend(activeEffect);
+            // Record this dep on the effect so it can be cleaned up later
+            const deps = effectDeps.get(activeEffect);
+            if (deps) {
+                deps.add(dep);
+            }
         }
     } catch (error) {
         logger.error(
@@ -125,6 +159,9 @@ export function track(target: object, prop: string | symbol) {
 
 // Reactive effect to handle reactivity with comprehensive error handling
 export function reactiveEffect(effectFn: StoreSubscriber) {
+    // Create a deps set for this effect to enable cleanup
+    const deps = new Set<Dependency>();
+
     const wrappedEffect = () => {
         if (effectStack.includes(wrappedEffect)) {
             const errorMessage = `Circular dependency detected: Effect "${
@@ -137,6 +174,12 @@ export function reactiveEffect(effectFn: StoreSubscriber) {
         }
 
         try {
+            // Cleanup: remove this effect from all its old dependencies
+            // This prevents unbounded subscriber accumulation when deps change
+            deps.forEach((dep) => dep.remove(wrappedEffect));
+            deps.clear();
+
+            // Run the effect, re-tracking fresh dependencies
             effectStack.push(wrappedEffect);
             activeEffect = wrappedEffect;
             effectFn();
@@ -152,6 +195,9 @@ export function reactiveEffect(effectFn: StoreSubscriber) {
             activeEffect = effectStack[effectStack.length - 1] || null;
         }
     };
+
+    // Register the deps set for this effect so track() can populate it
+    effectDeps.set(wrappedEffect, deps);
 
     wrappedEffect(); // Run the effect immediately
     return wrappedEffect;

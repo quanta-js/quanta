@@ -2,6 +2,9 @@
 
 ![Logo](https://raw.githubusercontent.com/quanta-js/quanta/master/assets/quantajs_banner.png)
 
+[![CI](https://github.com/quanta-js/quanta/actions/workflows/ci.yml/badge.svg)](https://github.com/quanta-js/quanta/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/quanta-js/quanta/graph/badge.svg)](https://codecov.io/gh/quanta-js/quanta)
+
 A compact, scalable, and developer-friendly **state management library** designed for any JavaScript environment. It includes a **reactivity system** that enables efficient and flexible data handling, making complex state management easy.
 
 ## 🚀 Features

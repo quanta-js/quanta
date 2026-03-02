@@ -16,14 +16,20 @@ const ARRAY_MUTATORS = [
     'copyWithin',
 ];
 
-// Cache Proxies per raw target (prevents double-wrapping)
+// Cache Proxies per raw target (prevents double-wrapping base objects)
 const reactiveMap = new WeakMap<object, object>();
+
+// Track all created proxies so we don't wrap a proxy in another proxy
+const proxySet = new WeakSet<object>();
 
 // handles Map and Set types specifically
 function createReactiveCollection(target: Map<any, any> | Set<any>) {
     // Cache for collections too
     if (reactiveMap.has(target)) {
         return reactiveMap.get(target);
+    }
+    if (proxySet.has(target)) {
+        return target;
     }
     const proxy = new Proxy(target, {
         get(target, prop: string | symbol) {
@@ -117,16 +123,46 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
             }
         },
     });
-    reactiveMap.set(target, proxy); // Cache the Proxy
+    reactiveMap.set(target, proxy); // Cache the Proxy against raw target
+    proxySet.add(proxy); // Mark this object as a known proxy
     return proxy;
 }
 
 // createReactive function to handle all data types
 export function createReactive(target: any) {
     try {
-        // Global cache check (prevents any double-wrapping)
+        // Guard: skip non-proxyable values (primitives, null, Date, RegExp, etc.)
+        if (target === null || target === undefined) {
+            return target;
+        }
+        if (typeof target !== 'object' && typeof target !== 'function') {
+            return target;
+        }
+        // Skip built-in types that don't benefit from Proxy wrapping
+        if (
+            target instanceof Date ||
+            target instanceof RegExp ||
+            target instanceof Error ||
+            target instanceof Promise ||
+            target instanceof WeakMap ||
+            target instanceof WeakSet ||
+            target instanceof ArrayBuffer ||
+            (typeof SharedArrayBuffer !== 'undefined' &&
+                target instanceof SharedArrayBuffer) ||
+            ArrayBuffer.isView(target)
+        ) {
+            return target;
+        }
+
+        // Global cache check (prevents double-wrapping the raw target)
         if (reactiveMap.has(target)) {
             return reactiveMap.get(target);
+        }
+
+        // Prevent wrapping an existing proxy in another proxy!
+        // This stops exponential trap chaining when spreading reactive arrays `[...proxies]`
+        if (proxySet.has(target)) {
+            return target;
         }
 
         if (target instanceof Map || target instanceof Set) {
@@ -159,12 +195,13 @@ export function createReactive(target: any) {
                         ARRAY_MUTATORS.includes(prop)
                     ) {
                         return (...args: any[]) => {
+                            let methodResult: any;
                             batchEffects(() => {
-                                result.apply(obj, args);
+                                methodResult = result.apply(obj, args);
                             });
                             // Trigger once for length and the mutation method
                             trigger(obj, 'length');
-                            return obj.length;
+                            return methodResult;
                         };
                     }
 
@@ -308,6 +345,7 @@ export function createReactive(target: any) {
 
         // Cache the top-level Proxy too
         reactiveMap.set(target, proxy);
+        proxySet.add(proxy);
         return proxy;
     } catch (error) {
         logger.error(

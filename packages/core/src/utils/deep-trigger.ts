@@ -21,7 +21,7 @@ export function setParent(
     if (parentMap.has(child)) {
         const existing = parentMap.get(child)!;
         if (existing.parent !== parent) {
-            logger.warn(
+            logger.debug(
                 `Reactive: Object at "${String(key)}" is referenced from multiple parents. Only the last parent will receive bubble triggers.`,
             );
         }
