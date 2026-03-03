@@ -16,12 +16,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "jsx": "react-jsx"
   },
-  "references": [
-    {
-      "path": "./packages/**"
-    }
-  ],
-  "exclude": ["node_modules", "dist"]
-} 
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

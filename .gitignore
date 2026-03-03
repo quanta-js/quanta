@@ -15,6 +15,7 @@ dist-ssr
 
 # Test coverage
 coverage
+tsconfig.tsbuildinfo
 
 # Editor directories and files
 .vscode/*
