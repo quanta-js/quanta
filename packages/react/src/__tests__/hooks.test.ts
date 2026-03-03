@@ -163,7 +163,7 @@ describe('useCreateStore', () => {
 
     it('should destroy store on unmount', () => {
         const name = uniqueName();
-        const { result, unmount } = renderHook(() =>
+        const { result: _result, unmount } = renderHook(() =>
             useCreateStore(name, () => ({ count: 0 })),
         );
 

@@ -9,7 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:types": "tsc --noEmit",
+    "test:types": "pnpm -r test:types",
     "bench": "vitest bench",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",

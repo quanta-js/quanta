@@ -15,7 +15,7 @@ export default defineConfig({
             outDir: 'dist',
             insertTypesEntry: true,
         }),
-        banner(licenseBanner),
+        banner(licenseBanner) as any,
     ],
     build: {
         lib: {

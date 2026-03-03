@@ -17,7 +17,7 @@ export default defineConfig({
         }),
         banner({
             content: licenseBanner,
-        }),
+        }) as any,
     ],
     build: {
         cssCodeSplit: false,

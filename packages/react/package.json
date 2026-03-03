@@ -26,6 +26,7 @@
     "type": "module",
     "license": "MIT",
     "scripts": {
+        "test:types": "tsc --noEmit",
         "dev": "npm run format && npm run lint:fix && npm run build",
         "build": "npm run clean && vite build",
         "preview": "vite preview",
