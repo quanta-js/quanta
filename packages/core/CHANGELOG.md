@@ -1,5 +1,11 @@
 # @quantajs/core
 
+## 2.0.0-beta.12
+
+### Major Changes
+
+- build: Resolve workspace protocol dependencies in package.json files before publishing packages.
+
 ## 2.0.0-beta.11
 
 ### Major Changes
