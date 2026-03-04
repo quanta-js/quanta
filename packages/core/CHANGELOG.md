@@ -1,5 +1,15 @@
 # @quantajs/core
 
+## 2.0.0-beta.11
+
+### Major Changes
+
+- Test: Introduce Vitest and add comprehensive unit tests across core and react packages, alongside related configuration and minor dependency updates.
+
+    Fix: Configure recursive type checking, add JSX runtime, and resolve Vite banner plugin type assertions.
+
+    Fix: Add TypeScript and configuration and include a build step in the CI workflow.
+
 ## 2.0.0-beta.10
 
 ### Major Changes
