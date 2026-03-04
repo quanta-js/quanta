@@ -34,6 +34,9 @@ jobs:
       - name: 🔍 Lint
         run: pnpm lint
 
+      - name: 🏗️ Build packages
+        run: pnpm build
+
       - name: 🔎 Type Check
         run: pnpm test:types
 
