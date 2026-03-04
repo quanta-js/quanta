@@ -3,7 +3,6 @@
 ![Logo](https://raw.githubusercontent.com/quanta-js/quanta/master/assets/quantajs_banner.png)
 
 [![CI](https://github.com/quanta-js/quanta/actions/workflows/ci.yml/badge.svg)](https://github.com/quanta-js/quanta/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/quanta-js/quanta/graph/badge.svg)](https://codecov.io/gh/quanta-js/quanta)
 
 React integration for QuantaJS - A compact, scalable, and developer-friendly state management library for React applications.
 

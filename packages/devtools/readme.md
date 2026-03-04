@@ -3,7 +3,6 @@
 ![Logo](https://raw.githubusercontent.com/quanta-js/quanta/master/assets/quantajs_banner.png)
 
 [![CI](https://github.com/quanta-js/quanta/actions/workflows/ci.yml/badge.svg)](https://github.com/quanta-js/quanta/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/quanta-js/quanta/graph/badge.svg)](https://codecov.io/gh/quanta-js/quanta)
 
 Developer tools for QuantaJS - A visual debugging interface for inspecting stores, monitoring state changes, and replaying actions in real-time.
 
