@@ -47,5 +47,10 @@
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "pnpm": {
+    "overrides": {
+      "minimatch": ">=10.2.3"
+    }
+  }
 }
