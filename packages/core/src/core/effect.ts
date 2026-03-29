@@ -72,32 +72,39 @@ const effectStack: EffectFunction[] = [];
  */
 export function batchEffects(fn: EffectFunction) {
     batchDepth++;
+    let success = false;
     try {
         fn();
+        success = true;
     } finally {
         batchDepth--;
         if (batchDepth === 0) {
-            // Flush all queued effects from this (and any nested) batch
-            const queue = [...effectQueue];
-            effectQueue.clear();
-            for (const effect of queue) {
-                try {
-                    const runner = effect as EffectRunner;
-                    if (runner.scheduler) {
-                        runner.scheduler(runner);
-                    } else {
-                        effect();
+            if (success) {
+                // Flush all queued effects from this (and any nested) batch
+                const queue = [...effectQueue];
+                effectQueue.clear();
+                for (const effect of queue) {
+                    try {
+                        const runner = effect as EffectRunner;
+                        if (runner.scheduler) {
+                            runner.scheduler(runner);
+                        } else {
+                            effect();
+                        }
+                    } catch (error) {
+                        logger.error(
+                            `Effect: Failed to execute queued effect: ${
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error)
+                            }`,
+                        );
+                        throw error;
                     }
-                } catch (error) {
-                    logger.error(
-                        `Effect: Failed to execute queued effect: ${
-                            error instanceof Error
-                                ? error.message
-                                : String(error)
-                        }`,
-                    );
-                    throw error;
                 }
+            } else {
+                // Batch failed/aborted, discard the queued triggers
+                effectQueue.clear();
             }
         }
     }
