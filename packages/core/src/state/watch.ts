@@ -52,8 +52,8 @@ const watch = <T>(
     source: () => T,
     callback: (value: T, oldValue?: T) => void,
     options: WatchOptions = {},
-) => {
-    const { deep = false, immediate = true } = options;
+): (() => void) => {
+    const { deep = false, immediate = false } = options;
     let oldValue: T | typeof UNSET = UNSET;
 
     try {
@@ -101,7 +101,9 @@ const watch = <T>(
                 throw error;
             }
         });
-        return effect;
+        return () => {
+            effect.stop();
+        };
     } catch (error) {
         logger.error(
             `Watch: Failed to create watcher: ${error instanceof Error ? error.message : String(error)}`,

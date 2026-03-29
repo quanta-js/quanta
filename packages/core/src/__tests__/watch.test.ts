@@ -4,14 +4,13 @@ import { createReactive } from '../core/create-reactive';
 
 describe('watch', () => {
     describe('basic watching', () => {
-        it('should invoke callback immediately by default (immediate: true)', () => {
+        it('should NOT invoke callback immediately by default (immediate: false)', () => {
             const state = createReactive({ count: 0 });
             const callback = vi.fn();
 
             watch(() => state.count, callback);
 
-            expect(callback).toHaveBeenCalledOnce();
-            expect(callback).toHaveBeenCalledWith(0, undefined);
+            expect(callback).not.toHaveBeenCalled();
         });
 
         it('should detect value changes', () => {
@@ -129,11 +128,30 @@ describe('watch', () => {
         });
     });
 
-    describe('return value', () => {
-        it('should return the effect function', () => {
+    describe('return value & disposal', () => {
+        it('should return a stop function', () => {
             const state = createReactive({ count: 0 });
-            const result = watch(() => state.count, vi.fn());
-            expect(typeof result).toBe('function');
+            const stop = watch(() => state.count, vi.fn());
+            expect(typeof stop).toBe('function');
+        });
+
+        it('should stop watching after calling returned stop function', () => {
+            const state = createReactive({ count: 0 });
+            const callback = vi.fn();
+            const stop = watch(() => state.count, callback);
+            callback.mockClear();
+
+            stop();
+
+            state.count = 99;
+            expect(callback).not.toHaveBeenCalled();
+        });
+
+        it('stop() should be idempotent', () => {
+            const state = createReactive({ count: 0 });
+            const stop = watch(() => state.count, vi.fn());
+            stop();
+            expect(() => stop()).not.toThrow();
         });
     });
 });

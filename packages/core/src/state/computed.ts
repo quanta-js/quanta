@@ -6,35 +6,13 @@ const computed = <G>(getter: () => G) => {
         let value: G;
         let dirty = true;
 
-        // The effect re-runs when dependencies change, marking dirty for lazy recompute
-        reactiveEffect(() => {
-            try {
-                // Run getter to track dependencies
-                const newValue = getter();
-                if (dirty) {
-                    // First run or explicit recompute — store the value
-                    value = newValue;
-                    dirty = false;
-                } else {
-                    // Dependency changed — mark dirty for lazy recompute
-                    dirty = true;
-                    // Notify anyone watching this computed's value
-                    trigger(obj, 'value');
-                }
-            } catch (error) {
-                logger.error(
-                    `Computed: Failed to compute value: ${error instanceof Error ? error.message : String(error)}`,
-                );
-                throw error;
-            }
-        });
-
         const obj = {
             get value() {
                 try {
                     if (dirty) {
                         // Lazy recompute — only runs when accessed AND dirty
-                        value = getter();
+                        // effect() runs the wrapper which calls getter() and sets value
+                        effect();
                         dirty = false;
                     }
                     track(obj, 'value'); // Track access to the computed value
@@ -46,7 +24,26 @@ const computed = <G>(getter: () => G) => {
                     throw error;
                 }
             },
+            stop: () => effect.stop(),
         };
+
+        // The effect runs getter to track dependencies.
+        // It's lazy, so it doesn't run until obj.value is accessed.
+        const effect = reactiveEffect(
+            () => {
+                value = getter();
+            },
+            {
+                lazy: true,
+                scheduler: () => {
+                    if (!dirty) {
+                        dirty = true;
+                        // Notify anyone watching this computed's value
+                        trigger(obj, 'value');
+                    }
+                },
+            },
+        );
 
         return obj;
     } catch (error) {

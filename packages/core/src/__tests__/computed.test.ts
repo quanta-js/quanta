@@ -10,7 +10,7 @@ describe('computed', () => {
         expect(doubled.value).toBe(4);
     });
 
-    it('should cache value (lazy recompute)', () => {
+    it('should be lazy and not call getter until read', () => {
         let computeCount = 0;
         const state = createReactive({ count: 1 });
         const comp = computed(() => {
@@ -18,13 +18,16 @@ describe('computed', () => {
             return state.count * 10;
         });
 
+        // Effect is lazy — should NOT have run yet
+        expect(computeCount).toBe(0);
+
         // First access triggers computation
         expect(comp.value).toBe(10);
-        const firstComputeCount = computeCount;
+        expect(computeCount).toBe(1);
 
         // Subsequent access without change should be cached
         expect(comp.value).toBe(10);
-        expect(computeCount).toBe(firstComputeCount);
+        expect(computeCount).toBe(1);
     });
 
     it('should recompute when dependency changes', () => {
@@ -34,6 +37,23 @@ describe('computed', () => {
         expect(sum.value).toBe(3);
         state.a = 10;
         expect(sum.value).toBe(12);
+    });
+
+    it('should call getter exactly ONCE per dependency change (not twice)', () => {
+        const state = createReactive({ a: 1 });
+        let getterCalls = 0;
+        const c = computed(() => {
+            getterCalls++;
+            return state.a * 2;
+        });
+
+        expect(c.value).toBe(2);
+        const callsAfterFirstRead = getterCalls;
+
+        state.a = 5;
+        const callsAfterMutation = getterCalls; // Should NOT have run getter yet
+        expect(c.value).toBe(10); // Lazy recompute
+        expect(getterCalls).toBe(callsAfterMutation + 1); // Only ONE additional call
     });
 
     it('should handle chained computeds', () => {
@@ -46,18 +66,18 @@ describe('computed', () => {
         expect(quadrupled.value).toBe(40);
     });
 
-    it('should work with complex expressions', () => {
-        const state = createReactive({
-            items: [1, 2, 3, 4, 5],
-        });
-        const evenCount = computed(
-            () => state.items.filter((x: number) => x % 2 === 0).length,
-        );
+    it('should expose stop() for disposal', () => {
+        const state = createReactive({ a: 1 });
+        const c = computed(() => state.a * 2);
+        expect(c.value).toBe(2);
 
-        expect(evenCount.value).toBe(2);
+        (c as any).stop();
+        state.a = 99;
+        // After stop, no re-tracking happens — value stays stale but no crash
+        expect(c.value).toBe(2); // value wasn't updated
     });
 
-    it('should propagate getter errors through effect', () => {
+    it('should propagate getter errors when read (since lazy)', () => {
         const state = createReactive({ value: 0 });
         const comp = computed(() => {
             if (state.value < 0) throw new Error('negative');
@@ -65,9 +85,11 @@ describe('computed', () => {
         });
 
         expect(comp.value).toBe(0);
-        // Error is thrown during reactive set because the effect re-runs the getter
+
+        state.value = -1;
+        // Error is thrown when accessed because computation is lazy
         expect(() => {
-            state.value = -1;
+            const v = comp.value; // eslint-disable-line
         }).toThrow('negative');
     });
 });

@@ -1,4 +1,4 @@
-export { reactive, computed, watch } from './state';
+export { reactive, computed, watch, isReactive } from './state';
 export { createStore, useStore } from './core';
 export { batchEffects } from './core/effect';
 

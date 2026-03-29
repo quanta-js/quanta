@@ -19,6 +19,21 @@ class DevToolsBridge {
     /** Enable/disable devtools event emission (disable in production for zero overhead) */
     private _enabled = true;
 
+    constructor() {
+        // Default to disabled in production environments
+        try {
+            if (
+                typeof process !== 'undefined' &&
+                process.env &&
+                process.env.NODE_ENV === 'production'
+            ) {
+                this._enabled = false;
+            }
+        } catch (e) {
+            // ignore environment check errors
+        }
+    }
+
     get enabled() {
         return this._enabled;
     }
@@ -28,7 +43,7 @@ class DevToolsBridge {
     }
 
     emit(event: DevToolsEvent) {
-        if (!this._enabled) return;
+        if (!this._enabled || this.listeners.size === 0) return;
         this.listeners.forEach((listener) => listener(event));
     }
 
@@ -50,6 +65,15 @@ class DevToolsBridge {
             this.stateMap.set(store.state, name);
         }
         this.emit({ type: 'STORE_INIT', payload: { name, store } });
+    }
+
+    unregisterStore(name: string) {
+        // Always allow cleanup even if disabled
+        const store = this.stores.get(name);
+        if (store?.state) {
+            this.stateMap.delete(store.state);
+        }
+        this.stores.delete(name);
     }
 
     getStoreName(state: object): string | undefined {
@@ -75,7 +99,11 @@ class DevToolsBridge {
             const maxDepth = 50;
 
             while (!storeName && depth < maxDepth) {
-                const parentInfo = parentMap.get(current);
+                const parents = parentMap.get(current);
+                if (!parents || parents.size === 0) break;
+
+                // Extract the first parent route to represent the mutation
+                const parentInfo = parents.values().next().value;
                 if (!parentInfo) break;
 
                 path.unshift(String(parentInfo.key));

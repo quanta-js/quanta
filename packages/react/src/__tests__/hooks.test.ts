@@ -17,10 +17,12 @@ function uniqueName(prefix = 'react') {
 describe('useQuantaStore', () => {
     // Dynamic import to ensure happy-dom is available
     let useQuantaStore: any;
+    let useQuantaSelector: any;
 
     beforeEach(async () => {
         const mod = await import('../hooks/useQuantaStore');
         useQuantaStore = mod.useQuantaStore;
+        useQuantaSelector = mod.useQuantaSelector;
     });
 
     it('should return the full store without selector', () => {
@@ -40,7 +42,7 @@ describe('useQuantaStore', () => {
         });
 
         const { result } = renderHook(() =>
-            useQuantaStore(store, (s: any) => s.count),
+            useQuantaSelector(store, (s: any) => s.count),
         );
         expect(result.current).toBe(5);
     });
@@ -72,7 +74,7 @@ describe('useQuantaStore', () => {
         });
 
         const { result } = renderHook(() =>
-            useQuantaStore(store, (s: any) => s.count),
+            useQuantaSelector(store, (s: any) => s.count),
         );
 
         act(() => {

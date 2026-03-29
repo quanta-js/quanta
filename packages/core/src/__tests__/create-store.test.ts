@@ -194,6 +194,32 @@ describe('createStore', () => {
 
             expect(() => useStore(name)).toThrow(/does not exist/);
         });
+
+        it('should stop deep watcher after destroy', () => {
+            const name = uniqueName();
+            const store = createStore(name, {
+                state: () => ({ count: 0 }),
+            });
+            const sub = vi.fn();
+            store.subscribe(sub);
+
+            store.$destroy!();
+            sub.mockClear();
+
+            // Mutation after destroy should NOT notify
+            store.state.count = 99;
+            expect(sub).not.toHaveBeenCalled();
+        });
+
+        it('should cleanly deregister to allow recreating store with same name', () => {
+            const name = uniqueName();
+            const store = createStore(name, { state: () => ({ x: 1 }) });
+            store.$destroy!();
+            // Should be able to recreate with same name
+            const store2 = createStore(name, { state: () => ({ x: 2 }) });
+            expect(store2.x).toBe(2);
+            store2.$destroy!();
+        });
     });
 
     describe('subscribe', () => {

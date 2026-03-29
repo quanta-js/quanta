@@ -1,11 +1,30 @@
 import { Dependency } from './dependency';
 import { logger } from '../services/logger-service';
-import { StoreSubscriber } from '../type/store-types';
+import type { EffectFunction } from '../type/store-types';
 import { bubbleTrigger, parentMap } from '../utils/deep-trigger';
+
+export interface EffectOptions {
+    /** Custom scheduler for when the effect's dependencies change */
+    scheduler?: (effect: EffectRunner) => void;
+    /** If true, the effect will not run immediately upon creation */
+    lazy?: boolean;
+}
+
+/**
+ * A disposable effect function with a stop() method for cleanup.
+ * Calling the function re-runs the effect; calling stop() permanently
+ * unsubscribes and prevents further execution.
+ */
+export interface EffectRunner extends EffectFunction {
+    /** Permanently stop this effect and remove it from all dependency sets. */
+    stop: () => void;
+    /** Custom scheduler (if provided) */
+    scheduler?: (effect: EffectRunner) => void;
+}
 
 const targetMap = new WeakMap<object, Map<string | symbol, Dependency>>();
 export { targetMap };
-let activeEffect: StoreSubscriber | null = null;
+let activeEffect: EffectFunction | null = null;
 
 /**
  * Temporarily pause dependency tracking.
@@ -14,7 +33,7 @@ let activeEffect: StoreSubscriber | null = null;
  *
  * @returns The previously active effect, to pass to `resumeTracking()`.
  */
-export function pauseTracking(): StoreSubscriber | null {
+export function pauseTracking(): EffectFunction | null {
     const prev = activeEffect;
     activeEffect = null;
     return prev;
@@ -25,7 +44,7 @@ export function pauseTracking(): StoreSubscriber | null {
  *
  * @param prev - The return value from the matching `pauseTracking()` call.
  */
-export function resumeTracking(prev: StoreSubscriber | null): void {
+export function resumeTracking(prev: EffectFunction | null): void {
     activeEffect = prev;
 }
 
@@ -33,25 +52,42 @@ export function resumeTracking(prev: StoreSubscriber | null): void {
  * Per-effect set of Dependency objects the effect is subscribed to.
  * Used by reactiveEffect to clean up stale subscriptions before re-running.
  */
-const effectDeps = new WeakMap<StoreSubscriber, Set<Dependency>>();
+const effectDeps = new WeakMap<EffectFunction, Set<Dependency>>();
 
-let isBatching = false;
-const effectQueue = new Set<StoreSubscriber>();
-const effectStack: StoreSubscriber[] = [];
+let batchDepth = 0;
+const effectQueue = new Set<EffectFunction>();
+const effectStack: EffectFunction[] = [];
 
-// Start and process batched effects
-export function batchEffects(fn: StoreSubscriber) {
+/**
+ * Batch multiple state mutations so dependent effects only run once.
+ * Supports nesting — effects are flushed only when the outermost batch completes.
+ *
+ * @example
+ * ```ts
+ * batchEffects(() => {
+ *     state.a = 1;
+ *     state.b = 2; // Effects that depend on both a & b run once, not twice
+ * });
+ * ```
+ */
+export function batchEffects(fn: EffectFunction) {
+    batchDepth++;
     try {
-        isBatching = true;
         fn();
-        isBatching = false;
-
-        // Trigger all queued effects
-        const queueSize = effectQueue.size;
-        if (queueSize > 0) {
-            effectQueue.forEach((effect) => {
+    } finally {
+        batchDepth--;
+        if (batchDepth === 0) {
+            // Flush all queued effects from this (and any nested) batch
+            const queue = [...effectQueue];
+            effectQueue.clear();
+            for (const effect of queue) {
                 try {
-                    effect();
+                    const runner = effect as EffectRunner;
+                    if (runner.scheduler) {
+                        runner.scheduler(runner);
+                    } else {
+                        effect();
+                    }
                 } catch (error) {
                     logger.error(
                         `Effect: Failed to execute queued effect: ${
@@ -62,18 +98,8 @@ export function batchEffects(fn: StoreSubscriber) {
                     );
                     throw error;
                 }
-            });
-            effectQueue.clear();
+            }
         }
-    } catch (error) {
-        isBatching = false;
-        effectQueue.clear();
-        logger.error(
-            `Effect: Batch processing failed: ${
-                error instanceof Error ? error.message : String(error)
-            }`,
-        );
-        throw error;
     }
 }
 
@@ -83,10 +109,14 @@ export function trigger(target: object, prop: string | symbol) {
         const depsMap = targetMap.get(target);
         if (depsMap && depsMap.has(prop)) {
             const effects = depsMap.get(prop)!.getSubscribers;
+            // Snapshot subscribers into an array BEFORE iterating.
+            // Effects may remove/re-add themselves to the Set during execution;
+            // iterating the live Set would cause an infinite loop per ES spec.
+            const effectSnapshot = [...effects];
 
-            if (effects.size > 0) {
-                effects.forEach((effect) => {
-                    if (isBatching) {
+            if (effectSnapshot.length > 0) {
+                for (const effect of effectSnapshot) {
+                    if (batchDepth > 0) {
                         effectQueue.add(effect);
                     } else {
                         if (effectStack.includes(effect)) {
@@ -96,7 +126,13 @@ export function trigger(target: object, prop: string | symbol) {
                         }
 
                         try {
-                            effect();
+                            if ((effect as EffectRunner).scheduler) {
+                                (effect as EffectRunner).scheduler!(
+                                    effect as EffectRunner,
+                                );
+                            } else {
+                                effect();
+                            }
                         } catch (error) {
                             logger.error(
                                 `Effect: Failed to execute effect "${effect.name || 'anonymous'}": ${
@@ -108,7 +144,7 @@ export function trigger(target: object, prop: string | symbol) {
                             throw error;
                         }
                     }
-                });
+                }
             }
         }
         // Only bubble if this target has a registered parent (skip for root-level state)
@@ -157,12 +193,35 @@ export function track(target: object, prop: string | symbol) {
     }
 }
 
-// Reactive effect to handle reactivity with comprehensive error handling
-export function reactiveEffect(effectFn: StoreSubscriber) {
+/**
+ * Create a reactive effect that automatically tracks dependencies and
+ * re-runs when those dependencies change.
+ *
+ * Returns an `EffectRunner` — a callable function with a `.stop()` method.
+ * Call `.stop()` to permanently unsubscribe and prevent further execution.
+ *
+ * @example
+ * ```ts
+ * const effect = reactiveEffect(() => {
+ *     console.log(state.count); // tracks state.count
+ * });
+ * state.count++; // effect re-runs
+ * effect.stop(); // permanently stopped
+ * state.count++; // effect does NOT re-run
+ * ```
+ */
+export function reactiveEffect(
+    effectFn: EffectFunction,
+    options?: EffectOptions,
+): EffectRunner {
     // Create a deps set for this effect to enable cleanup
     const deps = new Set<Dependency>();
+    let active = true;
 
-    const wrappedEffect = () => {
+    const wrappedEffect = (() => {
+        // Guard: do not execute if this effect has been stopped
+        if (!active) return;
+
         if (effectStack.includes(wrappedEffect)) {
             const errorMessage = `Circular dependency detected: Effect "${
                 effectFn.name || 'anonymous'
@@ -194,11 +253,31 @@ export function reactiveEffect(effectFn: StoreSubscriber) {
             effectStack.pop();
             activeEffect = effectStack[effectStack.length - 1] || null;
         }
+    }) as EffectRunner;
+
+    /**
+     * Permanently stop this effect:
+     * - Remove from all dependency subscriber sets
+     * - Prevent future execution via the active guard
+     * - Clean up the effectDeps entry
+     */
+    wrappedEffect.stop = () => {
+        if (!active) return; // Idempotent
+        active = false;
+        deps.forEach((dep) => dep.remove(wrappedEffect));
+        deps.clear();
+        effectDeps.delete(wrappedEffect);
     };
+
+    if (options && options.scheduler) {
+        wrappedEffect.scheduler = options.scheduler;
+    }
 
     // Register the deps set for this effect so track() can populate it
     effectDeps.set(wrappedEffect, deps);
 
-    wrappedEffect(); // Run the effect immediately
+    if (!options || !options.lazy) {
+        wrappedEffect(); // Run the effect immediately
+    }
     return wrappedEffect;
 }
