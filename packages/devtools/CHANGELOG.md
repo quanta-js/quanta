@@ -1,134 +1,73 @@
 # @quantajs/devtools
 
+All notable changes to this package are documented in this file.
+
+## 2.0.0 - 2026-03-29
+
+### Highlights
+
+- First stable release of QuantaJS DevTools.
+- Runtime behavior hardened for mount lifecycle, bridge connectivity, and serialization safety.
+- Added automated tests for key production paths.
+
+### Added
+
+- Automated coverage for:
+  - bridge event processing (`STORE_INIT`, `STATE_CHANGE`, `ACTION_CALL`)
+  - mount/unmount and no-op safety behavior
+  - safe serialization edge cases (circular refs, depth/length limits, unsupported values)
+
+### Changed
+
+- Improved bridge retry and cleanup flow to avoid timer leaks and stale subscriptions.
+- Reduced non-essential runtime console noise and improved failure resilience.
+- Improved mount flow behavior for missing/invalid targets and repeated mount/unmount cycles.
+
+### Fixed
+
+- Action log and payload handling robustness for non-serializable or complex runtime values.
+- Copy/inspect paths now fail safely in restricted browser environments.
+
+### Dependencies
+
+- Updated to `@quantajs/core@2.0.0`.
+
 ## 2.0.0-beta.12
 
-### Major Changes
+### Changed
 
-- build: Resolve workspace protocol dependencies in package.json files before publishing packages.
+- Build publishing flow updated to resolve `workspace:` protocol dependencies before publish.
 
-### Patch Changes
+### Dependencies
 
-- Updated dependencies
-    - @quantajs/core@2.0.0-beta.12
+- Updated to `@quantajs/core@2.0.0-beta.12`.
 
 ## 2.0.0-beta.11
 
-### Major Changes
+### Changed
 
-- Test: Introduce Vitest and add comprehensive unit tests across core and react packages, alongside related configuration and minor dependency updates.
-
-    Fix: Configure recursive type checking, add JSX runtime, and resolve Vite banner plugin type assertions.
-
-    Fix: Add TypeScript and configuration and include a build step in the CI workflow.
-
-### Patch Changes
-
-- Updated dependencies
-    - @quantajs/core@2.0.0-beta.11
+- Added Vitest coverage and workspace type-check integration.
 
 ## 2.0.0-beta.10
 
-### Major Changes
+### Changed
 
-- ## feat(core,react,devtools): overhaul reactivity, devtools UI, and persistence
-
-    ### Summary
-
-    This commit introduces a major internal upgrade to QuantaJS, improving reactivity correctness, performance, developer experience, and lifecycle safety across core, React bindings, and DevTools.
-
-    ### Changes
-
-    #### Core Reactivity
-    - Added `batchEffects()` and batched array mutator handling
-    - Migrated dependency tracking from object records to `Map`
-    - Improved deep reactivity with explicit parent tracking and safer bubble triggering
-    - Fixed computed invalidation and lazy recomputation behavior
-    - Replaced polling-based deep `watch` with dependency-driven deep access
-    - Improved circular dependency detection and error reporting
-
-    #### Store Lifecycle & API
-    - Added validation for name collisions between state, getters, and actions
-    - Fixed `$reset()` to re-run state factory for fresh object references
-    - Implemented full store cleanup via `$destroy()` and registry removal
-    - Exported `batchEffects` as a public API
-    - Simplified `flattenStore` trigger and notification logic
-
-    #### Persistence
-    - Centralized serialization/deserialization inside persistence manager
-    - Updated storage adapters to return raw strings instead of parsed objects
-    - Removed invalid cross-tab sync for `sessionStorage`
-    - Fixed debounce utility naming typo
-
-    #### React Integration
-    - Reworked `useQuantaStore` to use version-based signaling with `useSyncExternalStore`
-    - Prevented unnecessary snapshot reconstruction
-    - Added automatic store destruction in `useCreateStore`
-    - Stabilized selector comparisons using `Object.is`
-    - Improved `QuantaContext` error handling with null-safe defaults
-    - Fixed watcher cleanup and dependency stability in `useWatch`
-
-    #### DevTools
-    - Rebuilt DevTools UI using pure CSS (removed Tailwind, lucide, clsx)
-    - Added inline SVG icon system with zero runtime dependencies
-    - Added enable/disable switch for DevTools bridge
-    - Improved action log, JSON inspector, and store management UX
-    - Reduced bundle size and Shadow DOM complexity
-    - Increased action history retention and improved store auto-selection
-
-    #### Tooling & Documentation
-    - Updated ESLint, TypeScript, Vite, Prettier, and Node type dependencies
-    - Simplified DevTools build configuration
-    - Added agent rules and in-depth project knowledge documentation
-    - Updated README to reflect `createStore(name, { state: () => ... })` API
-
-### Patch Changes
-
-- Updated dependencies
-    - @quantajs/core@2.0.0-beta.10
+- Large internal devtools/runtime overhaul with improved bridge and UI integration.
 
 ## 2.0.0-beta.9
 
-### Major Changes
+### Changed
 
-- feat(devtools): migrate to Preact + Shadow DOM and add test harness
-
-### Patch Changes
-
-- Updated dependencies
-    - @quantajs/core@2.0.0-beta.9
+- Preact + Shadow DOM migration and local dev harness updates.
 
 ## 2.0.0-beta.8
 
-### Major Changes
+### Changed
 
-- fix(devtools): enhance action log with expandable & copyable payloads
-    - Add PayloadCell component with expand/collapse and copy-to-clipboard functionality
-    - Replace raw JSON.stringify with safeSerializeCompact() to prevent crashes on circular references, functions, DOM nodes, etc.
-    - Add new safeSerialize and safeSerializeCompact utilities for robust object serialization
-    - Add tooltip (title) to store list items for long store names
-    - Minor cleanup and consistency fixes in StoreInspector and JSONTree
-
-### Patch Changes
-
-- Updated dependencies
-    - @quantajs/core@2.0.0-beta.8
+- Action log payload UX improvements and serialization safety additions.
 
 ## 2.0.0-beta.7
 
-### Major Changes
+### Added
 
-- feat(devtools): add QuantaJS DevTools with real-time state inspection and action logging
-    - Introduce new @quantajs/devtools package with a floating panel UI
-    - Add devtools bridge in core to emit STORE_INIT, STATE_CHANGE, and ACTION_CALL events
-    - Instrument reactive proxies and store actions to notify devtools on mutations
-    - Provide store inspector with live state tree, getters, actions, persistence controls, and reset functionality
-    - Include action log panel showing timestamp, store, action name, and payload
-    - Add auto-mount helper with dev-mode detection and global **QUANTA_DEVTOOLS** bridge exposure
-    - Wire up Tailwind + Preact UI with dark theme, collapsible panel, and smooth animations
-
-    chore(deps): update dev dependencies, updates tooling and linting dependencies to their latest patch/minor versions.
-
-### Patch Changes
-
-- Updated dependencies
-    - @quantajs/core@2.0.0-beta.7
+- Initial QuantaJS DevTools package and bridge-based event model.

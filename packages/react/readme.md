@@ -1,142 +1,119 @@
 # @quantajs/react
 
-![Logo](https://raw.githubusercontent.com/quanta-js/quanta/master/assets/quantajs_banner.png)
+![QuantaJS Banner](https://raw.githubusercontent.com/quanta-js/quanta/master/assets/quantajs_banner.png)
 
 [![CI](https://github.com/quanta-js/quanta/actions/workflows/ci.yml/badge.svg)](https://github.com/quanta-js/quanta/actions/workflows/ci.yml)
 
-React integration for QuantaJS - A compact, scalable, and developer-friendly state management library for React applications.
+React bindings for QuantaJS with stable subscriptions, smart selectors, and ergonomic provider usage.
 
-## 🚀 Features
+## ✨ Why You'll Like It
 
-✅ **React Optimized** – Built specifically for React applications  
-✅ **Performance First** – Uses `useSyncExternalStore` for efficient updates  
-✅ **Type-Safe** – Full TypeScript support with proper inference  
-✅ **Flexible** – Multiple usage patterns (Provider, Direct, Selectors)  
-✅ **QuantaJS Core** – Direct access to reactive, computed, and watch
+- ⚛️ React-friendly subscription model
+- 🎯 Selector hooks for minimal re-renders
+- 🧠 Great TypeScript inference and DX
+- 🔌 Works directly with QuantaJS core APIs
 
 ## 📦 Installation
 
-```sh
+```bash
 npm install @quantajs/react @quantajs/core
 # or
-yarn add @quantajs/react @quantajs/core
-# or
 pnpm add @quantajs/react @quantajs/core
+# or
+yarn add @quantajs/react @quantajs/core
 ```
 
-## ⚡ Quick Start
-
-### Basic Counter Example
+## 🚀 Quick Start
 
 ```tsx
 import React from 'react';
 import { createStore, QuantaProvider, useStore } from '@quantajs/react';
 
-// Create store
 const counterStore = createStore('counter', {
     state: () => ({ count: 0 }),
-    getters: {
-        doubleCount: (state) => state.count * 2,
-    },
     actions: {
         increment() {
             this.count++;
         },
-        decrement() {
-            this.count--;
-        },
     },
 });
 
-// Component
 function Counter() {
-    const store = useStore();
+    const counter = useStore('counter');
 
     return (
-        <div>
-            <p>Count: {store.count}</p>
-            <p>Double: {store.doubleCount}</p>
-            <button onClick={() => store.increment()}>+</button>
-            <button onClick={() => store.decrement()}>-</button>
-        </div>
+        <button onClick={() => counter.increment()}>
+            Count: {counter.count}
+        </button>
     );
 }
 
-// App
-function App() {
+export default function App() {
     return (
-        <QuantaProvider store={counterStore}>
+        <QuantaProvider stores={{ counter: counterStore }}>
             <Counter />
         </QuantaProvider>
     );
 }
 ```
 
-### With Selectors (Performance)
+## 🎯 Selector Example
 
 ```tsx
-import { useQuantaStore } from '@quantajs/react';
+import { useQuantaSelector } from '@quantajs/react';
 
-function CounterDisplay() {
-    // Only re-render when count changes
-    const count = useQuantaStore(counterStore, (store) => store.count);
-
-    return <p>Count: {count}</p>;
+function CounterValue({ store }: { store: any }) {
+    const count = useQuantaSelector(store, (s) => s.count);
+    return <span>{count}</span>;
 }
 ```
 
-### Component-Scoped Store
+## 🧪 Component-Scoped Store
 
 ```tsx
 import { useCreateStore } from '@quantajs/react';
 
-function TodoComponent() {
-    const todoStore = useCreateStore(
-        'todos',
-        () => ({ todos: [] }),
+function DraftEditor() {
+    const draft = useCreateStore(
+        'draft-editor',
+        () => ({ text: '' }),
         undefined,
         {
-            addTodo(text: string) {
-                this.todos.push({ id: Date.now(), text, done: false });
+            setText(value: string) {
+                this.text = value;
             },
         },
     );
 
     return (
-        <div>
-            <button onClick={() => todoStore.addTodo('New task')}>
-                Add Todo
-            </button>
-            <p>Todos: {todoStore.todos.length}</p>
-        </div>
+        <textarea
+            value={draft.text}
+            onChange={(e) => draft.setText(e.currentTarget.value)}
+        />
     );
 }
 ```
 
-## 🔧 API
+## 🛠️ Main Exports
 
-### Hooks
+- Hooks: `useQuantaStore`, `useQuantaSelector`, `useStore`, `useStoreSelector`, `useCreateStore`, `useWatch`, `useComputed`
+- Components: `QuantaProvider`, `QuantaDevTools`
+- Core re-exports: `createStore`, `reactive`, `computed`, `watch`, `logger`
 
-- `useQuantaStore(store, selector?)` - Subscribe to store with optional selector
-- `useStore(selector?)` - Access store from QuantaProvider context
-- `useCreateStore(name, state, getters?, actions?)` - Create component-scoped store
+## 📌 Notes
 
-### Components
+- `QuantaProvider` expects `stores={{ [name]: store }}`.
+- `useStore(name)` and `useStoreSelector(name, selector)` use that exact key.
 
-- `<QuantaProvider store={store}>` - Provide store to child components
+## 🤝 Contributing
 
-### Core Features
-
-- `createStore`, `reactive`, `computed`, `watch` - Re-exported from @quantajs/core
-
-## 📜 License
-
-This project is licensed under the MIT [License](https://github.com/quanta-js/quanta/blob/main/LICENSE) - see the LICENSE file for details.
-
-## 💬 Contributing
-
-We welcome contributions! Feel free to open issues, submit PRs, or suggest improvements.
+Contributions are welcome. If you spot docs gaps, edge-case hook behavior, or type improvements, open an issue/PR.
 
 ## ⭐ Support
 
-If you find this library useful, consider giving it a ⭐ star on [GitHub](https://github.com/quanta-js/quanta)!
+If QuantaJS helps your app, please star the repo:
+https://github.com/quanta-js/quanta
+
+## 📜 License
+
+MIT

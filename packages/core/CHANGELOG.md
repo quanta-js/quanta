@@ -1,297 +1,126 @@
 # @quantajs/core
 
+All notable changes to this package are documented in this file.
+
+## 2.0.0 - 2026-03-29
+
+### Highlights
+
+- First stable release of the QuantaJS core runtime.
+- Major reactivity overhaul with stronger correctness guarantees for dependency tracking and effect execution.
+- Production-focused lifecycle hardening for stores, effects, computed values, and persistence.
+
+### Added
+
+- `batchEffects()` public API for batching reactive invalidations.
+- Effect disposal lifecycle support (`stop`) with reliable dependency cleanup.
+- Improved deep reactivity parent tracking and trigger bubbling for nested structures.
+- `toRaw()` utility to safely unwrap reactive proxies to their raw targets.
+- Persistence manager with adapters, migration support, validation hooks, and cross-tab synchronization.
+
+### Changed
+
+- Dependency tracking internals migrated to `Map`-based structures for better scalability.
+- Computed evaluation behavior tightened with lazy and invalidation correctness improvements.
+- Store lifecycle behavior improved for `$reset()` and `$destroy()` consistency.
+- Collection reactivity semantics strengthened for `Map`/`Set` key handling and trigger consistency.
+
+### Fixed
+
+- Circular dependency detection and error reporting paths in effect scheduling.
+- Batch failure behavior so queued effects are not executed after an aborted batch.
+- Collection parent tracking edge cases in nested reactive collection scenarios.
+- Persistence error handling and malformed payload flows with deterministic failure behavior.
+
+### Breaking Notes
+
+- Collection clear semantics are stricter: `Map.clear()` / `Set.clear()` now fully invalidate affected collection observers and key/value subscribers where applicable.
+- Internal effect/persistence error paths are now stricter and more deterministic than earlier betas.
+
 ## 2.0.0-beta.12
 
-### Major Changes
+### Changed
 
-- build: Resolve workspace protocol dependencies in package.json files before publishing packages.
+- Build publishing flow updated to resolve `workspace:` protocol dependencies before package publish.
 
 ## 2.0.0-beta.11
 
-### Major Changes
+### Changed
 
-- Test: Introduce Vitest and add comprehensive unit tests across core and react packages, alongside related configuration and minor dependency updates.
-
-    Fix: Configure recursive type checking, add JSX runtime, and resolve Vite banner plugin type assertions.
-
-    Fix: Add TypeScript and configuration and include a build step in the CI workflow.
+- Introduced Vitest-based unit testing in the monorepo.
+- Added recursive type-check flow and CI build integration.
 
 ## 2.0.0-beta.10
 
-### Major Changes
+### Changed
 
-- ## feat(core,react,devtools): overhaul reactivity, devtools UI, and persistence
-
-    ### Summary
-
-    This commit introduces a major internal upgrade to QuantaJS, improving reactivity correctness, performance, developer experience, and lifecycle safety across core, React bindings, and DevTools.
-
-    ### Changes
-
-    #### Core Reactivity
-    - Added `batchEffects()` and batched array mutator handling
-    - Migrated dependency tracking from object records to `Map`
-    - Improved deep reactivity with explicit parent tracking and safer bubble triggering
-    - Fixed computed invalidation and lazy recomputation behavior
-    - Replaced polling-based deep `watch` with dependency-driven deep access
-    - Improved circular dependency detection and error reporting
-
-    #### Store Lifecycle & API
-    - Added validation for name collisions between state, getters, and actions
-    - Fixed `$reset()` to re-run state factory for fresh object references
-    - Implemented full store cleanup via `$destroy()` and registry removal
-    - Exported `batchEffects` as a public API
-    - Simplified `flattenStore` trigger and notification logic
-
-    #### Persistence
-    - Centralized serialization/deserialization inside persistence manager
-    - Updated storage adapters to return raw strings instead of parsed objects
-    - Removed invalid cross-tab sync for `sessionStorage`
-    - Fixed debounce utility naming typo
-
-    #### React Integration
-    - Reworked `useQuantaStore` to use version-based signaling with `useSyncExternalStore`
-    - Prevented unnecessary snapshot reconstruction
-    - Added automatic store destruction in `useCreateStore`
-    - Stabilized selector comparisons using `Object.is`
-    - Improved `QuantaContext` error handling with null-safe defaults
-    - Fixed watcher cleanup and dependency stability in `useWatch`
-
-    #### DevTools
-    - Rebuilt DevTools UI using pure CSS (removed Tailwind, lucide, clsx)
-    - Added inline SVG icon system with zero runtime dependencies
-    - Added enable/disable switch for DevTools bridge
-    - Improved action log, JSON inspector, and store management UX
-    - Reduced bundle size and Shadow DOM complexity
-    - Increased action history retention and improved store auto-selection
-
-    #### Tooling & Documentation
-    - Updated ESLint, TypeScript, Vite, Prettier, and Node type dependencies
-    - Simplified DevTools build configuration
-    - Added agent rules and in-depth project knowledge documentation
-    - Updated README to reflect `createStore(name, { state: () => ... })` API
+- Large internal overhaul across reactivity, persistence, and tooling.
+- Improved store validation and lifecycle behavior.
+- Strengthened watch/computed correctness and deep trigger handling.
 
 ## 2.0.0-beta.9
 
-### Major Changes
+### Changed
 
-- feat(devtools): migrate to Preact + Shadow DOM and add test harness
+- Devtools architecture migration groundwork integrated with core bridge flows.
 
 ## 2.0.0-beta.8
 
-### Major Changes
+### Changed
 
-- fix(devtools): enhance action log with expandable & copyable payloads
-    - Add PayloadCell component with expand/collapse and copy-to-clipboard functionality
-    - Replace raw JSON.stringify with safeSerializeCompact() to prevent crashes on circular references, functions, DOM nodes, etc.
-    - Add new safeSerialize and safeSerializeCompact utilities for robust object serialization
-    - Add tooltip (title) to store list items for long store names
-    - Minor cleanup and consistency fixes in StoreInspector and JSONTree
+- Serialization safety improvements for devtools payload handling.
 
 ## 2.0.0-beta.7
 
-### Major Changes
+### Added
 
-- feat(devtools): add QuantaJS DevTools with real-time state inspection and action logging
-    - Introduce new @quantajs/devtools package with a floating panel UI
-    - Add devtools bridge in core to emit STORE_INIT, STATE_CHANGE, and ACTION_CALL events
-    - Instrument reactive proxies and store actions to notify devtools on mutations
-    - Provide store inspector with live state tree, getters, actions, persistence controls, and reset functionality
-    - Include action log panel showing timestamp, store, action name, and payload
-    - Add auto-mount helper with dev-mode detection and global **QUANTA_DEVTOOLS** bridge exposure
-    - Wire up Tailwind + Preact UI with dark theme, collapsible panel, and smooth animations
-
-    chore(deps): update dev dependencies, updates tooling and linting dependencies to their latest patch/minor versions.
+- Initial devtools bridge events from core (`STORE_INIT`, `STATE_CHANGE`, `ACTION_CALL`).
 
 ## 2.0.0-beta.6
 
-### Major Changes
+### Changed
 
-- \### Core Improvements
-
-    \- Enhanced type system with `RawActions`, `GetterDefinitions`, `InferActions`, and full store-level type inference.
-
-    \- Reworked `StoreInstance` to correctly merge state, getters, and actions with proper return types.
-
-    \- Added deep reactive bubbling using `parentMap` and `bubbleTrigger()` for upward dependency propagation.
-
-    \- Introduced `reactiveMap` to cache proxies and prevent double-wrapping.
-
-    \- Improved nested reactivity with parent linking and cache-aware creation.
-
-    \- Added deep reactive watcher in `createStore`, plus pre-touching logic for stable dependency initialization.
-
-    \- Improved persistence typings and internal dependency maps.
-
-    \### Getters \& Actions
-
-    \- More accurate getter type inference and computed initialization.
-
-    \- Consistent getter unwrapping via new `resolveGetterValue` utility.
-
-    \- Strengthened action binding and flattening logic (`flattenStore` updates).
-
-    \- Improved set-trap behavior for stable action/getter merging.
-
-    \### React Integrations
-
-    \- Updated `useComputed`, `useQuantaStore`, `useCreateStore`, and `useWatch` to use the new typing model (`GDefs`, `RawActions`).
-
-    \- Major snapshot system rewrite:
-
-    &nbsp; - Snapshots now contain live reactive proxies (no more shallow flattening).
-
-    &nbsp; - Lazily rebuild snapshots only when invalidated.
-
-    &nbsp; - Selector mode now uses stable refs and avoids unnecessary re-renders.
-
-    &nbsp; - Improved server snapshot behavior.
-
-    \### Developer Experience
-
-    \- Updated ESLint rules:
-
-    &nbsp; - Disabled `unused-imports/no-unused-vars`.
-
-    &nbsp; - Enabled `@typescript-eslint/no-unused-vars` with underscore ignore convention.
-
-    \- Adjusted TS config to disable `noUnusedLocals` and `noUnusedParameters` for smoother development.
-
-    \### Debugging Enhancements
-
-    \- Added detailed logging for dependency tracking, bubbling behavior, proxy caching, and watcher initialization.
+- Type system upgrades for state/getter/action inference and store composition.
 
 ## 2.0.0-beta.5
 
-### Major Changes
+### Added
 
-- ddf4edc: feat(core,persistence,state): add store and persistence destroy lifecycle + deep watch support
-
-    \- Added `$destroy()` method to store instances for explicit cleanup.
-
-    \- Enhanced persistence manager with:
-
-    &nbsp; - `destroy()` method for teardown (auto-save watcher, cross-tab sync, debounce).
-
-    &nbsp; - Auto-save watcher using new `watch()` API.
-
-    &nbsp; - Improved logging for save/load/destroy lifecycle.
-
-    \- Extended `watch()` utility to support `deep` and `immediate` options.
-
-    \- Updated persistence types with new `destroy()` method and `watch-setup` error case.
-
-    \- Improved store lifecycle management and cleanup reliability.
+- Store and persistence destroy lifecycle APIs.
+- Deep watch support improvements.
 
 ## 2.0.0-beta.4
 
-### Major Changes
+### Changed
 
-- 9b5b301: feat(react): refactor useQuantaStore with cached snapshots
-
-    \- Add store-level Set<subscribers> + notifyAll in createStore
-
-    \- Wire flattenStore.set trap → trigger + notifyAll
-
-    \- Generic Dependency<S> with snapshot-aware notify()
-
-    \- Update StoreSubscriber to (snapshot?: S) => void
-
-    \- Rewrite @quantajs/react useQuantaStore:
-
-    &nbsp; • useRef cache + fresh flat snapshot on every core mutation
-
-    &nbsp; • stable actions/getters (no re-bind loops)
-
-    &nbsp; • selector support for fine-grained re-renders
-
-    &nbsp; • SSR-safe server snapshot
-
-    &nbsp; • full error isolation (warn, never crash on bad subscriber)
-
-    \- Fix React re-render staleness: UI now updates instantly
-
-    \- Eliminate infinite-loop warning (cached snapshot is stable until dirty)Please enter a summary for your changes.
-
-    An empty message aborts the editor.
+- Snapshot and subscription behavior improvements supporting React integration.
 
 ## 2.0.0-beta.3
 
-### Major Changes
+### Added
 
-- \## ✨ feat(core/persistence): add persistence manager with adapters \& migrations
-
-    \### Scope
-
-    \- `core/persistence`
-
-    \### Changes
-
-    \- Added `createPersistenceManager` for managing persisted state with:
-
-    &nbsp; - Serialization/deserialization
-
-    &nbsp; - Debounced writes
-
-    &nbsp; - Include/exclude filters
-
-    &nbsp; - Data validation
-
-    &nbsp; - Cross-tab synchronization
-
-    &nbsp; - Versioning \& migrations support
-
-    \- Implemented storage adapters:
-
-    &nbsp; - `LocalStorageAdapter`
-
-    &nbsp; - `SessionStorageAdapter`
-
-    &nbsp; - `IndexedDBAdapter`
-
-    \- Introduced `MigrationManager` with:
-
-    &nbsp; - Add/remove/rename/transform property helpers (`CommonMigrations`)
-
-    &nbsp; - Migration validation
-
-    &nbsp; - Migration chaining from older to newer versions
-
-    \- Exposed all persistence APIs \& types via `persistence/index.ts`
-
-    \### Improvements
-
-    \- Enhances reliability by wrapping core reactivity, watchers, debounced functions, computed values, store access, and context usage in try/catch with detailed logging.
+- Initial persistence manager with adapter and migration capabilities.
 
 ## 2.0.0-beta.2
 
-### Major Changes
+### Added
 
-- feat(core): add method to store for restoring initial state
-    - Introduced initialStateMap to track original state for each store
-    - Implemented method on the store instance to restore the state
-    - Triggered reactivity manually for both updated and deleted properties
-    - Extended Store and StoreInstance types to include
-
-    refactor(react): support multiple stores in QuantaProvider and useStore hook
-    - Updated QuantaProvider to accept a object instead of a single
-    - Modified QuantaContext to expose all stores by name
-    - Updated hook to require store name and handle missing stores
+- Store reset/restore improvements and multi-store compatibility groundwork.
 
 ## 2.0.0-beta.1
 
-### Major Changes
+### Added
 
-- A clean, performant React integration that makes QuantaJS as easy to use in React, with minimal setup and maximum functionality for the QuantaJS state management library.
+- Early 2.x pre-release foundation.
 
 ## 1.0.1-beta.0
 
-### Patch Changes
+### Changed
 
-- chore: migrate project to monorepo structure with pnpm, changesets, and improved OSS workflows
+- Monorepo migration with pnpm, changesets, and improved OSS workflows.
 
 ## 1.0.0
 
-### Patch Changes
+### Changed
 
-- chore: migrate project to monorepo structure with pnpm, changesets, and improved OSS workflows
+- Initial project publication.

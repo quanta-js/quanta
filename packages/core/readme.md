@@ -1,59 +1,108 @@
 # @quantajs/core
 
-![Logo](https://raw.githubusercontent.com/quanta-js/quanta/master/assets/quantajs_banner.png)
+![QuantaJS Banner](https://raw.githubusercontent.com/quanta-js/quanta/master/assets/quantajs_banner.png)
 
 [![CI](https://github.com/quanta-js/quanta/actions/workflows/ci.yml/badge.svg)](https://github.com/quanta-js/quanta/actions/workflows/ci.yml)
 
-A compact, scalable, and developer-friendly **state management library** designed for any JavaScript environment. It includes a **reactivity system** that enables efficient and flexible data handling, making complex state management easy.
+A fast, framework-agnostic reactivity and store engine for modern JavaScript apps.
 
-## 🚀 Features
+## ✨ Why You'll Like It
 
-✅ **Framework-Agnostic** – Works in any JavaScript environment  
-✅ **Reactive State** – Simple yet powerful reactivity system  
-✅ **Scalable** – Suitable for small to large applications  
-✅ **Side Effects Handling** – Manage async actions with ease  
-✅ **Intuitive API** – Easy to learn and use
+- ⚡ Fast reactive updates with predictable behavior
+- 🧠 Clean API for stores, watchers, computed values, and batching
+- 🧱 Scales from tiny apps to complex state graphs
+- 💾 Built-in persistence and migrations support
+- 🛡️ Strong TypeScript experience
 
 ## 📦 Installation
 
-```sh
+```bash
 npm install @quantajs/core
 # or
-yarn add @quantajs/core
-# or
 pnpm add @quantajs/core
+# or
+yarn add @quantajs/core
 ```
 
-## ⚡ Quick Start
+## 🚀 Quick Start
 
-```javascript
+```ts
 import { createStore } from '@quantajs/core';
 
-const counter = createStore({
-    state: { count: 0 },
+const counter = createStore('counter', {
+    state: () => ({ count: 0 }),
+    getters: {
+        doubled: (s) => s.count * 2,
+    },
     actions: {
         increment() {
             this.count++;
         },
-        decrement() {
-            this.count--;
-        },
     },
 });
 
-console.log(counter.count); // 0
 counter.increment();
 console.log(counter.count); // 1
+console.log(counter.doubled); // 2
 ```
 
-## 📜 License
+## 🧩 Core Reactivity
 
-This project is licensed under the MIT [License](https://github.com/quanta-js/quanta/blob/main/LICENSE) - see the LICENSE file for details.
+```ts
+import { reactive, computed, watch, batchEffects } from '@quantajs/core';
 
-## 💬 Contributing
+const state = reactive({ a: 1, b: 2 });
+const sum = computed(() => state.a + state.b);
 
-We welcome contributions! Feel free to open issues, submit PRs, or suggest improvements.
+watch(
+    () => sum.value,
+    (next, prev) => {
+        console.log('sum changed', prev, '->', next);
+    },
+);
+
+batchEffects(() => {
+    state.a = 10;
+    state.b = 20;
+});
+```
+
+## 💾 Persistence Example
+
+```ts
+import { createStore } from '@quantajs/core';
+import { createLocalStorageAdapter } from '@quantajs/core/persistence';
+
+const settings = createStore('settings', {
+    state: () => ({ theme: 'light' as 'light' | 'dark' }),
+    persist: {
+        adapter: createLocalStorageAdapter('app-settings'),
+        include: ['theme'],
+    },
+});
+```
+
+## 🛠️ Main Exports
+
+- `createStore`, `useStore`
+- `reactive`, `computed`, `watch`, `isReactive`, `batchEffects`
+- Persistence APIs from `@quantajs/core/persistence`
+- `logger`, `createLogger`, `LogLevel`
+
+## 📌 Notes
+
+- Store names must be unique in one runtime.
+- Use `store.$destroy()` to remove runtime-created stores.
+
+## 🤝 Contributing
+
+Contributions are welcome. Open an issue or PR if you want to improve docs, APIs, tests, or performance.
 
 ## ⭐ Support
 
-If you find this library useful, consider giving it a ⭐ star on [GitHub](https://github.com/quanta-js/quanta)!
+If QuantaJS helps your project, please star the repo:
+https://github.com/quanta-js/quanta
+
+## 📜 License
+
+MIT
