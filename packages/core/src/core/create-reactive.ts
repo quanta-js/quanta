@@ -71,7 +71,12 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
                 trigger(target, 'size');
                 trigger(target, rawKey);
                 if (devtools.enabled)
-                    devtools.notifyStateChange(target, 'add', rawKey, parentMap);
+                    devtools.notifyStateChange(
+                        target,
+                        'add',
+                        rawKey,
+                        parentMap,
+                    );
             }
             return this;
         },
@@ -84,12 +89,22 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
                 trigger(target, 'size');
                 trigger(target, rawKey);
                 if (devtools.enabled)
-                    devtools.notifyStateChange(target, rawKey, value, parentMap);
+                    devtools.notifyStateChange(
+                        target,
+                        rawKey,
+                        value,
+                        parentMap,
+                    );
             } else if (!Object.is(oldValue, value)) {
                 trigger(target, rawKey);
                 trigger(target, 'size'); // Fix: notify iterator-based subscribers on value changes
                 if (devtools.enabled)
-                    devtools.notifyStateChange(target, rawKey, value, parentMap);
+                    devtools.notifyStateChange(
+                        target,
+                        rawKey,
+                        value,
+                        parentMap,
+                    );
             }
             return this;
         },
