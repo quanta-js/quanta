@@ -20,19 +20,21 @@ export default defineConfig({
                 '**/*.test-d.{ts,tsx}',
                 '**/*.bench.{ts,tsx}',
                 '**/index.ts',
-                'packages/devtools/**',
                 // Pure type definition files (no runtime code)
                 'packages/core/src/type/**',
                 // DOM-only adapters (require real browser APIs)
                 'packages/core/src/persistence/adapters/**',
                 // DevTools React component (requires full Preact runtime)
                 'packages/react/src/components/QuantaDevTools.tsx',
+                // Large UI surfaces intentionally validated via targeted runtime tests
+                'packages/devtools/src/DevTools.tsx',
+                'packages/devtools/src/components/**',
             ],
             thresholds: {
-                lines: 75,
-                functions: 75,
-                branches: 55,
-                statements: 75,
+                lines: 82,
+                functions: 88,
+                branches: 62,
+                statements: 82,
             },
         },
         typecheck: {

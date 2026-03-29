@@ -12,7 +12,7 @@ export function useWatch<
     S extends object,
     GDefs extends Record<string, (state: S) => any> = {},
     A extends RawActions = {},
-    T = any,
+    T = unknown,
 >(
     store: StoreInstance<S, GDefs, A>,
     watchFn: (store: StoreInstance<S, GDefs, A>) => T,
@@ -25,6 +25,8 @@ export function useWatch<
 
     const watchFnRef = useRef(watchFn);
     watchFnRef.current = watchFn;
+    const deep = options?.deep ?? false;
+    const immediate = options?.immediate ?? false;
 
     useEffect(() => {
         try {
@@ -49,7 +51,7 @@ export function useWatch<
                         throw error;
                     }
                 },
-                options,
+                { deep, immediate },
             );
 
             // Return cleanup function to prevent memory leaks
@@ -61,5 +63,5 @@ export function useWatch<
             );
             throw error;
         }
-    }, [store]); // Only re-run when store changes — watchFn/callback stabilized via refs
+    }, [store, deep, immediate]); // Reconfigure watcher when behavior flags change
 }

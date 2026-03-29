@@ -42,13 +42,13 @@ export function useStoreSelector<
     S extends object,
     GDefs extends Record<string, (state: S) => any> = {},
     A extends RawActions = {},
-    T = any,
+    T = unknown,
 >(name: string, selector: (store: StoreInstance<S, GDefs, A>) => T): T {
     try {
         const { stores } = useQuantaContext();
         const store = stores[name];
         if (!store) {
-            const errorMessage = `StoreSelector: Store with name "${name}" does not exist in the context.`;
+            const errorMessage = `Store with name "${name}" does not exist in the context.`;
             logger.error(`useStoreSelector: ${errorMessage}`);
             throw new Error(errorMessage);
         }

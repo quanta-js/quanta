@@ -279,6 +279,30 @@ describe('createReactive', () => {
             map.clear();
             expect(size).toBe(0);
         });
+
+        it('should invalidate key subscribers on Map.clear', () => {
+            const map = createReactive(
+                new Map<string, number>([
+                    ['a', 1],
+                    ['b', 2],
+                ]),
+            );
+            let observed: number | undefined;
+            let runs = 0;
+
+            reactiveEffect(() => {
+                runs++;
+                observed = map.get('a');
+            });
+
+            expect(observed).toBe(1);
+            expect(runs).toBe(1);
+
+            map.clear();
+
+            expect(observed).toBeUndefined();
+            expect(runs).toBe(2);
+        });
     });
 
     describe('Set reactivity', () => {
@@ -317,6 +341,25 @@ describe('createReactive', () => {
             expect(size).toBe(2);
             set.delete(1);
             expect(size).toBe(1);
+        });
+
+        it('should invalidate has subscribers on Set.clear', () => {
+            const set = createReactive(new Set<number>([1, 2]));
+            let hasOne = false;
+            let runs = 0;
+
+            reactiveEffect(() => {
+                runs++;
+                hasOne = set.has(1);
+            });
+
+            expect(hasOne).toBe(true);
+            expect(runs).toBe(1);
+
+            set.clear();
+
+            expect(hasOne).toBe(false);
+            expect(runs).toBe(2);
         });
     });
 

@@ -14,6 +14,10 @@ export interface DevToolsOptions {
      * The target element to mount into. Defaults to 'body'.
      */
     target?: HTMLElement | string;
+    /**
+     * Optional error callback for non-fatal mount issues.
+     */
+    onError?: (error: Error) => void;
 }
 
 function isDev(): boolean {
@@ -39,7 +43,7 @@ function isDev(): boolean {
 }
 
 export function mountDevTools(options: DevToolsOptions = {}) {
-    const { target = 'body', visible } = options;
+    const { target = 'body', visible, onError } = options;
 
     // Determine visibility
     const shouldShow = visible !== undefined ? visible : isDev();
@@ -47,8 +51,6 @@ export function mountDevTools(options: DevToolsOptions = {}) {
     if (!shouldShow) {
         return () => {}; // No-op cleanup
     }
-
-    console.log('[Quanta DevTools] Mounting...');
 
     let rootElement: HTMLElement | null;
 
@@ -59,7 +61,7 @@ export function mountDevTools(options: DevToolsOptions = {}) {
     }
 
     if (!rootElement) {
-        console.error('[Quanta DevTools] Target element not found');
+        onError?.(new Error('Quanta DevTools target element not found'));
         return () => {};
     }
 

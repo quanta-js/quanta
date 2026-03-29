@@ -15,7 +15,7 @@ export function useComputed<
     S extends object,
     GDefs extends Record<string, (state: S) => any> = {},
     A extends RawActions = {},
-    T = any,
+    T = unknown,
 >(
     store: StoreInstance<S, GDefs, A>,
     computeFn: (store: StoreInstance<S, GDefs, A>) => T,

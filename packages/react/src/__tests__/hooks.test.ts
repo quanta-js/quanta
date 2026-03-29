@@ -84,6 +84,42 @@ describe('useQuantaStore', () => {
         expect(result.current).toBe(42);
     });
 
+    it('should stay stable under rapid updates and selector changes', () => {
+        const name = uniqueName();
+        const store = createStore(name, {
+            state: () => ({ count: 0, label: 'a' }),
+        });
+
+        const { result, rerender } = renderHook(
+            ({ mode }: { mode: 'count' | 'label' }) =>
+                useQuantaSelector(store, (s: any) =>
+                    mode === 'count' ? s.count : s.label,
+                ),
+            {
+                initialProps: { mode: 'count' as 'count' | 'label' },
+            },
+        );
+
+        act(() => {
+            for (let i = 1; i <= 20; i++) {
+                store.count = i;
+            }
+            store.label = 'latest-label';
+        });
+
+        expect(result.current).toBe(20);
+
+        rerender({ mode: 'label' });
+        expect(result.current).toBe('latest-label');
+
+        act(() => {
+            store.label = 'next-label';
+            store.count = 21;
+        });
+
+        expect(result.current).toBe('next-label');
+    });
+
     it('should throw for store without subscribe', () => {
         const fakeStore = { state: {} } as any;
 
@@ -95,11 +131,13 @@ describe('useQuantaStore', () => {
 
 describe('useStore (context-based)', () => {
     let useStore: any;
+    let useStoreSelector: any;
     let QuantaProvider: any;
 
     beforeEach(async () => {
         const storeMod = await import('../hooks/useStore');
         useStore = storeMod.useStore;
+        useStoreSelector = storeMod.useStoreSelector;
         const providerMod = await import('../components/QuantaProvider');
         QuantaProvider = providerMod.QuantaProvider;
     });
@@ -132,6 +170,26 @@ describe('useStore (context-based)', () => {
         expect(() => {
             renderHook(() => useStore('nonexistent'), { wrapper });
         }).toThrow(/does not exist/);
+    });
+
+    it('should throw consistent error for missing store in useStoreSelector', () => {
+        const wrapper = ({ children }: { children: React.ReactNode }) =>
+            React.createElement(
+                QuantaProvider as any,
+                { stores: {} },
+                children,
+            );
+
+        expect(() => {
+            renderHook(
+                () =>
+                    useStoreSelector(
+                        'nonexistent',
+                        (s: { value: number }) => s,
+                    ),
+                { wrapper },
+            );
+        }).toThrow(/does not exist in the context/);
     });
 });
 

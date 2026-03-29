@@ -142,8 +142,7 @@ export function StoreInspector({ stores, selectedStore }: StoreInspectorProps) {
                                     try {
                                         await store.$persist.clear();
                                         alert('Storage cleared.');
-                                    } catch (e) {
-                                        console.error(e);
+                                    } catch {
                                         alert('Failed to clear storage.');
                                     }
                                 }
@@ -234,7 +233,6 @@ export function StoreInspector({ stores, selectedStore }: StoreInspectorProps) {
                                     try {
                                         store.actions[key]();
                                     } catch (e) {
-                                        console.error(e);
                                         alert(`Action failed: ${e}`);
                                     }
                                 }}

@@ -8,6 +8,10 @@ interface ActionInfo {
     timestamp: number;
 }
 
+function createActionId(): string {
+    return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
 export function useDevToolsBridge() {
     const [stores, setStores] = useState<Record<string, any>>({});
     const [actions, setActions] = useState<ActionInfo[]>([]);
@@ -21,6 +25,8 @@ export function useDevToolsBridge() {
         let unsubscribe: (() => void) | undefined;
         let retryCount = 0;
         const maxRetries = 10;
+        let cancelled = false;
+        let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
         const handleEvent = (event: any) => {
             if (event.type === 'STORE_INIT') {
@@ -47,7 +53,7 @@ export function useDevToolsBridge() {
             } else if (event.type === 'ACTION_CALL') {
                 setActions((prev) => [
                     {
-                        id: Math.random().toString(36).substr(2, 9),
+                        id: createActionId(),
                         storeName: event.payload.storeName,
                         actionName: event.payload.actionName,
                         args: event.payload.args,
@@ -59,18 +65,24 @@ export function useDevToolsBridge() {
         };
 
         const connect = () => {
+            if (cancelled) return;
             const devtools = (window as any).__QUANTA_DEVTOOLS__;
             if (devtools) {
                 unsubscribe = devtools.subscribe(handleEvent);
             } else if (retryCount < maxRetries) {
                 retryCount++;
-                setTimeout(connect, 500);
+                retryTimer = setTimeout(connect, 500);
             }
         };
 
         connect();
 
         return () => {
+            cancelled = true;
+            if (retryTimer) {
+                clearTimeout(retryTimer);
+                retryTimer = null;
+            }
             if (unsubscribe) unsubscribe();
         };
     }, []); // No dependency on selectedStore — uses ref instead

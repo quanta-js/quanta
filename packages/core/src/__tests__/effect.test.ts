@@ -151,9 +151,11 @@ describe('effect system', () => {
 
         it('should clear queue on error', () => {
             const target = {};
+            let ran = 0;
 
             reactiveEffect(() => {
                 track(target, 'x');
+                ran++;
             });
 
             expect(() => {
@@ -162,6 +164,11 @@ describe('effect system', () => {
                     throw new Error('test error');
                 });
             }).toThrow('test error');
+
+            // Initial run only; queued batch execution must be discarded.
+            expect(ran).toBe(1);
+            trigger(target, 'x');
+            expect(ran).toBe(2);
         });
     });
 });

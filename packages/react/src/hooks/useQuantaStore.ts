@@ -65,7 +65,7 @@ export function useQuantaSelector<
     S extends object,
     GDefs extends Record<string, (state: S) => any> = {},
     A extends RawActions = {},
-    T = any,
+    T = unknown,
 >(
     store: StoreInstance<S, GDefs, A>,
     selector: (store: StoreInstance<S, GDefs, A>) => T,
@@ -79,6 +79,14 @@ export function useQuantaSelector<
     }
 
     const selectedRef = useRef<T | typeof UNSET>(UNSET);
+    const selectorRef = useRef(selector);
+    const storeRef = useRef(store);
+
+    if (selectorRef.current !== selector || storeRef.current !== store) {
+        selectorRef.current = selector;
+        storeRef.current = store;
+        selectedRef.current = UNSET;
+    }
 
     const getInitialSelected = useCallback(() => {
         const initial = selector(store);

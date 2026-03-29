@@ -230,7 +230,6 @@ export function reactiveEffect(
 ): EffectRunner {
     // Create a deps set for this effect to enable cleanup
     const deps = new Set<Dependency>();
-    let active = true;
 
     const wrappedEffect = (() => {
         // Guard: do not execute if this effect has been stopped

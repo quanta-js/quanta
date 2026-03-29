@@ -51,6 +51,15 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
         return reactiveVal;
     };
 
+    const triggerCollectionClear = (keysToInvalidate: any[]) => {
+        batchEffects(() => {
+            trigger(target, 'size');
+            for (const key of keysToInvalidate) {
+                trigger(target, key);
+            }
+        });
+    };
+
     const instrumentations: Record<string | symbol, Function> = {
         get(key: any) {
             const rawKey = toRaw(key);
@@ -68,6 +77,9 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
             const hadKey = target.has(rawKey);
             const result = (target as Set<any>).add(rawKey);
             if (!hadKey) {
+                if (typeof rawKey === 'object' && rawKey !== null) {
+                    setParent(rawKey, target, 'size');
+                }
                 trigger(target, 'size');
                 trigger(target, rawKey);
                 if (devtools.enabled)
@@ -85,6 +97,9 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
             const hadKey = (target as Map<any, any>).has(rawKey);
             const oldValue = (target as Map<any, any>).get(rawKey);
             const result = (target as Map<any, any>).set(rawKey, value);
+            if (typeof value === 'object' && value !== null) {
+                setParent(value, target, 'size');
+            }
             if (!hadKey) {
                 trigger(target, 'size');
                 trigger(target, rawKey);
@@ -127,9 +142,14 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
         },
         clear() {
             const hadItems = target.size !== 0;
+            const keysToInvalidate = hadItems
+                ? target instanceof Map
+                    ? Array.from((target as Map<any, any>).keys())
+                    : Array.from((target as Set<any>).values())
+                : [];
             const result = target.clear();
             if (hadItems) {
-                trigger(target, 'size');
+                triggerCollectionClear(keysToInvalidate);
                 if (devtools.enabled)
                     devtools.notifyStateChange(
                         target,
