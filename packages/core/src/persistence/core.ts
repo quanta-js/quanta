@@ -14,6 +14,7 @@ export function createPersistenceManager<T extends Record<string, any>>(
     config: PersistenceConfig<T>,
     storeName?: string,
 ): PersistenceManager {
+    type PersistOperation = 'read' | 'write' | 'remove' | 'watch-setup';
     const {
         adapter,
         serialize = JSON.stringify,
@@ -32,25 +33,74 @@ export function createPersistenceManager<T extends Record<string, any>>(
     let isRehydrated = false;
     let crossTabUnsubscribe: (() => void) | null = null;
     let autoSaveUnsub: (() => void) | null = null;
+    let lastSerializedSlice: string | null = null;
 
-    // Compute persisted slice (mirrors save logic, for watch source)
-    const computePersistedSlice = (): any => {
-        const state = getState();
-        let dataToSave = { ...state };
-        // Apply include/exclude filters
-        if (include) {
+    const notifyPersistError = (error: unknown, phase: PersistOperation) => {
+        const persistError =
+            error instanceof Error ? error : new Error(String(error));
+        onError?.(persistError, phase);
+        logger.warn(
+            `Persistence: ${phase} failed for ${storeName || 'store'}: ${persistError.message}`,
+        );
+    };
+
+    const normalizePersistedPayload = (
+        rawPayload: unknown,
+    ): PersistedData<T> | null => {
+        if (!rawPayload || typeof rawPayload !== 'object') {
+            return null;
+        }
+
+        const record = rawPayload as Record<string, unknown>;
+        const data = record.data as T | undefined;
+        if (!data || typeof data !== 'object') {
+            return null;
+        }
+
+        return {
+            data,
+            version:
+                typeof record.version === 'number' ? record.version : version,
+            timestamp:
+                typeof record.timestamp === 'number'
+                    ? record.timestamp
+                    : Date.now(),
+            storeName:
+                typeof record.storeName === 'string'
+                    ? record.storeName
+                    : storeName || 'anonymous',
+        };
+    };
+
+    const buildPersistedSlice = (state: T): Partial<T> => {
+        let dataToSave: Partial<T>;
+        if (include && include.length > 0) {
             dataToSave = include.reduce((acc, key) => {
-                if (key in state) acc[key] = state[key];
+                if (key in state) {
+                    acc[key] = state[key];
+                }
                 return acc;
-            }, {} as any);
+            }, {} as Partial<T>);
+        } else {
+            dataToSave = { ...state };
         }
-        if (exclude) {
-            exclude.forEach((key) => delete dataToSave[key]);
+
+        if (exclude && exclude.length > 0) {
+            for (const key of exclude) {
+                delete dataToSave[key];
+            }
         }
-        // Apply output transform
+
         if (transform?.out) {
             dataToSave = transform.out(dataToSave);
         }
+
+        return dataToSave;
+    };
+
+    // Compute persisted slice (mirrors save logic, for watch source)
+    const computePersistedSlice = (): Partial<T> | null => {
+        const dataToSave = buildPersistedSlice(getState());
         // Validate
         if (validator && !validator(dataToSave)) {
             logger.warn(
@@ -66,25 +116,7 @@ export function createPersistenceManager<T extends Record<string, any>>(
         if (isHydrating) return;
 
         try {
-            const state = getState();
-            let dataToSave = { ...state };
-
-            // Apply include/exclude filters
-            if (include) {
-                dataToSave = include.reduce((acc, key) => {
-                    if (key in state) acc[key] = state[key];
-                    return acc;
-                }, {} as any);
-            }
-
-            if (exclude) {
-                exclude.forEach((key) => delete dataToSave[key]);
-            }
-
-            // Apply output transform
-            if (transform?.out) {
-                dataToSave = transform.out(dataToSave);
-            }
+            const dataToSave = buildPersistedSlice(getState());
 
             // Validate data before saving
             if (validator && !validator(dataToSave)) {
@@ -93,7 +125,7 @@ export function createPersistenceManager<T extends Record<string, any>>(
 
             // Create persisted data structure
             const persistedData: PersistedData<T> = {
-                data: dataToSave,
+                data: dataToSave as T,
                 version,
                 timestamp: Date.now(),
                 storeName: storeName || 'anonymous',
@@ -106,10 +138,7 @@ export function createPersistenceManager<T extends Record<string, any>>(
                 `Persistence: Saved slice for ${storeName || 'store'}`,
             );
         } catch (error) {
-            const persistError =
-                error instanceof Error ? error : new Error(String(error));
-            onError?.(persistError, 'write');
-            console.warn(`Failed to persist state: ${persistError.message}`);
+            notifyPersistError(error, 'write');
         }
     }, debounceMs);
 
@@ -121,7 +150,11 @@ export function createPersistenceManager<T extends Record<string, any>>(
 
             if (rawData) {
                 // Use deserialize function if provided
-                const persistedData = deserialize(rawData);
+                const parsedPayload = deserialize(rawData);
+                const persistedData = normalizePersistedPayload(parsedPayload);
+                if (!persistedData) {
+                    throw new Error('Persisted payload is malformed');
+                }
                 let { data, version: persistedVersion } = persistedData;
 
                 // Run migrations if needed
@@ -150,12 +183,7 @@ export function createPersistenceManager<T extends Record<string, any>>(
 
             isRehydrated = true;
         } catch (error) {
-            const persistError =
-                error instanceof Error ? error : new Error(String(error));
-            onError?.(persistError, 'read');
-            console.warn(
-                `Failed to load persisted state: ${persistError.message}`,
-            );
+            notifyPersistError(error, 'read');
             isRehydrated = true; // Mark as rehydrated even on error
         } finally {
             isHydrating = false;
@@ -170,17 +198,28 @@ export function createPersistenceManager<T extends Record<string, any>>(
                     isHydrating = true;
                     try {
                         // Use deserialize function if provided
-                        const newData = deserialize(rawData);
-                        let data = newData.data || newData;
+                        const parsedPayload = deserialize(rawData);
+                        const normalizedPayload =
+                            normalizePersistedPayload(parsedPayload);
+                        if (!normalizedPayload) {
+                            throw new Error('Cross-tab payload is malformed');
+                        }
+                        let data = normalizedPayload.data;
 
                         if (transform?.in) {
                             data = transform.in(data);
                         }
 
+                        if (validator && !validator(data)) {
+                            throw new Error(
+                                'Cross-tab payload failed validation',
+                            );
+                        }
+
                         setState(data);
                         notifySubscribers();
                     } catch (error) {
-                        console.warn('Cross-tab sync failed:', error);
+                        notifyPersistError(error, 'read');
                     } finally {
                         isHydrating = false;
                     }
@@ -198,7 +237,13 @@ export function createPersistenceManager<T extends Record<string, any>>(
                 () => {
                     if (isHydrating) return null;
                     const slice = computePersistedSlice();
-                    return slice ? serialize({ data: slice }) : null;
+                    if (!slice) return null;
+                    const serializedSlice = serialize({ data: slice });
+                    if (serializedSlice === lastSerializedSlice) {
+                        return lastSerializedSlice;
+                    }
+                    lastSerializedSlice = serializedSlice;
+                    return serializedSlice;
                 },
                 () => {
                     if (!isRehydrated) return;

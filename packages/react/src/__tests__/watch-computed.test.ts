@@ -64,7 +64,66 @@ describe('useWatch', () => {
         );
 
         unmount();
-        // After unmount, the watch should be cleaned up
+        act(() => {
+            store.count = 10;
+        });
+        expect(callback).not.toHaveBeenCalled();
+    });
+
+    it('should surface callback errors from useWatch', () => {
+        const name = uniqueName();
+        const store = createStore(name, {
+            state: () => ({ count: 0 }),
+        });
+
+        renderHook(() =>
+            useWatch(
+                store,
+                (s: any) => s.count,
+                () => {
+                    throw new Error('watch callback failed');
+                },
+            ),
+        );
+
+        expect(() => {
+            act(() => {
+                store.count = 1;
+            });
+        }).toThrow(/watch callback failed/);
+    });
+
+    it('should reconfigure when options change', () => {
+        const name = uniqueName();
+        const store = createStore(name, {
+            state: () => ({ nested: { value: 1 } }),
+        });
+
+        const callback = vi.fn();
+        const { rerender } = renderHook(
+            ({ deep, immediate }: { deep?: boolean; immediate?: boolean }) =>
+                useWatch(store, (s: any) => s.nested, callback, {
+                    deep,
+                    immediate,
+                }),
+            {
+                initialProps: { deep: false, immediate: false },
+            },
+        );
+
+        act(() => {
+            store.nested.value = 2;
+        });
+        expect(callback).not.toHaveBeenCalled();
+
+        rerender({ deep: true, immediate: false });
+        const callsBeforeDeepMutation = callback.mock.calls.length;
+        act(() => {
+            store.nested.value = 3;
+        });
+        expect(callback.mock.calls.length).toBeGreaterThan(
+            callsBeforeDeepMutation,
+        );
     });
 });
 
@@ -100,5 +159,23 @@ describe('useComputed', () => {
         );
 
         expect(result.current).toBe(10);
+    });
+
+    it('should surface compute errors', () => {
+        const name = uniqueName();
+        const store = createStore(name, {
+            state: () => ({ count: -1 }),
+        });
+
+        expect(() => {
+            renderHook(() =>
+                useComputed(store, (s: any) => {
+                    if (s.count < 0) {
+                        throw new Error('invalid count');
+                    }
+                    return s.count;
+                }),
+            );
+        }).toThrow(/invalid count/);
     });
 });

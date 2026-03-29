@@ -61,11 +61,32 @@ describe('QuantaProvider', () => {
 
     it('should throw for invalid stores prop', () => {
         expect(() => {
-            React.createElement(QuantaProvider, {
-                stores: null as any,
-                children: null,
+            renderHook(() => null, {
+                wrapper: ({ children }: { children: React.ReactNode }) =>
+                    React.createElement(
+                        QuantaProvider,
+                        {
+                            stores: null as any,
+                        },
+                        children,
+                    ),
             });
-        });
+        }).toThrow(/Invalid stores/);
+    });
+
+    it('should throw for invalid store entry', () => {
+        expect(() => {
+            renderHook(() => null, {
+                wrapper: ({ children }: { children: React.ReactNode }) =>
+                    React.createElement(
+                        QuantaProvider,
+                        {
+                            stores: { broken: null as any },
+                        },
+                        children,
+                    ),
+            });
+        }).toThrow(/Invalid store "broken"/);
     });
 });
 

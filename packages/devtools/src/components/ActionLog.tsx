@@ -31,8 +31,8 @@ function PayloadCell({ args }: { args: any[] }) {
             await navigator.clipboard.writeText(serialized);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
-        } catch (err) {
-            console.error('Failed to copy:', err);
+        } catch {
+            // clipboard API may be unavailable in some environments
         }
     };
 

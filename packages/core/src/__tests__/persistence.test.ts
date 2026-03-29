@@ -205,6 +205,45 @@ describe('persistence', () => {
             expect(onError).toHaveBeenCalledWith(expect.any(Error), 'read');
         });
 
+        it('should call onError when persisted payload is malformed', async () => {
+            const adapter = createMockAdapter();
+            const onError = vi.fn();
+
+            adapter.storage.set('test-key', JSON.stringify({ nope: true }));
+
+            createPersistenceManager(() => ({ count: 0 }), vi.fn(), vi.fn(), {
+                adapter,
+                onError,
+            });
+
+            await vi.runAllTimersAsync();
+            expect(onError).toHaveBeenCalledWith(expect.any(Error), 'read');
+        });
+
+        it('should call onError when cross-tab payload is malformed', async () => {
+            const adapter = createMockAdapter();
+            const onError = vi.fn();
+            let subscriptionCallback: ((data: any) => void) | null = null;
+
+            adapter.subscribe = vi.fn((cb: (data: any) => void) => {
+                subscriptionCallback = cb;
+                return vi.fn();
+            });
+
+            createPersistenceManager(
+                () => ({ count: 0 }),
+                vi.fn(),
+                vi.fn(),
+                { adapter, onError },
+                'cross-tab-store',
+            );
+
+            await vi.runAllTimersAsync();
+            subscriptionCallback?.('bad-data');
+
+            expect(onError).toHaveBeenCalledWith(expect.any(Error), 'read');
+        });
+
         it('should clear storage and unsubscribe', async () => {
             const adapter = createMockAdapter();
             const manager = createPersistenceManager(
