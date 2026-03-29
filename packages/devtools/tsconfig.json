@@ -4,7 +4,12 @@
         "outDir": "./dist",
         "rootDir": "./src",
         "jsx": "react-jsx",
-        "jsxImportSource": "preact"
+        "jsxImportSource": "preact",
+        "paths": {
+            "@/*": [
+                "./src/*"
+            ]
+        }
     },
     "include": ["src"],
     "exclude": ["node_modules", "dist"]

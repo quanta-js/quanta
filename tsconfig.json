@@ -18,8 +18,11 @@
     "noImplicitReturns": true,
     "skipLibCheck": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {},
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    },
     "types": ["node"]
   },
   "exclude": [
