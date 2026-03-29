@@ -21,7 +21,8 @@ export default defineConfig({
         lib: {
             entry: resolve(__dirname, 'src/index.ts'),
             name: 'QuantaJS',
-            fileName: (format) => `index.${format === 'es' ? 'mjs' : 'js'}`,
+            fileName: (format: string) =>
+                `index.${format === 'es' ? 'mjs' : 'js'}`,
         },
         rollupOptions: {
             external: [],
