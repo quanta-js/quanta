@@ -35,7 +35,7 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
     const wrap = (val: any) => {
         const reactiveVal = createReactive(val);
         if (typeof val === 'object' && val !== null) {
-            setParent(reactiveVal, target, 'size'); // Using size as a generic key for collections
+            setParent(val, target, 'size'); // Using size as a generic key for collections
         }
         return reactiveVal;
     };
