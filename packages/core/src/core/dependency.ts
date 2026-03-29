@@ -31,6 +31,7 @@ export class Dependency {
             // iterating the live Set would cause an infinite loop per ES spec.
             const subscriberSnapshot = [...this.subscribers];
             for (const subscriber of subscriberSnapshot) {
+                if ((subscriber as any).active === false) continue;
                 try {
                     subscriber();
                 } catch (error) {

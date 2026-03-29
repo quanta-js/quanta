@@ -16,6 +16,8 @@ export interface EffectOptions {
  * unsubscribes and prevents further execution.
  */
 export interface EffectRunner extends EffectFunction {
+    /** Whether this effect is currently active (not stopped). */
+    active: boolean;
     /** Permanently stop this effect and remove it from all dependency sets. */
     stop: () => void;
     /** Custom scheduler (if provided) */
@@ -84,8 +86,10 @@ export function batchEffects(fn: EffectFunction) {
                 const queue = [...effectQueue];
                 effectQueue.clear();
                 for (const effect of queue) {
+                    const runner = effect as EffectRunner;
+                    if (runner.active === false) continue;
+
                     try {
-                        const runner = effect as EffectRunner;
                         if (runner.scheduler) {
                             runner.scheduler(runner);
                         } else {
@@ -123,6 +127,9 @@ export function trigger(target: object, prop: string | symbol) {
 
             if (effectSnapshot.length > 0) {
                 for (const effect of effectSnapshot) {
+                    const runner = effect as EffectRunner;
+                    if (runner.active === false) continue;
+
                     if (batchDepth > 0) {
                         effectQueue.add(effect);
                     } else {
@@ -227,7 +234,7 @@ export function reactiveEffect(
 
     const wrappedEffect = (() => {
         // Guard: do not execute if this effect has been stopped
-        if (!active) return;
+        if (!wrappedEffect.active) return;
 
         if (effectStack.includes(wrappedEffect)) {
             const errorMessage = `Circular dependency detected: Effect "${
@@ -262,6 +269,8 @@ export function reactiveEffect(
         }
     }) as EffectRunner;
 
+    wrappedEffect.active = true;
+
     /**
      * Permanently stop this effect:
      * - Remove from all dependency subscriber sets
@@ -269,8 +278,8 @@ export function reactiveEffect(
      * - Clean up the effectDeps entry
      */
     wrappedEffect.stop = () => {
-        if (!active) return; // Idempotent
-        active = false;
+        if (!wrappedEffect.active) return; // Idempotent
+        wrappedEffect.active = false;
         deps.forEach((dep) => dep.remove(wrappedEffect));
         deps.clear();
         effectDeps.delete(wrappedEffect);
