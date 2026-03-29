@@ -15,10 +15,12 @@ describe('deep-trigger utils', () => {
             setParent(child, parent, 'key');
 
             expect(parentMap.has(child)).toBe(true);
-            expect(parentMap.get(child)).toEqual({ parent, key: 'key' });
+            const parents = parentMap.get(child)!;
+            expect(parents).toBeInstanceOf(Set);
+            expect(Array.from(parents)).toEqual([{ parent, key: 'key' }]);
         });
 
-        it('should update parent mapping when called again', () => {
+        it('should support multiple parent mappings', () => {
             const child = {};
             const parent1 = {};
             const parent2 = {};
@@ -26,7 +28,11 @@ describe('deep-trigger utils', () => {
             setParent(child, parent1, 'a');
             setParent(child, parent2, 'b');
 
-            expect(parentMap.get(child)).toEqual({ parent: parent2, key: 'b' });
+            const parents = parentMap.get(child)!;
+            expect(parents.size).toBe(2);
+            const parentsArray = Array.from(parents);
+            expect(parentsArray).toContainEqual({ parent: parent1, key: 'a' });
+            expect(parentsArray).toContainEqual({ parent: parent2, key: 'b' });
         });
     });
 

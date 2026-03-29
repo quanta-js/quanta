@@ -4,7 +4,7 @@ import { createReactive } from '../core/create-reactive';
 import { reactiveEffect } from '../core/effect';
 import computed from '../state/computed';
 import watch from '../state/watch';
-import reactive from '../state/reactive';
+import { reactive } from '../state/reactive';
 
 // Unique store names to avoid registry collisions
 let storeId = 0;
@@ -22,6 +22,7 @@ describe('integration tests', () => {
             watch(
                 () => total.value,
                 (val) => history.push(val),
+                { immediate: true },
             );
 
             expect(history).toContain(200);

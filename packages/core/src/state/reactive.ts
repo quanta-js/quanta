@@ -1,16 +1,19 @@
-import { createReactive } from '../core/create-reactive';
-import { logger } from '../services/logger-service';
+import { createReactive, isReactive } from '../core/create-reactive';
 
-const reactive = <S>(target: S): S => {
-    try {
-        const reactiveObject = createReactive(target) as S;
-        return reactiveObject;
-    } catch (error) {
-        logger.error(
-            `Reactive: Failed to create reactive object: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        throw error;
-    }
-};
+/**
+ * Creates a reactive proxy around an object, array, Map, or Set.
+ *
+ * @param target - The object to make reactive
+ * @returns A reactive proxy
+ */
+export function reactive<T extends object>(target: T): T {
+    return createReactive(target);
+}
 
-export default reactive;
+/**
+ * Checks if a value is a QuantaJS reactive proxy.
+ *
+ * @param value - The value to check
+ * @returns True if the value is reactive
+ */
+export { isReactive };

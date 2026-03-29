@@ -3,30 +3,30 @@ import { Dependency } from '../core/dependency';
 
 const parentMap = new WeakMap<
     object,
-    { parent: object; key: string | symbol }
+    Set<{ parent: object; key: string | symbol }>
 >();
 
 export { parentMap };
 
 /**
  * Set the parent mapping for a reactive child object.
- * Warns in dev mode if the object is referenced from multiple parents,
- * as only the last parent will receive bubble triggers.
+ * Objects can exist at multiple paths (shared instances).
  */
 export function setParent(
     child: object,
     parent: object,
     key: string | symbol,
 ): void {
-    if (parentMap.has(child)) {
-        const existing = parentMap.get(child)!;
-        if (existing.parent !== parent) {
-            logger.debug(
-                `Reactive: Object at "${String(key)}" is referenced from multiple parents. Only the last parent will receive bubble triggers.`,
-            );
-        }
+    let parents = parentMap.get(child);
+    if (!parents) {
+        parents = new Set();
+        parentMap.set(child, parents);
     }
-    parentMap.set(child, { parent, key });
+    // Prevent duplicate entries for the same parent+key combination
+    for (const mapping of parents) {
+        if (mapping.parent === parent && mapping.key === key) return;
+    }
+    parents.add({ parent, key });
 }
 
 // Bubbles: Triggers parent deps on mutation
@@ -36,32 +36,33 @@ export function bubbleTrigger(
     targetMap: WeakMap<object, Map<string | symbol, Dependency>>,
 ): void {
     try {
-        let current = target;
+        const queue: object[] = [target];
         const visited = new Set<object>();
 
-        while (true) {
+        while (queue.length > 0) {
+            const current = queue.shift()!;
+
             if (visited.has(current)) {
-                logger.warn(
-                    `DeepTrigger: Cycle detected in bubble chain from ${String(prop)}`,
-                );
-                break;
+                continue; // Cycle detected: stop exploring this branch
             }
             visited.add(current);
 
-            const info = parentMap.get(current);
-            if (!info) break; // Root reached
+            const parents = parentMap.get(current);
+            if (!parents) continue; // Root reached
 
-            const { parent, key } = info;
-            if (parent === current) break; // Self-ref guard
+            for (const { parent, key } of parents) {
+                if (parent === current) continue; // Self-ref guard
 
-            // Notify parent's dep for this child key
-            const parentDeps = targetMap.get(parent);
-            const dep = parentDeps?.get(key);
-            if (dep) {
-                dep.notify();
+                // Notify parent's dep for this child key
+                const parentDeps = targetMap.get(parent);
+                const dep = parentDeps?.get(key);
+                if (dep) {
+                    dep.notify();
+                }
+
+                // Add parent to the queue to continue bubbling up
+                queue.push(parent);
             }
-
-            current = parent;
         }
     } catch (error) {
         logger.error(
@@ -77,7 +78,10 @@ export function getParentChain(
     const chain: Array<{ key: string | symbol; parent: object }> = [];
     let current = target;
     while (true) {
-        const info = parentMap.get(current);
+        const parents = parentMap.get(current);
+        if (!parents || parents.size === 0) break;
+        // In case of multiple parents, we just pick the first one for the direct chain
+        const info = parents.values().next().value;
         if (!info) break;
         chain.push(info);
         current = info.parent;

@@ -1,7 +1,9 @@
 // Core hooks
-export { useQuantaStore } from './hooks/useQuantaStore';
-export { useStore } from './hooks/useStore';
+export { useQuantaStore, useQuantaSelector } from './hooks/useQuantaStore';
+export { useStore, useStoreSelector } from './hooks/useStore';
 export { useCreateStore } from './hooks/useCreateStore';
+export { useWatch } from './hooks/useWatch';
+export { useComputed } from './hooks/useComputed';
 
 // Components
 export { QuantaProvider } from './components/QuantaProvider';

@@ -17,6 +17,7 @@ export function useWatch<
     store: StoreInstance<S, GDefs, A>,
     watchFn: (store: StoreInstance<S, GDefs, A>) => T,
     callback: (newValue: T) => void,
+    options?: { deep?: boolean; immediate?: boolean },
 ): void {
     // Stabilize callback and watchFn with refs to avoid effect re-runs on every render
     const callbackRef = useRef(callback);
@@ -48,10 +49,12 @@ export function useWatch<
                         throw error;
                     }
                 },
+                options,
             );
 
             // Return cleanup function to prevent memory leaks
-            return typeof cleanup === 'function' ? cleanup : undefined;
+            // cleanup is now a function -> () => effect.stop()
+            return cleanup;
         } catch (error) {
             logger.error(
                 `useWatch: Failed to set up watcher: ${error instanceof Error ? error.message : String(error)}`,

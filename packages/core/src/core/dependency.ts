@@ -1,75 +1,72 @@
-import { StoreSubscriber } from '../type/store-types';
+import type { EffectFunction } from '../type/store-types';
 import { logger } from '../services/logger-service';
 
-export class Dependency<S = any> {
-    private subscribers: Set<StoreSubscriber<S>>;
+/**
+ * Manages a set of subscribers (effects or watchers) for a specific reactive property.
+ * When a property is modified, its Dependency notifies all subscribers.
+ */
+export class Dependency {
+    private subscribers: Set<EffectFunction>;
 
     constructor() {
         this.subscribers = new Set();
     }
 
-    depend(callback: StoreSubscriber<S> | null) {
-        try {
-            if (callback) {
-                this.subscribers.add(callback);
-            }
-        } catch (error) {
-            logger.error(
-                `Dependency: Failed to add dependency: ${error instanceof Error ? error.message : String(error)}`,
-            );
-            // throw error;
+    /**
+     * Subscribe a callback to this dependency.
+     */
+    depend(callback: EffectFunction | null) {
+        if (callback) {
+            this.subscribers.add(callback);
         }
     }
 
-    notify(snapshot?: S): void {
+    /**
+     * Notify all subscribers that the property has changed.
+     */
+    notify(): void {
         try {
-            const activeSubs = new Set(this.subscribers);
-            activeSubs.forEach((subscriber) => {
+            // Snapshot subscribers into an array BEFORE iterating.
+            // Subscribers (effects) may remove/re-add themselves during execution;
+            // iterating the live Set would cause an infinite loop per ES spec.
+            const subscriberSnapshot = [...this.subscribers];
+            for (const subscriber of subscriberSnapshot) {
                 try {
-                    if (snapshot !== undefined) {
-                        subscriber(snapshot); // Pass fresh state if provided (framework opt-in)
-                    } else {
-                        subscriber(); // Legacy no-arg compat
-                    }
+                    subscriber();
                 } catch (error) {
                     logger.warn(
-                        // Warn only—isolated: Don't break other subs
                         `Dependency: Subscriber callback failed: ${error instanceof Error ? error.message : String(error)}`,
                     );
-                    // Continue chain
                 }
-            });
+            }
         } catch (error) {
             logger.error(
                 `Dependency: Failed to notify subscribers: ${error instanceof Error ? error.message : String(error)}`,
             );
-            // throw error;
+            throw error;
         }
     }
 
-    remove(callback: StoreSubscriber<S>) {
-        try {
-            this.subscribers.delete(callback);
-        } catch (error) {
-            logger.error(
-                `Dependency: Failed to remove dependency: ${error instanceof Error ? error.message : String(error)}`,
-            );
-            // throw error;
-        }
+    /**
+     * Unsubscribe a callback from this dependency.
+     */
+    remove(callback: EffectFunction) {
+        this.subscribers.delete(callback);
     }
 
+    /**
+     * Clear all subscribers.
+     */
     clear() {
-        try {
-            this.subscribers.clear();
-        } catch (error) {
-            logger.error(
-                `Dependency: Failed to clear dependencies: ${error instanceof Error ? error.message : String(error)}`,
-            );
-            // throw error;
-        }
+        this.subscribers.clear();
     }
 
-    get getSubscribers() {
-        return new Set(this.subscribers);
+    /**
+     * Get a reference to the subscribers.
+     * Returns the internal set of subscribers.
+     * Note: iterate this set carefully as it may be modified during iteration.
+     */
+    get getSubscribers(): ReadonlySet<EffectFunction> {
+        return this.subscribers;
     }
 }

@@ -81,6 +81,52 @@ describe('effect system', () => {
         });
     });
 
+    describe('effect disposal', () => {
+        it('should stop effect from re-running after stop()', () => {
+            const target = {};
+            let ran = 0;
+            const effect = reactiveEffect(() => {
+                track(target, 'x');
+                ran++;
+            });
+            expect(ran).toBe(1);
+            effect.stop();
+            trigger(target, 'x');
+            expect(ran).toBe(1); // Should NOT have re-run
+        });
+
+        it('should clean up all dependency subscriptions on stop()', () => {
+            const target = {};
+            const effect = reactiveEffect(() => {
+                track(target, 'a');
+                track(target, 'b');
+            });
+            effect.stop();
+            // Trigger should not throw or fire anything
+            expect(() => {
+                trigger(target, 'a');
+                trigger(target, 'b');
+            }).not.toThrow();
+        });
+
+        it('should be idempotent — multiple stop() calls are safe', () => {
+            const effect = reactiveEffect(() => {});
+            effect.stop();
+            expect(() => effect.stop()).not.toThrow();
+        });
+
+        it('should prevent re-runs via wrappedEffect() after stop()', () => {
+            let ran = 0;
+            const effect = reactiveEffect(() => {
+                ran++;
+            });
+            expect(ran).toBe(1);
+            effect.stop();
+            effect(); // Direct call after stop
+            expect(ran).toBe(1); // Guard prevents execution
+        });
+    });
+
     describe('batchEffects', () => {
         it('should batch multiple triggers into single effect execution', () => {
             const target = {};
@@ -131,16 +177,6 @@ describe('Dependency', () => {
         expect(callback).toHaveBeenCalledOnce();
     });
 
-    it('should pass snapshot to subscribers', () => {
-        const dep = new Dependency<{ count: number }>();
-        const callback = vi.fn();
-
-        dep.depend(callback);
-        dep.notify({ count: 42 });
-
-        expect(callback).toHaveBeenCalledWith({ count: 42 });
-    });
-
     it('should handle null callback gracefully', () => {
         const dep = new Dependency();
         expect(() => dep.depend(null)).not.toThrow();
@@ -171,16 +207,15 @@ describe('Dependency', () => {
         expect(cb2).not.toHaveBeenCalled();
     });
 
-    it('should return defensive copy of subscribers', () => {
+    it('should return internal subscriber set (ReadonlySet)', () => {
         const dep = new Dependency();
         const cb = vi.fn();
 
         dep.depend(cb);
         const subs = dep.getSubscribers;
-        subs.clear(); // modifying copy should not affect original
-
-        dep.notify();
-        expect(cb).toHaveBeenCalledOnce();
+        // getSubscribers now returns the internal Set (ReadonlySet)
+        expect(subs.size).toBe(1);
+        expect(subs.has(cb)).toBe(true);
     });
 
     it('should isolate subscriber errors', () => {

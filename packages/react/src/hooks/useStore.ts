@@ -1,18 +1,19 @@
 import { useQuantaContext } from '../context/QuantaContext';
-import { useQuantaStore } from './useQuantaStore';
-import type { StoreInstance } from '@quantajs/core';
+import { useQuantaStore, useQuantaSelector } from './useQuantaStore';
+import type { StoreInstance, RawActions } from '@quantajs/core';
 import { logger } from '@quantajs/core';
 
 /**
- * Hook to access and subscribe to the QuantaJS store from context
- * @param name - The name of the store to access
- * @param selector - Optional selector function to pick specific parts of the store
- * @returns The store instance or selected value that updates reactively
+ * Hook to access and subscribe to a QuantaJS store from context by name.
+ *
+ * @param name - The name of the store
+ * @returns The store instance with reactivity
  */
-export function useStore<T = any>(
-    name: string,
-    selector?: (store: StoreInstance<any, any, any>) => T,
-): T extends undefined ? StoreInstance<any, any, any> : T {
+export function useStore<
+    S extends object,
+    GDefs extends Record<string, (state: S) => any> = {},
+    A extends RawActions = {},
+>(name: string): StoreInstance<S, GDefs, A> {
     try {
         const { stores } = useQuantaContext();
         const store = stores[name];
@@ -21,18 +22,40 @@ export function useStore<T = any>(
             logger.error(`useStore: ${errorMessage}`);
             throw new Error(errorMessage);
         }
-        if (selector) {
-            return useQuantaStore(store, selector) as T extends undefined
-                ? StoreInstance<any, any, any>
-                : T;
-        }
-
-        return useQuantaStore(store) as T extends undefined
-            ? StoreInstance<any, any, any>
-            : T;
+        return useQuantaStore(store as StoreInstance<S, GDefs, A>);
     } catch (error) {
         logger.error(
             `useStore: Failed to access store "${name}": ${error instanceof Error ? error.message : String(error)}`,
+        );
+        throw error;
+    }
+}
+
+/**
+ * Hook to select and subscribe to a specific part of a store from context.
+ *
+ * @param name - The name of the store
+ * @param selector - Selector function to pick state from the store
+ * @returns The selected value
+ */
+export function useStoreSelector<
+    S extends object,
+    GDefs extends Record<string, (state: S) => any> = {},
+    A extends RawActions = {},
+    T = any,
+>(name: string, selector: (store: StoreInstance<S, GDefs, A>) => T): T {
+    try {
+        const { stores } = useQuantaContext();
+        const store = stores[name];
+        if (!store) {
+            const errorMessage = `StoreSelector: Store with name "${name}" does not exist in the context.`;
+            logger.error(`useStoreSelector: ${errorMessage}`);
+            throw new Error(errorMessage);
+        }
+        return useQuantaSelector(store as StoreInstance<S, GDefs, A>, selector);
+    } catch (error) {
+        logger.error(
+            `useStoreSelector: Failed to access store "${name}": ${error instanceof Error ? error.message : String(error)}`,
         );
         throw error;
     }

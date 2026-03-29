@@ -4,7 +4,7 @@ import { parentMap, setParent } from '../utils/deep-trigger';
 import { devtools } from '../devtools';
 
 // Array methods that mutate — intercepted to batch triggers
-const ARRAY_MUTATORS = [
+const ARRAY_MUTATOR_SET = new Set([
     'push',
     'pop',
     'shift',
@@ -14,7 +14,7 @@ const ARRAY_MUTATORS = [
     'reverse',
     'fill',
     'copyWithin',
-];
+]);
 
 // Cache Proxies per raw target (prevents double-wrapping base objects)
 const reactiveMap = new WeakMap<object, object>();
@@ -24,95 +24,140 @@ const proxySet = new WeakSet<object>();
 
 // handles Map and Set types specifically
 function createReactiveCollection(target: Map<any, any> | Set<any>) {
-    // Cache for collections too
     if (reactiveMap.has(target)) {
         return reactiveMap.get(target);
     }
     if (proxySet.has(target)) {
         return target;
     }
+
+    // Helper to deeply wrap returned items
+    const wrap = (val: any) => {
+        const reactiveVal = createReactive(val);
+        if (typeof val === 'object' && val !== null) {
+            setParent(reactiveVal, target, 'size'); // Using size as a generic key for collections
+        }
+        return reactiveVal;
+    };
+
+    const instrumentations: Record<string | symbol, Function> = {
+        get(key: any) {
+            const result = (target as Map<any, any>).get(key);
+            track(target, key);
+            return wrap(result);
+        },
+        has(key: any) {
+            track(target, key);
+            return target.has(key);
+        },
+        add(key: any) {
+            const hadKey = target.has(key);
+            const result = (target as Set<any>).add(key);
+            if (!hadKey) {
+                trigger(target, 'size');
+                trigger(target, key);
+                if (devtools.enabled)
+                    devtools.notifyStateChange(target, 'add', key, parentMap);
+            }
+            return this;
+        },
+        set(key: any, value: any) {
+            const hadKey = (target as Map<any, any>).has(key);
+            const oldValue = (target as Map<any, any>).get(key);
+            const result = (target as Map<any, any>).set(key, value);
+            if (!hadKey) {
+                trigger(target, 'size');
+                trigger(target, key);
+                if (devtools.enabled)
+                    devtools.notifyStateChange(target, key, value, parentMap);
+            } else if (!Object.is(oldValue, value)) {
+                trigger(target, key);
+                if (devtools.enabled)
+                    devtools.notifyStateChange(target, key, value, parentMap);
+            }
+            return this;
+        },
+        delete(key: any) {
+            const hadKey = target.has(key);
+            const result = target.delete(key);
+            if (hadKey) {
+                trigger(target, 'size');
+                trigger(target, key);
+                if (devtools.enabled)
+                    devtools.notifyStateChange(
+                        target,
+                        'delete',
+                        key,
+                        parentMap,
+                    );
+            }
+            return result;
+        },
+        clear() {
+            const hadItems = target.size !== 0;
+            const result = target.clear();
+            if (hadItems) {
+                trigger(target, 'size');
+                if (devtools.enabled)
+                    devtools.notifyStateChange(
+                        target,
+                        'clear',
+                        undefined,
+                        parentMap,
+                    );
+            }
+            return result;
+        },
+        forEach(callback: Function, thisArg?: any) {
+            track(target, 'size');
+            return target.forEach((value: any, key: any) => {
+                callback.call(thisArg, wrap(value), wrap(key), this);
+            });
+        },
+    };
+
+    // Iterator methods
+    const iteratorMethods = ['keys', 'values', 'entries', Symbol.iterator];
+    iteratorMethods.forEach((method) => {
+        instrumentations[method as string] = function (...args: any[]) {
+            track(target, 'size');
+            const innerIterator = (target as any)[method](...args);
+            const isEntries =
+                method === 'entries' ||
+                (method === Symbol.iterator && target instanceof Map);
+
+            return {
+                next() {
+                    const { value, done } = innerIterator.next();
+                    if (done) return { value, done };
+                    return {
+                        value: isEntries
+                            ? [wrap(value[0]), wrap(value[1])]
+                            : wrap(value),
+                        done,
+                    };
+                },
+                [Symbol.iterator]() {
+                    return this;
+                },
+            };
+        };
+    });
+
     const proxy = new Proxy(target, {
-        get(target, prop: string | symbol) {
+        get(_, prop: string | symbol, receiver) {
             try {
                 if (prop === 'size') {
                     track(target, 'size');
                     return target.size;
                 }
-                if (prop === 'get') {
-                    const method = Reflect.get(target, prop);
-                    return (key: any) => {
-                        try {
-                            const value = method.call(target, key);
-                            track(target, key);
-                            return value;
-                        } catch (error) {
-                            logger.error(
-                                `Reactive: Failed to get collection value for key "${String(key)}": ${
-                                    error instanceof Error
-                                        ? error.message
-                                        : String(error)
-                                }`,
-                            );
-                            throw error;
-                        }
-                    };
-                }
-                if (prop === 'set' || prop === 'add' || prop === 'delete') {
-                    const method = Reflect.get(target, prop);
-                    return (...args: any[]) => {
-                        try {
-                            const result = method.apply(target, args);
-                            trigger(target, 'size');
-                            if (prop === 'set') {
-                                const [key] = args;
-                                trigger(target, key);
-                                devtools.notifyStateChange(
-                                    target,
-                                    key,
-                                    args[1],
-                                    parentMap,
-                                );
-                            }
-                            return result;
-                        } catch (error) {
-                            logger.error(
-                                `Reactive: Failed to execute collection operation "${String(prop)}": ${
-                                    error instanceof Error
-                                        ? error.message
-                                        : String(error)
-                                }`,
-                            );
-                            throw error;
-                        }
-                    };
-                }
-                if (prop === 'clear') {
-                    const method = Reflect.get(target, prop);
-                    return () => {
-                        try {
-                            const result = method.apply(target);
-                            trigger(target, 'size');
-                            devtools.notifyStateChange(
-                                target,
-                                'clear',
-                                undefined,
-                                parentMap,
-                            );
-                            return result;
-                        } catch (error) {
-                            logger.error(
-                                `Reactive: Failed to clear collection: ${
-                                    error instanceof Error
-                                        ? error.message
-                                        : String(error)
-                                }`,
-                            );
-                            throw error;
-                        }
-                    };
+                if (Reflect.has(instrumentations, prop)) {
+                    return typeof instrumentations[prop] === 'function'
+                        ? instrumentations[prop].bind(receiver)
+                        : instrumentations[prop];
                 }
                 track(target, prop);
-                return Reflect.get(target, prop);
+                return Reflect.get(target, prop, receiver);
             } catch (error) {
                 logger.error(
                     `Reactive: Failed to access collection property "${String(prop)}": ${
@@ -123,9 +168,17 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
             }
         },
     });
-    reactiveMap.set(target, proxy); // Cache the Proxy against raw target
-    proxySet.add(proxy); // Mark this object as a known proxy
+
+    reactiveMap.set(target, proxy);
+    proxySet.add(proxy);
     return proxy;
+}
+
+/**
+ * Checks if an object is a QuantaJS reactive proxy.
+ */
+export function isReactive(target: any): boolean {
+    return proxySet.has(target);
 }
 
 // createReactive function to handle all data types
@@ -192,14 +245,15 @@ export function createReactive(target: any) {
                         Array.isArray(obj) &&
                         typeof prop === 'string' &&
                         typeof result === 'function' &&
-                        ARRAY_MUTATORS.includes(prop)
+                        ARRAY_MUTATOR_SET.has(prop)
                     ) {
                         return (...args: any[]) => {
                             let methodResult: any;
                             batchEffects(() => {
-                                methodResult = result.apply(obj, args);
+                                // Apply to receiver (the proxy) so index sets trap natively
+                                methodResult = result.apply(receiver, args);
                             });
-                            // Trigger once for length and the mutation method
+                            // Explicitly trigger length because engine updates it before the length-trap hits
                             trigger(obj, 'length');
                             return methodResult;
                         };
@@ -250,7 +304,13 @@ export function createReactive(target: any) {
                             createReactive(value); // Cache-safe wrap
                         }
 
-                        devtools.notifyStateChange(obj, prop, value, parentMap);
+                        if (devtools.enabled)
+                            devtools.notifyStateChange(
+                                obj,
+                                prop,
+                                value,
+                                parentMap,
+                            );
                     }
 
                     return result;
@@ -273,12 +333,15 @@ export function createReactive(target: any) {
                     // Trigger updates if the property was deleted
                     if (hadKey) {
                         trigger(obj, prop);
-                        devtools.notifyStateChange(
-                            obj,
-                            prop,
-                            undefined,
-                            parentMap,
-                        );
+                        trigger(obj, 'keys'); // Notify ownKeys watchers (e.g., Object.keys())
+                        if (devtools.enabled) {
+                            devtools.notifyStateChange(
+                                obj,
+                                prop,
+                                undefined,
+                                parentMap,
+                            );
+                        }
                     }
 
                     return result;
@@ -328,7 +391,7 @@ export function createReactive(target: any) {
                 prop: string | symbol,
             ) {
                 try {
-                    track(obj, prop);
+                    // Phase 7.2: Stop tracking descriptors to reduce noise
                     return Reflect.getOwnPropertyDescriptor(obj, prop);
                 } catch (error) {
                     logger.error(

@@ -7,12 +7,7 @@ import {
 import { reactive, computed } from '../state';
 import { flattenStore } from '../utils/flattenStore';
 import { Dependency } from './dependency';
-import {
-    reactiveEffect,
-    trigger,
-    pauseTracking,
-    resumeTracking,
-} from './effect';
+import { reactiveEffect, pauseTracking, resumeTracking } from './effect';
 import { createPersistenceManager } from '../persistence';
 import { logger } from '../services/logger-service';
 import { devtools } from '../devtools';
@@ -30,7 +25,7 @@ export const createStore = <
 ): StoreInstance<S, GDefs, A> => {
     try {
         if (storeRegistry.has(name)) {
-            const errorMessage = `Store with name "${name}" already exists.`;
+            const errorMessage = `Store with name "${name}" already exists. Call store.$destroy() before recreating, or use a unique name.`;
             logger.error(`Store: ${errorMessage}`);
             throw new Error(errorMessage);
         }
@@ -71,10 +66,14 @@ export const createStore = <
         // Create dependency tracker for store updates
         const dependency = new Dependency();
 
-        // registerDeepStoreWatcher
+        // Track internal effects for disposal in $destroy
+        let deepWatcherEffect: import('./effect').EffectRunner | null = null;
+        const computedDisposers: Array<() => void> = [];
+
+        // registerDeepStoreWatcher — capture effect for disposal
         (() => {
             try {
-                reactiveEffect(() => {
+                deepWatcherEffect = reactiveEffect(() => {
                     // Access top-level keys ONLY — cheap and sufficient
                     for (const key in state) {
                         // Access each key so proxy tracks dependencies
@@ -83,10 +82,10 @@ export const createStore = <
 
                     // ⚠️ Pause tracking before notifying subscribers.
                     // Without this, subscriber callbacks that read reactive
-                    // state would pollute this effect's dependency set.
+                    // state would pollute this effect’s dependency set.
                     const prev = pauseTracking();
                     try {
-                        dependency.notify(state);
+                        dependency.notify();
                     } finally {
                         resumeTracking(prev);
                     }
@@ -112,7 +111,14 @@ export const createStore = <
             for (const key in options.getters) {
                 try {
                     const getterFn = options.getters[key];
-                    getters[key] = computed(() => getterFn(state)) as any;
+                    const computedValue = computed(() => getterFn(state));
+                    getters[key] = computedValue as any;
+                    // Capture disposer for $destroy
+                    if (typeof (computedValue as any).stop === 'function') {
+                        computedDisposers.push(() =>
+                            (computedValue as any).stop(),
+                        );
+                    }
                 } catch (error) {
                     logger.error(
                         `Store: Failed to create getter "${String(key)}" for store "${name}": ${error instanceof Error ? error.message : String(error)}`,
@@ -133,9 +139,13 @@ export const createStore = <
                         try {
                             // Update state properties
                             for (const key in newState) {
-                                if ((state as any)[key] !== newState[key]) {
+                                if (
+                                    !Object.is(
+                                        (state as any)[key],
+                                        newState[key],
+                                    )
+                                ) {
                                     (state as any)[key] = newState[key];
-                                    trigger(state, key);
                                 }
                             }
                         } catch (error) {
@@ -225,7 +235,6 @@ export const createStore = <
                             )
                         ) {
                             (store.state as any)[key] = freshState[key];
-                            trigger(store.state, key);
                         }
                     }
 
@@ -233,7 +242,6 @@ export const createStore = <
                     for (const key in store.state) {
                         if (!(key in freshState)) {
                             delete (store.state as any)[key];
-                            trigger(store.state, key);
                         }
                     }
                 } catch (error) {
@@ -246,10 +254,22 @@ export const createStore = <
             $persist: persistenceManager,
             $destroy: () => {
                 try {
+                    // 1. Stop persistence (auto-save watcher, cross-tab listener)
                     store.$persist?.destroy?.();
+                    // 2. Stop internal effects to prevent orphaned subscriptions
+                    deepWatcherEffect?.stop();
+                    computedDisposers.forEach((d) => d());
+                    // 3. Clear store-level subscribers
                     dependency.clear();
                     subscribers.clear();
+                    // 4. Deregister from global registry
                     storeRegistry.delete(name);
+                    // 5. DevTools cleanup
+                    try {
+                        devtools.unregisterStore(name);
+                    } catch {
+                        /* best-effort */
+                    }
                     logger.debug(`Store: Destroyed "${name}"`);
                 } catch (error) {
                     logger.error(
@@ -269,7 +289,8 @@ export const createStore = <
                     const actionFn = options.actions[key];
                     const boundAction = actionFn.bind(flattenedStore);
                     (store.actions as any)[key] = (...args: any[]) => {
-                        devtools.notifyActionCall(name, key, args);
+                        if (devtools.enabled)
+                            devtools.notifyActionCall(name, key, args);
                         return boundAction(...args);
                     };
                 } catch (error) {
@@ -283,7 +304,7 @@ export const createStore = <
 
         // Register the store
         storeRegistry.set(name, flattenedStore);
-        devtools.registerStore(name, store);
+        if (devtools.enabled) devtools.registerStore(name, store);
 
         return flattenedStore;
     } catch (error) {

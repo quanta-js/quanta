@@ -9,8 +9,17 @@ export type StateDefinition<S> = () => S;
  */
 export type RawActions = Record<string, (...args: any[]) => any>;
 
-/* Subscriber type */
+/** Internal effect callback — no arguments */
+export type EffectFunction = () => void;
+
+/** Store change subscriber — receives optional state snapshot */
 export type StoreSubscriber<S = any> = (snapshot?: S) => void;
+
+/** React-style change notifier — no arguments */
+export type ChangeNotifier = () => void;
+
+/** Disposable effect with stop() for cleanup */
+export type EffectDisposer = EffectFunction & { stop: () => void };
 
 /* ---------- Getter types ---------- */
 
@@ -103,10 +112,14 @@ export type StoreInstance<
     InferGetterReturnTypesFromDefs<S, GDefs> &
     InferActions<S, GDefs, A> & {
         state: S;
-        getters: { [K in keyof GDefs]: any };
+        getters: {
+            [K in keyof GDefs]: {
+                value: GDefs[K] extends (s: S) => infer R ? R : never;
+            };
+        };
         actions: A;
         subscribe: (callback: StoreSubscriber) => () => void;
         $reset: () => void;
         $persist?: PersistenceManager;
-        $destroy?: () => void;
+        $destroy: () => void;
     };

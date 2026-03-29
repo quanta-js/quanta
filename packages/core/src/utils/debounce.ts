@@ -38,14 +38,14 @@ export function debounce<T extends (...args: any[]) => any>(
         }
     }) as T & { flush: () => void; cancel: () => void };
 
-    debounced.flush = () => {
+    debounced.flush = async () => {
         try {
             if (timeoutId) {
                 clearTimeout(timeoutId);
                 timeoutId = undefined;
             }
             if (lastArgs) {
-                func(...lastArgs);
+                await func(...lastArgs);
                 lastArgs = undefined;
             }
         } catch (error) {

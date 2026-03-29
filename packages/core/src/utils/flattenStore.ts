@@ -4,7 +4,6 @@ import {
     StoreSubscriber,
 } from '../type/store-types';
 import { logger } from '../services/logger-service';
-import { trigger } from '../core/effect';
 
 export const flattenStore = <
     S extends object,
@@ -73,10 +72,6 @@ export const flattenStore = <
                     const result = wasInState
                         ? Reflect.set(target.state, prop, value) // Mutate reactive state
                         : Reflect.set(target, prop, value, receiver); // Fallback
-                    if (result && wasInState) {
-                        // Trigger core reactivity (per-key) — subscribers notified through reactive pipeline
-                        trigger(target.state, prop);
-                    }
                     return result;
                 } catch (error) {
                     logger.error(
