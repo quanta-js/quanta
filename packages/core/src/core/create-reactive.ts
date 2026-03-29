@@ -3,6 +3,17 @@ import { logger } from '../services/logger-service';
 import { parentMap, setParent } from '../utils/deep-trigger';
 import { devtools } from '../devtools';
 
+// Symbol used to retrieve the raw target from a proxy
+export const RAW_SYMBOL = Symbol('quanta_raw');
+
+/**
+ * Returns the raw target object if the value is a QuantaJS proxy.
+ */
+export function toRaw<T>(observed: T): T {
+    const raw = observed && (observed as any)[RAW_SYMBOL];
+    return raw ? toRaw(raw) : observed;
+}
+
 // Array methods that mutate — intercepted to batch triggers
 const ARRAY_MUTATOR_SET = new Set([
     'push',
@@ -42,52 +53,58 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
 
     const instrumentations: Record<string | symbol, Function> = {
         get(key: any) {
-            const result = (target as Map<any, any>).get(key);
-            track(target, key);
+            const rawKey = toRaw(key);
+            const result = (target as Map<any, any>).get(rawKey);
+            track(target, rawKey);
             return wrap(result);
         },
         has(key: any) {
-            track(target, key);
-            return target.has(key);
+            const rawKey = toRaw(key);
+            track(target, rawKey);
+            return target.has(rawKey);
         },
         add(key: any) {
-            const hadKey = target.has(key);
-            const result = (target as Set<any>).add(key);
+            const rawKey = toRaw(key);
+            const hadKey = target.has(rawKey);
+            const result = (target as Set<any>).add(rawKey);
             if (!hadKey) {
                 trigger(target, 'size');
-                trigger(target, key);
+                trigger(target, rawKey);
                 if (devtools.enabled)
-                    devtools.notifyStateChange(target, 'add', key, parentMap);
+                    devtools.notifyStateChange(target, 'add', rawKey, parentMap);
             }
             return this;
         },
         set(key: any, value: any) {
-            const hadKey = (target as Map<any, any>).has(key);
-            const oldValue = (target as Map<any, any>).get(key);
-            const result = (target as Map<any, any>).set(key, value);
+            const rawKey = toRaw(key);
+            const hadKey = (target as Map<any, any>).has(rawKey);
+            const oldValue = (target as Map<any, any>).get(rawKey);
+            const result = (target as Map<any, any>).set(rawKey, value);
             if (!hadKey) {
                 trigger(target, 'size');
-                trigger(target, key);
+                trigger(target, rawKey);
                 if (devtools.enabled)
-                    devtools.notifyStateChange(target, key, value, parentMap);
+                    devtools.notifyStateChange(target, rawKey, value, parentMap);
             } else if (!Object.is(oldValue, value)) {
-                trigger(target, key);
+                trigger(target, rawKey);
+                trigger(target, 'size'); // Fix: notify iterator-based subscribers on value changes
                 if (devtools.enabled)
-                    devtools.notifyStateChange(target, key, value, parentMap);
+                    devtools.notifyStateChange(target, rawKey, value, parentMap);
             }
             return this;
         },
         delete(key: any) {
-            const hadKey = target.has(key);
-            const result = target.delete(key);
+            const rawKey = toRaw(key);
+            const hadKey = (target as Map<any, any>).has(rawKey);
+            const result = target.delete(rawKey);
             if (hadKey) {
                 trigger(target, 'size');
-                trigger(target, key);
+                trigger(target, rawKey);
                 if (devtools.enabled)
                     devtools.notifyStateChange(
                         target,
                         'delete',
-                        key,
+                        rawKey,
                         parentMap,
                     );
             }
@@ -111,7 +128,12 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
         forEach(callback: Function, thisArg?: any) {
             track(target, 'size');
             return target.forEach((value: any, key: any) => {
-                callback.call(thisArg, wrap(value), wrap(key), this);
+                callback.call(
+                    thisArg,
+                    wrap(value),
+                    target instanceof Map ? key : wrap(key),
+                    this,
+                );
             });
         },
     };
@@ -132,8 +154,15 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
                     if (done) return { value, done };
                     return {
                         value: isEntries
-                            ? [wrap(value[0]), wrap(value[1])]
-                            : wrap(value),
+                            ? [
+                                  target instanceof Map
+                                      ? value[0] // Don't wrap Map keys (preserve identity)
+                                      : wrap(value[0]),
+                                  wrap(value[1]),
+                              ]
+                            : method === 'keys' && target instanceof Map
+                              ? value // Don't wrap Map keys
+                              : wrap(value),
                         done,
                     };
                 },
@@ -146,6 +175,9 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
 
     const proxy = new Proxy(target, {
         get(_, prop: string | symbol, receiver) {
+            if (prop === RAW_SYMBOL) {
+                return target;
+            }
             try {
                 if (prop === 'size') {
                     track(target, 'size');
@@ -228,6 +260,9 @@ export function createReactive(target: any) {
                 prop: string | symbol,
                 receiver: any,
             ) {
+                if (prop === RAW_SYMBOL) {
+                    return obj;
+                }
                 try {
                     const result = Reflect.get(obj, prop, receiver);
 
