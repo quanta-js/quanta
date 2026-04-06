@@ -45,7 +45,7 @@
         "@quantajs/core": "workspace:*"
     },
     "dependencies": {
-        "preact": "^10.28.4"
+        "preact": "^10.29.1"
     },
     "devDependencies": {
         "@preact/preset-vite": "^2.10.3"
