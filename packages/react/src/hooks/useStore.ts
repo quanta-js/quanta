@@ -1,76 +1,76 @@
 'use client';
 
-import { useQuantaContext } from '../context/QuantaContext';
+import { useContainerOrDefault } from '../context/QuantaContext';
 import {
     useQuantaStore,
     useQuantaSelector,
     type SelectorOptions,
 } from './useQuantaStore';
-import type { StoreInstance, RawActions } from '@quantajs/core';
+import type {
+    ActionsTree,
+    GettersTree,
+    StateTree,
+    Store,
+    StoreDefinition,
+} from '@quantajs/core';
 
 /**
- * Look a store up in the nearest {@link QuantaProvider}.
+ * Resolve a store definition against the nearest provider's container, falling
+ * back to the ambient one.
  *
- * Throws through a hook-safe path: the lookup happens before any hook is
- * called for the *missing* case only, and the hook count is otherwise
- * constant, so React's rules are not violated by a store appearing or
- * disappearing between renders.
- */
-function requireStore<
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown>,
-    A extends RawActions,
->(
-    stores: Record<string, StoreInstance<never, never, never>>,
-    name: string,
-    hook: string,
-): StoreInstance<S, GDefs, A> {
-    const store = stores[name];
-    if (!store) {
-        throw new Error(
-            `${hook}: store "${name}" is not registered on the nearest QuantaProvider. ` +
-                `Available: ${Object.keys(stores).join(', ') || '(none)'}.`,
-        );
-    }
-    return store as unknown as StoreInstance<S, GDefs, A>;
-}
-
-/**
- * Access a provided store by name and re-render on any change to it.
+ * This is the hook to reach for: it is fully typed from the definition, and it
+ * picks up a per-request container automatically under SSR.
  *
- * Prefer {@link useStoreSelector} in components that read only a slice.
+ * @example
+ * ```tsx
+ * const cart = useQuanta(useCartStore);
+ * return <span>{cart.total}</span>;
+ * ```
  */
-export function useStore<
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends RawActions = RawActions,
->(name: string): StoreInstance<S, GDefs, A> {
-    const { stores } = useQuantaContext();
-    const store = requireStore<S, GDefs, A>(stores, name, 'useStore');
+export function useQuanta<
+    S extends StateTree,
+    G extends GettersTree<S>,
+    A extends ActionsTree,
+>(definition: StoreDefinition<S, G, A>): Store<S, G, A> {
+    const container = useContainerOrDefault();
+    const store = definition(container);
     return useQuantaStore(store);
 }
 
 /**
- * Access a provided store by name and subscribe to just what the selector
- * reads.
+ * Resolve a store definition and subscribe to only what the selector reads.
+ *
+ * @example
+ * ```tsx
+ * const count = useQuantaValue(useCartStore, (s) => s.items.length);
+ * ```
  */
-export function useStoreSelector<
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends RawActions = RawActions,
-    T = unknown,
+export function useQuantaValue<
+    S extends StateTree,
+    G extends GettersTree<S>,
+    A extends ActionsTree,
+    T,
 >(
-    name: string,
-    selector: (store: StoreInstance<S, GDefs, A>) => T,
+    definition: StoreDefinition<S, G, A>,
+    selector: (store: Store<S, G, A>) => T,
     options?: SelectorOptions<T>,
 ): T {
-    const { stores } = useQuantaContext();
-    const store = requireStore<S, GDefs, A>(stores, name, 'useStoreSelector');
+    const container = useContainerOrDefault();
+    const store = definition(container);
     return useQuantaSelector(store, selector, options);
+}
+
+/**
+ * Resolve a store definition without subscribing to it.
+ *
+ * Use when a component only calls actions and never reads state — it avoids
+ * re-rendering that component on every change.
+ */
+export function useQuantaActions<
+    S extends StateTree,
+    G extends GettersTree<S>,
+    A extends ActionsTree,
+>(definition: StoreDefinition<S, G, A>): Store<S, G, A> {
+    const container = useContainerOrDefault();
+    return definition(container);
 }

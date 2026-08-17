@@ -38,11 +38,21 @@ export type { EffectRunner, EffectOptions, EffectScope } from './core/effect';
  * Stores
  * ------------------------------------------------------------------ */
 export {
+    defineStore,
     createStore,
-    getOrCreateStore,
     useStore,
     hasStore,
     destroyAllStores,
+    createContainer,
+    getDefaultContainer,
+    setDefaultContainer,
+    resetDefaultContainer,
+} from './core';
+
+export type {
+    StoreDefinition,
+    StoreContainer,
+    ContainerSnapshot,
 } from './core';
 
 /* ------------------------------------------------------------------ *
@@ -77,12 +87,25 @@ export {
  * Types
  * ------------------------------------------------------------------ */
 export type {
+    // Current
+    StateTree,
     StateDefinition,
-    GetterDefinitions,
+    GettersTree,
+    ActionsTree,
+    ActionState,
+    BoundAction,
+    BoundActions,
+    UnwrapGetters,
+    Store,
+    AnyStore,
+    StoreApi,
+    StoreDefinitionOptions,
+    StoreSubscriber,
+    // Deprecated aliases, kept so existing imports keep resolving
     RawActions,
+    GetterDefinitions,
     ActionDefinition,
     InferActions,
     StoreInstance,
-    StoreSubscriber,
     StoreOptions,
 } from './type/store-types';

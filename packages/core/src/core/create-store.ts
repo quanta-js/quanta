@@ -1,8 +1,11 @@
-import {
-    StoreInstance,
+import type {
+    ActionsTree,
+    ActionState,
+    GettersTree,
+    StateTree,
+    Store,
+    StoreDefinitionOptions,
     StoreSubscriber,
-    StoreOptions,
-    RawActions,
 } from '../type/store-types';
 import { reactive, computed } from '../state';
 import type { ComputedRef } from '../state/computed';
@@ -26,53 +29,33 @@ import { logger } from '../services/logger-service';
 import { __DEV__ } from '../utils/env';
 import { devtools } from '../devtools';
 import { isSafeKey } from '../utils/sanitize';
+import { toRaw } from './create-reactive';
+
+/** Hooks the owning container installs on a store. */
+export interface StoreHost {
+    /** Called once when the store is destroyed, so the container can forget it. */
+    onDestroy: () => void;
+}
 
 /**
- * Named stores, so `useStore(name)` and DevTools can find them.
+ * Build a store instance.
  *
- * NOTE (SSR): this registry is module-global, which makes a store declared at
- * module scope a *process-wide singleton*. On a server that is shared across
- * requests. Until per-request containers land, server-rendered applications
- * must create stores per request and dispose them when the request ends —
- * `$destroy()` deregisters here, and `destroyAllStores()` clears the registry
- * for request or test teardown.
+ * Internal: stores are always created through a {@link StoreContainer}, which
+ * owns the name → instance mapping. Keeping instantiation free of any registry
+ * of its own is what makes per-request isolation possible.
  */
-const storeRegistry = new Map<string, StoreInstance<never, never, never>>();
-
-/** store -> its state factory, for `$reset`. */
-const initialStateMap = new WeakMap<object, () => object>();
-
-/**
- * Create a named, reactive store.
- *
- * @param name    - Unique identifier used by `useStore` and DevTools.
- * @param options - State factory, optional getters, actions and persistence.
- *
- * @example
- * ```ts
- * const cart = createStore('cart', {
- *     state: () => ({ items: [] as Item[] }),
- *     getters: { total: (s) => s.items.reduce((n, i) => n + i.price, 0) },
- *     actions: {
- *         add(item: Item) { this.items.push(item); },
- *     },
- * });
- * ```
- */
-export const createStore = <
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends RawActions = RawActions,
+export function instantiateStore<
+    S extends StateTree,
+    G extends GettersTree<S>,
+    A extends ActionsTree,
 >(
     name: string,
-    options: StoreOptions<S, GDefs, A>,
-): StoreInstance<S, GDefs, A> => {
-    if (storeRegistry.has(name)) {
+    options: StoreDefinitionOptions<S, G, A>,
+    host: StoreHost,
+): Store<S, G, A> {
+    if (!options || typeof options.state !== 'function') {
         throw new Error(
-            `Store "${name}" already exists. Use getOrCreateStore("${name}", …) if you intend to reuse it (HMR, StrictMode, repeated test setup), or call store.$destroy() first.`,
+            `Store "${name}": options.state must be a function returning the initial state.`,
         );
     }
 
@@ -81,28 +64,24 @@ export const createStore = <
 
     const state = reactive(initialState);
 
-    /** Store-wide "something changed" channel used by framework adapters. */
+    /** Store-wide "something changed" channel backing `subscribe()`. */
     const dependency = new Dependency();
-    const subscribers = new Set<StoreSubscriber>();
+    const subscribers = new Set<StoreSubscriber<S>>();
 
-    /**
-     * Everything the store owns, so `$destroy` releases it in one call rather
-     * than tracking each disposer by hand.
-     */
+    /** Everything the store owns, released together by `$destroy`. */
     const scope: EffectScope = effectScope();
 
     scope.run(() => {
-        // Coarse "any top-level key changed" watcher backing `subscribe()`.
-        // Reading each top-level key registers a dependency on it; nested
-        // changes reach us by bubbling.
         reactiveEffect(() => {
+            // Touch every top-level key so this effect depends on all of them;
+            // nested changes arrive by bubbling.
             for (const key in state) {
                 void (state as Record<string, unknown>)[key];
             }
 
             // Subscriber callbacks routinely read reactive state. Without
-            // pausing, those reads would be attributed to *this* effect and
-            // grow its dependency set on every notification.
+            // pausing, those reads are attributed to this effect and its
+            // dependency set grows on every notification.
             const previous = pauseTracking();
             try {
                 notifyDependency(dependency, []);
@@ -113,32 +92,31 @@ export const createStore = <
     });
 
     // ---- getters -----------------------------------------------------
-    type GetterRefs = { [K in keyof GDefs]: ComputedRef<ReturnType<GDefs[K]>> };
-    const getters = {} as GetterRefs;
+    type GetterRefs = { [K in keyof G]: ComputedRef<ReturnType<G[K]>> };
+    // Built through a loose record because a mapped type over an unresolved
+    // generic is read-only from TypeScript's point of view.
+    const getterRefs: Record<string, ComputedRef<unknown>> = {};
 
     if (options.getters) {
+        const definitions = options.getters as Record<
+            string,
+            (state: S) => unknown
+        >;
         scope.run(() => {
-            for (const key in options.getters) {
-                const getterFn = options.getters![key];
-                getters[key] = computed(() =>
-                    getterFn(state),
-                ) as GetterRefs[typeof key];
+            for (const key of Object.keys(definitions)) {
+                const getterFn = definitions[key];
+                getterRefs[key] = computed(() => getterFn(state));
             }
         });
     }
+    const getters = getterRefs as GetterRefs;
 
     // ---- persistence -------------------------------------------------
     let persistenceManager: PersistenceManager | null = null;
 
-    /**
-     * Hydration signal, allocated lazily.
-     *
-     * Most stores have no persistence and nobody awaits `$hydrated`, so
-     * eagerly constructing a Promise per store is measurable overhead when an
-     * application creates many of them. The Promise is therefore built on
-     * first access, and `settleHydration()` records completion even if nobody
-     * has asked yet.
-     */
+    // Allocated lazily: most stores have no persistence and nobody awaits
+    // `$hydrated`, so a Promise per store is measurable when an app creates
+    // many of them.
     let hydrationPromise: Promise<void> | null = null;
     let hydrationResolve: (() => void) | null = null;
     let hydrationSettled = !options.persist;
@@ -160,13 +138,9 @@ export const createStore = <
     };
 
     if (options.persist) {
-        // The persistence manager works structurally over string keys; S is
-        // constrained to `object`, so widen at the call site rather than
-        // tightening the public StoreOptions constraint.
         persistenceManager = createPersistenceManager<Record<string, unknown>>(
-            () => state as Record<string, unknown>,
-            (incoming) =>
-                applyPersistedState(state, incoming as Partial<S>, name),
+            () => state as unknown as Record<string, unknown>,
+            (incoming) => mergeExternal(state, incoming, name),
             () => notifyDependency(dependency, []),
             options.persist as unknown as PersistenceConfig<
                 Record<string, unknown>
@@ -180,22 +154,22 @@ export const createStore = <
     const store = {
         state,
         getters,
-        actions: {} as A,
+        actions: {} as Record<string, unknown>,
+        $id: name,
 
-        subscribe(callback: StoreSubscriber): () => void {
+        subscribe(callback: StoreSubscriber<S>): () => void {
             subscribers.add(callback);
-            dependency.depend(callback);
+            dependency.depend(callback as () => void);
             return () => {
                 subscribers.delete(callback);
-                dependency.remove(callback);
+                dependency.remove(callback as () => void);
             };
         },
 
         notifyAll(): void {
-            const snapshot = state;
             for (const cb of [...subscribers]) {
                 try {
-                    cb(snapshot);
+                    cb(state);
                 } catch (error) {
                     if (__DEV__) {
                         logger.warn(
@@ -211,18 +185,30 @@ export const createStore = <
         },
 
         /**
-         * Restore state to the value produced by the original state factory.
+         * Apply several changes as one notification.
          *
-         * Runs as one batch, so a reset of N keys wakes subscribers once
-         * rather than N times.
+         * Accepts either a partial object or a mutator function. Without this,
+         * updating three fields wakes every subscriber three times.
          */
-        $reset(): void {
-            const factory = initialStateMap.get(store);
-            if (!factory) {
-                throw new Error(`Store "${name}": state factory not found.`);
-            }
+        $patch(partialOrMutator: Partial<S> | ((draft: S) => void)): void {
+            batchEffects(() => {
+                if (typeof partialOrMutator === 'function') {
+                    partialOrMutator(state);
+                    return;
+                }
+                const live = state as Record<string, unknown>;
+                for (const key of Object.keys(partialOrMutator)) {
+                    if (!isSafeKey(key)) continue;
+                    live[key] = (partialOrMutator as Record<string, unknown>)[
+                        key
+                    ];
+                }
+            });
+        },
 
-            const fresh = factory() as Record<string, unknown>;
+        /** Restore the state produced by the original factory, in one batch. */
+        $reset(): void {
+            const fresh = options.state() as Record<string, unknown>;
             const live = state as Record<string, unknown>;
 
             batchEffects(() => {
@@ -231,24 +217,36 @@ export const createStore = <
                         live[key] = fresh[key];
                     }
                 }
-                // Snapshot the key list first: deleting while iterating the
-                // object being mutated is undefined-ish and skips entries.
+                // Snapshot the key list first — deleting while iterating the
+                // object being mutated skips entries.
                 for (const key of Object.keys(live)) {
                     if (!(key in fresh)) delete live[key];
                 }
             });
         },
 
+        /**
+         * A plain, non-reactive copy of the state, safe to serialise.
+         *
+         * `toRaw` unwraps the proxy so that neither the traps nor dependency
+         * tracking run during serialisation.
+         */
+        $dehydrate(): S {
+            return structuredCopy(toRaw(state)) as S;
+        },
+
+        /** Replace state from a snapshot, as one notification. */
+        $hydrate(snapshot: Partial<S>): void {
+            if (!snapshot || typeof snapshot !== 'object') return;
+            mergeExternal(state, snapshot as Record<string, unknown>, name);
+        },
+
         $persist: persistenceManager,
 
         /**
-         * Resolves once the first hydration attempt has settled (successfully
-         * or not). Always present — a store without persistence resolves
+         * Resolves once the first hydration attempt has settled, successfully
+         * or not. Always present — a store without persistence resolves
          * immediately — so `await store.$hydrated` is unconditionally safe.
-         *
-         * This is what lets a server-rendered app wait for storage instead of
-         * polling `$persist.isRehydrated()`, which is the root cause of
-         * flash-of-unhydrated-content.
          */
         get $hydrated(): Promise<void> {
             return getHydrated();
@@ -257,12 +255,14 @@ export const createStore = <
         $destroy(): void {
             try {
                 persistenceManager?.destroy();
-                // One call releases the deep watcher and every getter computed.
+                for (const controller of inFlight.values()) {
+                    controller.abortAll('store destroyed');
+                }
+                inFlight.clear();
                 scope.stop();
                 dependency.clear();
                 subscribers.clear();
-                storeRegistry.delete(name);
-                initialStateMap.delete(store);
+                host.onDestroy();
                 devtools.unregisterStore(name);
             } catch (error) {
                 if (__DEV__) {
@@ -278,100 +278,192 @@ export const createStore = <
         },
     };
 
-    initialStateMap.set(store, options.state as () => object);
-
-    const flattened = flattenStore<S, GDefs, A>(
-        store as unknown as Parameters<typeof flattenStore<S, GDefs, A>>[0],
-    );
+    const flattened = flattenStore(
+        store as unknown as Parameters<typeof flattenStore>[0],
+    ) as unknown as Store<S, G, A>;
 
     // ---- actions -----------------------------------------------------
+    /**
+     * Per-action lifecycle state.
+     *
+     * Reactive so that `store.load.pending` read inside a component or effect
+     * subscribes to it like any other state.
+     */
+    const asyncState = reactive<
+        Record<string, { pending: number; error: Error | null }>
+    >({});
+    const inFlight = new Map<string, AbortGroup>();
+
     if (options.actions) {
-        for (const key in options.actions) {
+        for (const key of Object.keys(options.actions)) {
             const actionFn = options.actions[key] as (
                 ...args: unknown[]
             ) => unknown;
-            const bound = actionFn.bind(flattened);
-            (store.actions as Record<string, unknown>)[key] = (
-                ...args: unknown[]
-            ) => {
-                if (devtools.enabled) {
-                    devtools.notifyActionCall(name, key, args);
-                }
-                // Actions are the unit of change: batching them means a
-                // multi-write action notifies subscribers once.
-                return batchEffects(() => bound(...args));
-            };
+            (store.actions as Record<string, unknown>)[key] = makeAction(
+                name,
+                key,
+                actionFn,
+                flattened,
+                asyncState,
+                inFlight,
+            );
         }
     }
 
-    storeRegistry.set(
-        name,
-        flattened as unknown as StoreInstance<never, never, never>,
-    );
-    if (devtools.enabled) devtools.registerStore(name, store);
-
     return flattened;
-};
-
-export default createStore;
-
-/**
- * Return the existing store with this name, or create it.
- *
- * `createStore` throws on a duplicate name, which is correct for catching a
- * genuine collision but hostile to hot-module replacement, React StrictMode's
- * double-mount and repeated test setup. Reach for this wherever a module may
- * legitimately evaluate more than once.
- */
-export function getOrCreateStore<
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends RawActions = RawActions,
->(
-    name: string,
-    options: StoreOptions<S, GDefs, A>,
-): StoreInstance<S, GDefs, A> {
-    const existing = storeRegistry.get(name);
-    if (existing) return existing as unknown as StoreInstance<S, GDefs, A>;
-    return createStore<S, GDefs, A>(name, options);
 }
 
-/** Retrieve a store previously created with {@link createStore}. */
-export function useStore<
-    S extends object,
-    G extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends RawActions = RawActions,
->(name: string): StoreInstance<S, G, A> {
-    const store = storeRegistry.get(name);
-    if (!store) {
-        throw new Error(
-            `Store "${name}" does not exist. Create it with createStore("${name}", …) before calling useStore.`,
-        );
-    }
-    return store as unknown as StoreInstance<S, G, A>;
+/* ------------------------------------------------------------------ *
+ * Actions
+ * ------------------------------------------------------------------ */
+
+/** Tracks the AbortControllers for one action's in-flight invocations. */
+interface AbortGroup {
+    add(controller: AbortController): void;
+    remove(controller: AbortController): void;
+    abortAll(reason?: unknown): void;
 }
 
-/** Whether a store with this name is currently registered. */
-export function hasStore(name: string): boolean {
-    return storeRegistry.has(name);
+function createAbortGroup(): AbortGroup {
+    const controllers = new Set<AbortController>();
+    return {
+        add: (c) => controllers.add(c),
+        remove: (c) => controllers.delete(c),
+        abortAll(reason) {
+            for (const c of [...controllers]) {
+                try {
+                    c.abort(reason);
+                } catch {
+                    /* already aborted */
+                }
+            }
+            controllers.clear();
+        },
+    };
 }
 
 /**
- * Destroy every registered store.
+ * Wrap a user action so it batches, reports to DevTools, and exposes
+ * `pending` / `error` / `abort()`.
  *
- * Intended for test teardown and for disposing a server request's stores.
+ * The lifecycle surface is attached to **synchronous** actions too — `pending`
+ * is simply never true — so that turning an action async later is not a
+ * breaking change for its callers.
+ *
+ * Scope is deliberately narrow: loading and error flags plus an `AbortSignal`.
+ * No caching, retries, deduplication or invalidation — that is a server-state
+ * library's job, and a half-built one here would be worse than none.
  */
-export function destroyAllStores(): void {
-    for (const store of [...storeRegistry.values()]) {
-        (store as unknown as { $destroy: () => void }).$destroy();
-    }
-    storeRegistry.clear();
+function makeAction(
+    storeName: string,
+    actionName: string,
+    actionFn: (...args: unknown[]) => unknown,
+    boundTo: object,
+    asyncState: Record<string, { pending: number; error: Error | null }>,
+    inFlight: Map<string, AbortGroup>,
+): unknown {
+    asyncState[actionName] = { pending: 0, error: null };
+
+    const group = createAbortGroup();
+    inFlight.set(actionName, group);
+
+    const invoke = (...args: unknown[]): unknown => {
+        if (devtools.enabled) {
+            devtools.notifyActionCall(storeName, actionName, args);
+        }
+
+        const controller =
+            typeof AbortController !== 'undefined'
+                ? new AbortController()
+                : null;
+
+        // `this.$signal` is only meaningful for the duration of this call, so
+        // it is swapped in around the invocation rather than living on the
+        // store permanently.
+        const previousSignal = (boundTo as { $signal?: AbortSignal }).$signal;
+
+        const entry = asyncState[actionName];
+        entry.pending++;
+        entry.error = null;
+        if (controller) group.add(controller);
+
+        const settle = (error?: unknown): void => {
+            entry.pending = Math.max(0, entry.pending - 1);
+            if (error !== undefined) {
+                entry.error =
+                    error instanceof Error ? error : new Error(String(error));
+            }
+            if (controller) group.remove(controller);
+        };
+
+        try {
+            Object.defineProperty(boundTo, '$signal', {
+                value: controller?.signal,
+                configurable: true,
+                enumerable: false,
+                writable: true,
+            });
+
+            // Actions are the unit of change: batching means a multi-write
+            // action notifies subscribers once.
+            const result = batchEffects(() =>
+                actionFn.apply(boundTo, args),
+            ) as unknown;
+
+            if (isThenable(result)) {
+                return result.then(
+                    (value) => {
+                        settle();
+                        return value;
+                    },
+                    (error: unknown) => {
+                        settle(error);
+                        throw error;
+                    },
+                );
+            }
+
+            settle();
+            return result;
+        } catch (error) {
+            settle(error);
+            throw error;
+        } finally {
+            Object.defineProperty(boundTo, '$signal', {
+                value: previousSignal,
+                configurable: true,
+                enumerable: false,
+                writable: true,
+            });
+        }
+    };
+
+    // Reading `.pending` / `.error` goes through the reactive `asyncState`
+    // object, so a component that reads them re-renders when they change.
+    Object.defineProperties(invoke, {
+        pending: {
+            get: () => asyncState[actionName].pending > 0,
+            enumerable: true,
+        },
+        error: {
+            get: () => asyncState[actionName].error,
+            enumerable: true,
+        },
+        abort: {
+            value: (reason?: unknown) => group.abortAll(reason),
+            enumerable: false,
+        },
+    } satisfies Record<keyof ActionState, PropertyDescriptor>);
+
+    return invoke;
+}
+
+function isThenable(value: unknown): value is Promise<unknown> {
+    return (
+        value !== null &&
+        (typeof value === 'object' || typeof value === 'function') &&
+        typeof (value as { then?: unknown }).then === 'function'
+    );
 }
 
 /* ------------------------------------------------------------------ *
@@ -379,16 +471,16 @@ export function destroyAllStores(): void {
  * ------------------------------------------------------------------ */
 
 /**
- * Merge externally-sourced state (a persistence payload, a cross-tab event)
- * into the live store.
+ * Merge externally-sourced state (a persistence payload, a cross-tab event, a
+ * server snapshot) into the live store, as one notification.
  *
- * Dangerous keys are rejected here as the last line of defence: the
- * persistence layer already sanitises, but this function is the only place
- * outside data reaches the state object, so the check belongs here too.
+ * Dangerous keys are rejected here as the last line of defence: the ingest
+ * layers sanitise already, but this is the only place outside data reaches the
+ * state object, so the check belongs here too.
  */
-function applyPersistedState<S extends object>(
-    state: S,
-    incoming: Partial<S>,
+function mergeExternal(
+    state: object,
+    incoming: Record<string, unknown>,
     storeName: string,
 ): void {
     const live = state as Record<string, unknown>;
@@ -402,20 +494,75 @@ function applyPersistedState<S extends object>(
                 }
                 continue;
             }
-            const value = (incoming as Record<string, unknown>)[key];
-            if (!Object.is(live[key], value)) {
-                live[key] = value;
-            }
+            const value = incoming[key];
+            if (!Object.is(live[key], value)) live[key] = value;
         }
     });
 }
 
-/** Reject action names that would be unreachable on the flat store. */
+/**
+ * Deep copy for dehydration.
+ *
+ * `structuredClone` where available (it preserves Date, Map and Set, which a
+ * JSON round-trip destroys), falling back to a manual walk on older runtimes.
+ */
+function structuredCopy<T>(value: T): T {
+    if (typeof structuredClone === 'function') {
+        try {
+            return structuredClone(value);
+        } catch {
+            // Functions, DOM nodes and class instances are not cloneable —
+            // fall through rather than failing the whole dehydration.
+        }
+    }
+    return manualCopy(value, new WeakMap());
+}
+
+function manualCopy<T>(value: T, seen: WeakMap<object, unknown>): T {
+    if (value === null || typeof value !== 'object') return value;
+
+    const source = value as unknown as object;
+    const existing = seen.get(source);
+    if (existing !== undefined) return existing as T;
+
+    if (value instanceof Date) return new Date(value.getTime()) as unknown as T;
+    if (value instanceof Map) {
+        const out = new Map();
+        seen.set(source, out);
+        for (const [k, v] of value) out.set(k, manualCopy(v, seen));
+        return out as unknown as T;
+    }
+    if (value instanceof Set) {
+        const out = new Set();
+        seen.set(source, out);
+        for (const v of value) out.add(manualCopy(v, seen));
+        return out as unknown as T;
+    }
+    if (Array.isArray(value)) {
+        const out: unknown[] = [];
+        seen.set(source, out);
+        for (const item of value) out.push(manualCopy(item, seen));
+        return out as unknown as T;
+    }
+
+    const out: Record<string, unknown> = {};
+    seen.set(source, out);
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+        out[key] = manualCopy((value as Record<string, unknown>)[key], seen);
+    }
+    return out as unknown as T;
+}
+
+/** Reject names that would be unreachable or ambiguous on the flat store. */
 function validateNames<
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown>,
-    A extends RawActions,
->(name: string, initialState: S, options: StoreOptions<S, GDefs, A>): void {
+    S extends StateTree,
+    G extends GettersTree<S>,
+    A extends ActionsTree,
+>(
+    name: string,
+    initialState: S,
+    options: StoreDefinitionOptions<S, G, A>,
+): void {
     const stateKeys = new Set(Object.keys(initialState));
     const getterKeys = new Set(Object.keys(options.getters ?? {}));
 

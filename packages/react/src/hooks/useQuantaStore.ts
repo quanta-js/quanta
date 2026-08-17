@@ -9,9 +9,11 @@ import {
 import {
     reactiveEffect,
     untrack,
+    type ActionsTree,
     type EffectRunner,
-    type RawActions,
-    type StoreInstance,
+    type GettersTree,
+    type StateTree,
+    type Store,
 } from '@quantajs/core';
 
 /**
@@ -134,16 +136,13 @@ export function shallow<T>(a: T, b: T): boolean {
  * ```
  */
 export function useQuantaSelector<
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends RawActions = RawActions,
-    T = unknown,
+    S extends StateTree,
+    G extends GettersTree<S>,
+    A extends ActionsTree,
+    T,
 >(
-    store: StoreInstance<S, GDefs, A>,
-    selector: (store: StoreInstance<S, GDefs, A>) => T,
+    store: Store<S, G, A>,
+    selector: (store: Store<S, G, A>) => T,
     options?: SelectorOptions<T>,
 ): T {
     // Latest selector/equality without making them subscription dependencies.
@@ -277,13 +276,10 @@ export function useQuantaSelector<
  * @returns The live store instance.
  */
 export function useQuantaStore<
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends RawActions = RawActions,
->(store: StoreInstance<S, GDefs, A>): StoreInstance<S, GDefs, A> {
+    S extends StateTree,
+    G extends GettersTree<S>,
+    A extends ActionsTree,
+>(store: Store<S, G, A>): Store<S, G, A> {
     const versionRef = useRef(0);
 
     const subscribe = useCallback(

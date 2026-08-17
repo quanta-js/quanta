@@ -129,111 +129,160 @@ describe('useQuantaStore', () => {
     });
 });
 
-describe('useStore (context-based)', () => {
-    let useStore: any;
-    let useStoreSelector: any;
-    let QuantaProvider: any;
+describe('definition-based hooks', () => {
+    let mod: any;
+    let core: any;
+    let provider: any;
 
     beforeEach(async () => {
-        const storeMod = await import('../hooks/useStore');
-        useStore = storeMod.useStore;
-        useStoreSelector = storeMod.useStoreSelector;
-        const providerMod = await import('../components/QuantaProvider');
-        QuantaProvider = providerMod.QuantaProvider;
+        mod = await import('../hooks/useStore');
+        core = await import('@quantajs/core');
+        provider = await import('../components/QuantaProvider');
     });
 
-    it('should access store from context', () => {
-        const name = uniqueName();
-        const store = createStore(name, {
-            state: () => ({ value: 'hello' }),
+    const makeDefinition = () =>
+        core.defineStore(uniqueName(), {
+            state: () => ({ count: 0, label: 'a' }),
+            getters: { doubled: (s: any) => s.count * 2 },
+            actions: {
+                bump(this: any) {
+                    this.count++;
+                },
+            },
         });
 
-        const wrapper = ({ children }: { children: React.ReactNode }) =>
-            React.createElement(
-                QuantaProvider,
-                { stores: { [name]: store } },
-                children,
-            );
+    it('resolves a definition against the ambient container', () => {
+        const definition = makeDefinition();
+        const { result } = renderHook(() => mod.useQuanta(definition));
 
-        const { result } = renderHook(() => useStore(name), { wrapper });
-        expect(result.current.value).toBe('hello');
+        expect(result.current.count).toBe(0);
+        expect(result.current.doubled).toBe(0);
+
+        act(() => result.current.bump());
+        expect(result.current.count).toBe(1);
+        expect(result.current.doubled).toBe(2);
     });
 
-    it('should throw for missing store in context', () => {
+    it('resolves against the provider container when there is one', () => {
+        const definition = makeDefinition();
+        const container = core.createContainer('test');
         const wrapper = ({ children }: { children: React.ReactNode }) =>
             React.createElement(
-                QuantaProvider as any,
-                { stores: {} },
+                provider.QuantaProvider,
+                { container },
                 children,
             );
 
-        expect(() => {
-            renderHook(() => useStore('nonexistent'), { wrapper });
-        }).toThrow(/is not registered on the nearest QuantaProvider/);
+        const { result } = renderHook(() => mod.useQuanta(definition), {
+            wrapper,
+        });
+
+        act(() => result.current.bump());
+
+        // The instance lives in the supplied container, not the ambient one.
+        expect(container.get(definition.$id).count).toBe(1);
+        container.dispose();
     });
 
-    it('should throw consistent error for missing store in useStoreSelector', () => {
-        const wrapper = ({ children }: { children: React.ReactNode }) =>
-            React.createElement(
-                QuantaProvider as any,
-                { stores: {} },
-                children,
-            );
+    it('useQuantaValue subscribes to only the selected slice', () => {
+        const definition = makeDefinition();
+        let renders = 0;
+        const { result } = renderHook(() => {
+            const value = mod.useQuantaValue(definition, (s: any) => s.count);
+            renders++;
+            return value;
+        });
 
-        expect(() => {
-            renderHook(
-                () =>
-                    useStoreSelector(
-                        'nonexistent',
-                        (s: { value: number }) => s,
-                    ),
-                { wrapper },
-            );
-        }).toThrow(/is not registered on the nearest QuantaProvider/);
+        const baseline = renders;
+        const store = definition();
+
+        act(() => {
+            store.label = 'changed';
+        });
+        expect(renders).toBe(baseline);
+
+        act(() => {
+            store.bump();
+        });
+        expect(result.current).toBe(1);
+    });
+
+    it('useQuantaActions does not re-render on state changes', () => {
+        const definition = makeDefinition();
+        let renders = 0;
+        const { result } = renderHook(() => {
+            renders++;
+            return mod.useQuantaActions(definition);
+        });
+
+        const baseline = renders;
+        act(() => result.current.bump());
+
+        expect(renders).toBe(baseline);
+        expect(definition().count).toBe(1);
     });
 });
 
-describe('useCreateStore', () => {
-    let useCreateStore: any;
+describe('useLocalStore', () => {
+    let useLocalStore: any;
+    let core: any;
 
     beforeEach(async () => {
-        const mod = await import('../hooks/useCreateStore');
-        useCreateStore = mod.useCreateStore;
+        useLocalStore = (await import('../hooks/useCreateStore')).useLocalStore;
+        core = await import('@quantajs/core');
     });
 
-    it('should create a store on first render', () => {
-        const name = uniqueName();
-        const { result } = renderHook(() =>
-            useCreateStore(name, () => ({ count: 0 })),
-        );
+    const definition = () =>
+        core.defineStore(uniqueName(), {
+            state: () => ({ count: 0 }),
+        });
 
+    it('creates a store scoped to the component', () => {
+        const def = definition();
+        const { result } = renderHook(() => useLocalStore(def));
         expect(result.current.count).toBe(0);
     });
 
-    it('should not recreate store on subsequent renders', () => {
-        const name = uniqueName();
-        const { result, rerender } = renderHook(() =>
-            useCreateStore(name, () => ({ count: 0 })),
-        );
-
-        const firstRef = result.current;
+    it('keeps the same instance across re-renders', () => {
+        const def = definition();
+        const { result, rerender } = renderHook(() => useLocalStore(def));
+        const first = result.current;
         rerender();
-        expect(result.current).toBe(firstRef);
+        expect(result.current).toBe(first);
     });
 
-    it('should destroy store on unmount', () => {
-        const name = uniqueName();
-        const { result: _result, unmount } = renderHook(() =>
-            useCreateStore(name, () => ({ count: 0 })),
-        );
+    it('gives each mount its own isolated instance', () => {
+        const def = definition();
+        const a = renderHook(() => useLocalStore(def));
+        const b = renderHook(() => useLocalStore(def));
 
+        act(() => {
+            a.result.current.count = 5;
+        });
+
+        // Separate containers, so the two mounts do not share state.
+        expect(b.result.current.count).toBe(0);
+        a.unmount();
+        b.unmount();
+    });
+
+    it('disposes its container on unmount', () => {
+        const def = definition();
+        const { result, unmount } = renderHook(() => useLocalStore(def));
+        const store = result.current;
         unmount();
 
-        // After unmount, the store should be destroyed from registry
-        // Attempting to create the same name should now succeed
-        const newStore = createStore(name, {
-            state: () => ({ count: 99 }),
-        });
-        expect(newStore.count).toBe(99);
+        // The store is destroyed, so its subscribers are gone.
+        let notified = 0;
+        store.subscribe(() => notified++);
+        store.count = 99;
+        expect(notified).toBe(0);
+    });
+
+    it('does not leak into the ambient container', () => {
+        const def = definition();
+        const { unmount } = renderHook(() => useLocalStore(def));
+        expect(core.hasStore(def.$id)).toBe(false);
+        unmount();
     });
 });

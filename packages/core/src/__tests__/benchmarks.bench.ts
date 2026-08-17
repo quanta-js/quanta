@@ -2,7 +2,7 @@ import { bench, describe } from 'vitest';
 import { createReactive } from '../core/create-reactive';
 import { reactiveEffect } from '../core/effect';
 import computed from '../state/computed';
-import { createStore } from '../core/create-store';
+import { createStore } from '../index';
 
 let benchStoreId = 0;
 function uniqueName() {

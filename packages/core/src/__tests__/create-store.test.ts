@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createStore, useStore } from '../core/create-store';
+import { createStore, useStore } from '../index';
 
 // Helper: unique names to avoid registry collisions
 let storeId = 0;
@@ -52,13 +52,19 @@ describe('createStore', () => {
             expect(store.count).toBe(6);
         });
 
-        it('should throw for duplicate store names', () => {
+        it('returns the existing instance for a duplicate name', () => {
+            // Creation is idempotent per container. Throwing on a duplicate
+            // name caught genuine collisions but broke HMR, StrictMode
+            // double-mounts and repeated test setup; the container is the unit
+            // of isolation instead.
             const name = uniqueName();
-            createStore(name, { state: () => ({}) });
+            const first = createStore(name, { state: () => ({ n: 0 }) });
+            first.n = 5;
 
-            expect(() => {
-                createStore(name, { state: () => ({}) });
-            }).toThrow(/already exists/);
+            const second = createStore(name, { state: () => ({ n: 0 }) });
+
+            expect(second).toBe(first);
+            expect(second.n).toBe(5);
         });
 
         it('should validate state/action name collisions', () => {

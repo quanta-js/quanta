@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { createReactive } from '../core/create-reactive';
 import { reactiveEffect } from '../core/effect';
-import { createStore } from '../core/create-store';
+import { createStore } from '../index';
 
 let storeId = 0;
 function uniqueName(prefix = 'regression') {
