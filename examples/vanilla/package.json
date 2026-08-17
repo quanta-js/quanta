@@ -1,0 +1,19 @@
+{
+    "name": "example-vanilla",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "description": "No framework. @quantajs/core driving the DOM directly, plus ESM/CJS entry-point smoke tests against the built package.",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "verify": "node verify-esm.mjs && node verify-cjs.cjs"
+    },
+    "dependencies": {
+        "@quantajs/core": "workspace:*"
+    },
+    "devDependencies": {
+        "typescript": "^6.0.2",
+        "vite": "^8.0.3"
+    }
+}
