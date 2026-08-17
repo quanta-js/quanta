@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>QuantaJS — vanilla example</title>
+        <style>
+            body {
+                font: 14px/1.5 system-ui, sans-serif;
+                max-width: 640px;
+                margin: 3rem auto;
+                padding: 0 1rem;
+                color: #1a1a1a;
+            }
+            section {
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 1rem;
+                margin-bottom: 1.5rem;
+            }
+            h1 {
+                font-size: 1.25rem;
+            }
+            h2 {
+                font-size: 1rem;
+                margin-top: 0;
+            }
+            button {
+                cursor: pointer;
+            }
+            li.done {
+                text-decoration: line-through;
+                color: #888;
+            }
+            .muted {
+                color: #888;
+                font-size: 0.85em;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>QuantaJS — vanilla (no framework)</h1>
+        <p class="muted">
+            <code>@quantajs/core</code> driving the DOM directly through
+            <code>store.subscribe()</code> — no React, no compiler. Two counter
+            widgets below each own an isolated <code>container</code>, so
+            clicking one never touches the other.
+        </p>
+
+        <section>
+            <h2>Counter A</h2>
+            <div id="counter-a"></div>
+        </section>
+
+        <section>
+            <h2>Counter B (isolated container)</h2>
+            <div id="counter-b"></div>
+        </section>
+
+        <section>
+            <h2>Todos (async action, getters, watch, persistence)</h2>
+            <p class="muted">
+                Backed by <code>persist: { adapter: new LocalStorageAdapter(...) }</code> —
+                reload the page and these survive.
+            </p>
+            <div id="todos"></div>
+        </section>
+
+        <section>
+            <h2>Reactivity primitives (no store)</h2>
+            <p class="muted">
+                <code>reactive</code>, <code>computed</code>,
+                <code>watch(..., { deep: true })</code>,
+                <code>effect</code>, <code>batchEffects</code> and
+                <code>effectScope</code> used directly.
+            </p>
+            <div id="reactivity"></div>
+        </section>
+
+        <script type="module" src="/src/main.ts"></script>
+    </body>
+</html>

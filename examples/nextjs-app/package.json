@@ -1,0 +1,24 @@
+{
+    "name": "example-nextjs-app",
+    "private": true,
+    "version": "0.0.0",
+    "description": "Next.js App Router: a per-request container, dehydrate/hydrate through a 'use client' boundary, and a build check that the client boundary survives the real bundler.",
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "verify": "node verify-build.mjs"
+    },
+    "dependencies": {
+        "@quantajs/core": "workspace:*",
+        "@quantajs/react": "workspace:*",
+        "next": "^16.3.1",
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4"
+    },
+    "devDependencies": {
+        "@types/node": "^25.3.5",
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.4",
+        "typescript": "^6.0.2"
+    }
+}

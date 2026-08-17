@@ -1,0 +1,26 @@
+{
+    "name": "example-react-vite",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "description": "React + Vite: StrictMode, every hook, an async action's pending/error/abort, and a build-output check that code-splitting (the lazy panel and QuantaDevTools' Preact chunk) actually happened.",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "verify": "node verify-build.mjs"
+    },
+    "dependencies": {
+        "@quantajs/core": "workspace:*",
+        "@quantajs/devtools": "workspace:*",
+        "@quantajs/react": "workspace:*",
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.4",
+        "@vitejs/plugin-react": "^6.0.5",
+        "typescript": "^6.0.2",
+        "vite": "^8.0.3"
+    }
+}

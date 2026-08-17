@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "useDefineForClassFields": true,
+        "module": "ESNext",
+        "lib": ["ESNext", "DOM"],
+        "moduleResolution": "Bundler",
+        "strict": true,
+        "skipLibCheck": true,
+        "jsx": "react-jsx",
+        "noEmit": true
+    },
+    "include": ["src"]
+}

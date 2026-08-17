@@ -13,6 +13,10 @@ dist
 dist-ssr
 *.local
 
+# Next.js (examples/nextjs-app)
+.next
+next-env.d.ts
+
 # Test coverage
 coverage
 tsconfig.tsbuildinfo

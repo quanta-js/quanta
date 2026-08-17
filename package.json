@@ -2,21 +2,23 @@
   "name": "quantajs",
   "private": true,
   "scripts": {
-    "dev": "pnpm -r dev",
-    "build": "pnpm -r build",
-    "preview": "pnpm -r preview",
-    "clean": "pnpm -r clean",
+    "dev": "pnpm --filter \"./packages/**\" dev",
+    "build": "pnpm --filter \"./packages/**\" build",
+    "preview": "pnpm --filter \"./packages/**\" preview",
+    "clean": "pnpm --filter \"./packages/**\" clean",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:types": "pnpm -r test:types",
+    "test:types": "pnpm --filter \"./packages/**\" test:types",
     "bench": "vitest bench",
-    "lint": "pnpm -r lint",
-    "lint:fix": "pnpm -r lint:fix",
+    "lint": "pnpm --filter \"./packages/**\" lint",
+    "lint:fix": "pnpm --filter \"./packages/**\" lint:fix",
     "format": "prettier --write \"packages/**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
     "changeset": "changeset",
     "version:update": "pnpm changeset version && pnpm install",
-    "publish": "pnpm build && pnpm changeset publish"
+    "publish": "pnpm build && pnpm changeset publish",
+    "examples:build": "pnpm --filter \"./examples/**\" build",
+    "examples:verify": "pnpm --filter \"./examples/**\" verify"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
@@ -46,7 +48,8 @@
     "vitest": "^4.0.18"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples/*"
   ],
   "pnpm": {
     "overrides": {
