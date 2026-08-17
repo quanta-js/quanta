@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { createStore } from '../core/create-store';
+import { createStore } from '../index';
 import { reactive } from '../state/reactive';
 import computed from '../state/computed';
 

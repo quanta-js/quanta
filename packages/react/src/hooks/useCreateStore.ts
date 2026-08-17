@@ -1,63 +1,55 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
-import { getOrCreateStore } from '@quantajs/core';
+import { useEffect, useRef } from 'react';
+import { createContainer, type StoreContainer } from '@quantajs/core';
 import type {
-    StateDefinition,
-    GetterDefinitions,
-    ActionDefinition,
-    StoreInstance,
-    RawActions,
+    ActionsTree,
+    GettersTree,
+    StateTree,
+    Store,
+    StoreDefinition,
 } from '@quantajs/core';
 
 /**
- * Create (or reuse) a named store scoped to a component's lifetime.
+ * Create a store whose lifetime is tied to a single component instance.
  *
- * Uses `getOrCreateStore` rather than `createStore` so that React StrictMode's
- * double-mount, hot-module replacement and repeated test setup all reuse the
- * existing instance instead of throwing on a duplicate name.
+ * Each mount gets its **own container**, so two instances of the component do
+ * not share state and neither leaks into the ambient container. The container
+ * is disposed on unmount, which releases every effect, watcher and persistence
+ * subscription the store owns.
  *
- * The store is destroyed on unmount. Because StrictMode unmounts and remounts,
- * the ref is cleared alongside the destroy so the next mount rebuilds rather
- * than handing back a disposed store.
+ * StrictMode-safe: the double mount/unmount/remount cycle rebuilds the
+ * container rather than handing back a disposed store.
+ *
+ * @example
+ * ```tsx
+ * const wizard = useLocalStore(wizardStoreDefinition);
+ * ```
  */
-export function useCreateStore<
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends RawActions = RawActions,
->(
-    name: string,
-    state: StateDefinition<S>,
-    getters?: GetterDefinitions<S, GDefs>,
-    actions?: ActionDefinition<S, GDefs, A>,
-): StoreInstance<S, GDefs, A> {
-    const storeRef = useRef<StoreInstance<S, GDefs, A> | null>(null);
+export function useLocalStore<
+    S extends StateTree,
+    G extends GettersTree<S>,
+    A extends ActionsTree,
+>(definition: StoreDefinition<S, G, A>): Store<S, G, A> {
+    const containerRef = useRef<StoreContainer | null>(null);
 
-    if (storeRef.current === null) {
-        storeRef.current = getOrCreateStore<S, GDefs, A>(name, {
-            state,
-            getters,
-            actions,
-        });
+    if (containerRef.current === null || !containerRef.current.active) {
+        containerRef.current = createContainer(`local_${definition.$id}`);
     }
 
     useEffect(() => {
-        // Re-acquire in case a previous StrictMode cycle destroyed it.
-        storeRef.current = getOrCreateStore<S, GDefs, A>(name, {
-            state,
-            getters,
-            actions,
-        });
+        const owned = containerRef.current;
         return () => {
-            storeRef.current?.$destroy();
-            storeRef.current = null;
+            owned?.dispose();
+            // Cleared so a StrictMode remount builds a fresh one instead of
+            // reusing the disposed container.
+            containerRef.current = null;
         };
-        // Intentionally keyed on `name` alone: the option callbacks are
-        // re-created every render, but the store's identity is its name.
-    }, [name]);
+    }, [definition]);
 
-    return storeRef.current;
+    if (containerRef.current === null || !containerRef.current.active) {
+        containerRef.current = createContainer(`local_${definition.$id}`);
+    }
+
+    return definition(containerRef.current);
 }

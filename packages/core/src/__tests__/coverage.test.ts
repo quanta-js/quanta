@@ -8,7 +8,7 @@
  * testing an implementation detail that is stripped from production builds.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { createStore, getOrCreateStore } from '../core/create-store';
+import { createStore } from '../index';
 import { flattenStore } from '../utils/flattenStore';
 import { Dependency } from '../core/dependency';
 import {
@@ -259,14 +259,14 @@ describe('error boundaries', () => {
             recovered.$destroy();
         });
 
-        it('getOrCreateStore returns the existing instance instead of throwing', () => {
+        it('createStore returns the existing instance instead of throwing', () => {
             const storeName = name('getorcreate');
-            const first = getOrCreateStore(storeName, {
+            const first = createStore(storeName, {
                 state: () => ({ n: 1 }),
             });
             (first as unknown as { n: number }).n = 5;
 
-            const second = getOrCreateStore(storeName, {
+            const second = createStore(storeName, {
                 state: () => ({ n: 1 }),
             });
 

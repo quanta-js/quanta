@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { computed, type ComputedRef } from '@quantajs/core';
 import { useQuantaSelector, type SelectorOptions } from './useQuantaStore';
-import type { RawActions, StoreInstance } from '@quantajs/core';
+import type {
+    ActionsTree,
+    GettersTree,
+    StateTree,
+    Store,
+} from '@quantajs/core';
 
 /**
  * Create a cached derived value from store state and subscribe to it.
@@ -24,16 +29,13 @@ import type { RawActions, StoreInstance } from '@quantajs/core';
  * disposed. Recreating is cheap — a computed is lazy until read.
  */
 export function useComputed<
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends RawActions = RawActions,
-    T = unknown,
+    S extends StateTree,
+    G extends GettersTree<S>,
+    A extends ActionsTree,
+    T,
 >(
-    store: StoreInstance<S, GDefs, A>,
-    computeFn: (store: StoreInstance<S, GDefs, A>) => T,
+    store: Store<S, G, A>,
+    computeFn: (store: Store<S, G, A>) => T,
     options?: SelectorOptions<T>,
 ): T {
     // Keep the latest compute function without recreating the computed: an

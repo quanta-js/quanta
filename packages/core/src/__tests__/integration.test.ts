@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createStore } from '../core/create-store';
+import { createStore } from '../index';
 import { createReactive } from '../core/create-reactive';
 import { reactiveEffect } from '../core/effect';
 import computed from '../state/computed';

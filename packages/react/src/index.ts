@@ -1,32 +1,41 @@
 'use client';
 
-/* Hooks */
+/* --- Store access -------------------------------------------------- */
+export { useQuanta, useQuantaValue, useQuantaActions } from './hooks/useStore';
+export { useLocalStore } from './hooks/useCreateStore';
+
+/* --- Lower-level hooks (take a resolved store, not a definition) ---- */
 export {
     useQuantaStore,
     useQuantaSelector,
     shallow,
 } from './hooks/useQuantaStore';
 export type { EqualityFn, SelectorOptions } from './hooks/useQuantaStore';
-export { useStore, useStoreSelector } from './hooks/useStore';
-export { useCreateStore } from './hooks/useCreateStore';
 export { useWatch } from './hooks/useWatch';
 export { useComputed } from './hooks/useComputed';
 
-/* Components */
+/* --- Components ----------------------------------------------------- */
 export { QuantaProvider } from './components/QuantaProvider';
 export type { QuantaProviderProps } from './components/QuantaProvider';
 export { QuantaDevTools } from './components/QuantaDevTools';
 export type { QuantaDevToolsProps } from './components/QuantaDevTools';
 
-/* Context */
-export { QuantaContext, useQuantaContext } from './context/QuantaContext';
+/* --- Context -------------------------------------------------------- */
+export {
+    QuantaContext,
+    useQuantaContext,
+    useContainerOrDefault,
+} from './context/QuantaContext';
 export type { QuantaContextValue } from './context/QuantaContext';
 
-/* Re-exports so a React app can import everything from one place */
+/* --- Re-exports, so a React app imports from one place -------------- */
 export {
+    defineStore,
     createStore,
-    getOrCreateStore,
-    useStore as getStore,
+    createContainer,
+    getDefaultContainer,
+    setDefaultContainer,
+    resetDefaultContainer,
     destroyAllStores,
     reactive,
     shallowReactive,
@@ -47,12 +56,17 @@ export {
 } from '@quantajs/core';
 
 export type {
-    StateDefinition,
-    GetterDefinitions,
-    ActionDefinition,
-    StoreInstance,
+    StateTree,
+    GettersTree,
+    ActionsTree,
+    ActionState,
+    Store,
+    AnyStore,
+    StoreApi,
+    StoreDefinition,
+    StoreDefinitionOptions,
+    StoreContainer,
+    ContainerSnapshot,
     StoreSubscriber,
-    StoreOptions,
-    RawActions,
     ComputedRef,
 } from '@quantajs/core';
