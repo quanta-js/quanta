@@ -4,89 +4,161 @@ import {
     StoreSubscriber,
 } from '../type/store-types';
 import { logger } from '../services/logger-service';
+import { __DEV__ } from '../utils/env';
 
-export const flattenStore = <
+/**
+ * Internal shape the flat proxy wraps.
+ */
+interface StoreCore<
     S extends object,
-    GDefs extends Record<string, (state: S) => any> = {},
-    A extends RawActions = {},
->(store: {
+    GDefs extends Record<string, (state: S) => unknown>,
+    A extends RawActions,
+> {
     state: S;
     getters: { [K in keyof GDefs]: { value: ReturnType<GDefs[K]> } };
     actions: A;
     subscribe?: (cb: StoreSubscriber) => () => void;
-    notifyAll?: () => void;
     $reset: () => void;
     $destroy: () => void;
-}): StoreInstance<S, GDefs, A> => {
-    try {
-        const flattenedProxy = new Proxy(store, {
-            get(target, prop: string, receiver) {
-                try {
-                    // Check in state
-                    if (prop in target.state) {
-                        return Reflect.get(target.state, prop);
-                    }
+}
 
-                    // Check in getters (return the computed value)
-                    if (prop in target.getters) {
-                        const getter: any = Reflect.get(target.getters, prop);
-                        try {
-                            // handle computed objects that expose `.value`
-                            if (
-                                getter &&
-                                typeof getter === 'object' &&
-                                'value' in getter
-                            ) {
-                                return getter.value;
-                            }
-                            if (typeof getter === 'function') {
-                                // call/bind? we return function – keep binding to flattened store
-                                return getter.bind(flattenedProxy);
-                            }
-                            return getter;
-                        } catch (err) {
-                            logger.warn(
-                                `FlattenStore: getter read failed for "${String(prop)}": ${String(err)}`,
-                            );
-                            return getter;
-                        }
-                    }
+/**
+ * Present `state`, `getters` and `actions` as one flat object.
+ *
+ * `store.count` reads state, `store.total` reads a computed getter and
+ * `store.increment()` calls an action, without the caller having to know which
+ * bucket a name lives in.
+ *
+ * ## Resolution order: getters, then state, then actions
+ *
+ * `createStore` warns when a getter shadows a state key, promising that "the
+ * getter takes priority on the flat store". The previous implementation
+ * checked state first, so state actually won and the warning was wrong.
+ *
+ * Getters-first is the correct half of that contradiction to keep: a getter is
+ * an explicit, intentional override written by the developer, whereas the
+ * shadowed state key is reachable at `store.state.x` and the raw computed at
+ * `store.getters.x`. Nothing becomes unreachable.
+ */
+export const flattenStore = <
+    S extends object,
+    GDefs extends Record<string, (state: S) => unknown> = Record<
+        string,
+        (state: S) => unknown
+    >,
+    A extends RawActions = RawActions,
+>(
+    store: StoreCore<S, GDefs, A>,
+): StoreInstance<S, GDefs, A> => {
+    // Declared ahead of the Proxy so the traps can reference the flat store
+    // itself (getters bind to it). Without the explicit annotation TypeScript
+    // cannot infer a type for a const referenced inside its own initializer.
+    const flattened: StoreInstance<S, GDefs, A> = new Proxy(store, {
+        get(target, prop: string | symbol, receiver) {
+            // Own members of the core object (state, getters, actions,
+            // subscribe, $reset, $destroy, $persist, $hydrated…) win first so
+            // the store's own API can never be shadowed by a state key.
+            if (Object.prototype.hasOwnProperty.call(target, prop)) {
+                return Reflect.get(target, prop, receiver);
+            }
 
-                    // Check in actions
-                    if (prop in target.actions) {
-                        return Reflect.get(target.actions, prop);
-                    }
-
-                    // Fallback to the original target (e.g. store.state, store.getters, etc.)
-                    return Reflect.get(target, prop, receiver);
-                } catch (error) {
-                    logger.error(
-                        `FlattenStore: Failed to get property "${prop}": ${error instanceof Error ? error.message : String(error)}`,
-                    );
-                    throw error;
+            // Getters take priority over state — see the note above.
+            const getters = target.getters as Record<string | symbol, unknown>;
+            if (prop in getters) {
+                const entry = getters[prop];
+                if (
+                    entry !== null &&
+                    typeof entry === 'object' &&
+                    'value' in entry
+                ) {
+                    return (entry as { value: unknown }).value;
                 }
-            },
-            set(target, prop: string, value, receiver) {
-                try {
-                    const wasInState = prop in target.state;
-                    const result = wasInState
-                        ? Reflect.set(target.state, prop, value) // Mutate reactive state
-                        : Reflect.set(target, prop, value, receiver); // Fallback
-                    return result;
-                } catch (error) {
-                    logger.error(
-                        `FlattenStore: Failed to set property "${prop}": ${error instanceof Error ? error.message : String(error)}`,
+                if (typeof entry === 'function') {
+                    return (entry as (...a: unknown[]) => unknown).bind(
+                        flattened,
                     );
-                    throw error;
                 }
-            },
-        });
+                return entry;
+            }
 
-        return flattenedProxy as unknown as StoreInstance<S, GDefs, A>;
-    } catch (error) {
-        logger.error(
-            `FlattenStore: Failed to create flattened store: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        throw error;
-    }
+            // Reading through `target.state` (the reactive proxy) is what
+            // registers the dependency, so tracking works transparently.
+            if (prop in (target.state as object)) {
+                return Reflect.get(target.state as object, prop);
+            }
+
+            const actions = target.actions as Record<string | symbol, unknown>;
+            if (prop in actions) {
+                return actions[prop];
+            }
+
+            return Reflect.get(target, prop, receiver);
+        },
+
+        set(target, prop: string | symbol, value: unknown, receiver) {
+            const getters = target.getters as Record<string | symbol, unknown>;
+            if (prop in getters) {
+                if (__DEV__) {
+                    logger.warn(
+                        `Store: "${String(prop)}" is a getter and cannot be assigned. Update the state it derives from instead.`,
+                    );
+                }
+                return true;
+            }
+
+            if (prop in (target.state as object)) {
+                return Reflect.set(target.state as object, prop, value);
+            }
+
+            return Reflect.set(target, prop, value, receiver);
+        },
+
+        has(target, prop: string | symbol) {
+            return (
+                Object.prototype.hasOwnProperty.call(target, prop) ||
+                prop in (target.getters as object) ||
+                prop in (target.state as object) ||
+                prop in (target.actions as object)
+            );
+        },
+
+        ownKeys(target) {
+            // Makes spreading and Object.keys() on the flat store return the
+            // union a caller would expect, instead of the internal buckets.
+            return [
+                ...new Set([
+                    ...Reflect.ownKeys(target.state as object),
+                    ...Reflect.ownKeys(target.getters as object),
+                    ...Reflect.ownKeys(target.actions as object),
+                    ...Reflect.ownKeys(target),
+                ]),
+            ];
+        },
+
+        getOwnPropertyDescriptor(target, prop: string | symbol) {
+            if (Object.prototype.hasOwnProperty.call(target, prop)) {
+                return Reflect.getOwnPropertyDescriptor(target, prop);
+            }
+            for (const bucket of [
+                target.getters as object,
+                target.state as object,
+                target.actions as object,
+            ]) {
+                if (prop in bucket) {
+                    // Must be configurable: the proxy invariant check compares
+                    // this against the (non-existent) own property on `target`.
+                    return {
+                        configurable: true,
+                        enumerable: true,
+                        value: (flattened as Record<string | symbol, unknown>)[
+                            prop
+                        ],
+                    };
+                }
+            }
+            return undefined;
+        },
+    }) as unknown as StoreInstance<S, GDefs, A>;
+
+    return flattened;
 };

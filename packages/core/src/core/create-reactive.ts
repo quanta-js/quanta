@@ -1,21 +1,71 @@
 import { track, trigger, batchEffects } from './effect';
 import { logger } from '../services/logger-service';
-import { parentMap, setParent } from '../utils/deep-trigger';
+import { __DEV__ } from '../utils/env';
+import { parentMap, setParent, removeParent } from '../utils/deep-trigger';
 import { devtools } from '../devtools';
 
-// Symbol used to retrieve the raw target from a proxy
-export const RAW_SYMBOL = Symbol('quanta_raw');
+/** Retrieves the raw target behind a proxy. */
+export const RAW_SYMBOL = Symbol('quanta.raw');
+/** Marks an object as permanently non-reactive. */
+const SKIP_SYMBOL = Symbol('quanta.skip');
+/** Marks a proxy as shallow (only top-level properties are reactive). */
+const SHALLOW_SYMBOL = Symbol('quanta.shallow');
+/** Marks a proxy as read-only. */
+const READONLY_SYMBOL = Symbol('quanta.readonly');
 
 /**
- * Returns the raw target object if the value is a QuantaJS proxy.
+ * Synthetic dependency key representing "the set of own keys".
+ *
+ * `ownKeys` traps (`Object.keys`, `for...in`, spread, `JSON.stringify`)
+ * subscribe to this key, and both adding and deleting a property publish to
+ * it. A symbol is used rather than the string `'keys'` so it can never collide
+ * with a real property name in user state.
+ */
+export const ITERATE_KEY = Symbol('quanta.iterate');
+
+/**
+ * Return the raw object behind a QuantaJS proxy.
+ *
+ * Use it to hand state to code that must not trigger tracking — a
+ * serialiser, a third-party library, a deep-equality check in a hot loop.
+ * Non-proxies are returned unchanged, so it is always safe to call.
  */
 export function toRaw<T>(observed: T): T {
-    const raw = observed && (observed as any)[RAW_SYMBOL];
+    if (observed === null || typeof observed !== 'object') return observed;
+    const raw = (observed as Record<symbol, unknown>)[RAW_SYMBOL] as
+        | T
+        | undefined;
     return raw ? toRaw(raw) : observed;
 }
 
-// Array methods that mutate — intercepted to batch triggers
-const ARRAY_MUTATOR_SET = new Set([
+/**
+ * Permanently exclude an object from reactivity.
+ *
+ * Useful for large immutable payloads, class instances with internal
+ * invariants, and third-party objects that misbehave behind a Proxy.
+ *
+ * @example
+ * ```ts
+ * state.chart = markRaw(new ExpensiveChartInstance());
+ * ```
+ */
+export function markRaw<T extends object>(value: T): T {
+    Object.defineProperty(value, SKIP_SYMBOL, {
+        value: true,
+        enumerable: false,
+        configurable: false,
+        writable: false,
+    });
+    return value;
+}
+
+/** Whether `value` was marked with {@link markRaw}. */
+function isMarkedRaw(value: object): boolean {
+    return (value as Record<symbol, unknown>)[SKIP_SYMBOL] === true;
+}
+
+/** Array methods that mutate in place, intercepted so one call = one trigger. */
+const ARRAY_MUTATORS = new Set([
     'push',
     'pop',
     'shift',
@@ -27,178 +77,253 @@ const ARRAY_MUTATOR_SET = new Set([
     'copyWithin',
 ]);
 
-// Cache Proxies per raw target (prevents double-wrapping base objects)
-const reactiveMap = new WeakMap<object, object>();
+/**
+ * Built-ins that gain nothing from a Proxy and break subtly behind one
+ * (internal slots are not forwarded through a `get` trap).
+ */
+function isNonReactiveBuiltin(target: object): boolean {
+    return (
+        target instanceof Date ||
+        target instanceof RegExp ||
+        target instanceof Error ||
+        target instanceof Promise ||
+        target instanceof WeakMap ||
+        target instanceof WeakSet ||
+        target instanceof ArrayBuffer ||
+        (typeof SharedArrayBuffer !== 'undefined' &&
+            target instanceof SharedArrayBuffer) ||
+        ArrayBuffer.isView(target)
+    );
+}
 
-// Track all created proxies so we don't wrap a proxy in another proxy
+/* ------------------------------------------------------------------ *
+ * Proxy caches
+ * ------------------------------------------------------------------ */
+
+/** raw target -> its deep reactive proxy. */
+const reactiveMap = new WeakMap<object, object>();
+/** raw target -> its shallow reactive proxy. */
+const shallowMap = new WeakMap<object, object>();
+/** raw target -> its readonly proxy. */
+const readonlyMap = new WeakMap<object, object>();
+/** Every proxy we have handed out, so we never wrap a proxy in a proxy. */
 const proxySet = new WeakSet<object>();
 
-// handles Map and Set types specifically
-function createReactiveCollection(target: Map<any, any> | Set<any>) {
-    if (reactiveMap.has(target)) {
-        return reactiveMap.get(target);
-    }
-    if (proxySet.has(target)) {
-        return target;
-    }
+/** Whether `value` is a QuantaJS reactive proxy. */
+export function isReactive(value: unknown): boolean {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        proxySet.has(value) &&
+        (value as Record<symbol, unknown>)[READONLY_SYMBOL] !== true
+    );
+}
 
-    // Helper to deeply wrap returned items
-    const wrap = (val: any) => {
-        const reactiveVal = createReactive(val);
-        if (typeof val === 'object' && val !== null) {
-            setParent(val, target, 'size'); // Using size as a generic key for collections
+/** Whether `value` is a QuantaJS readonly proxy. */
+export function isReadonly(value: unknown): boolean {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        (value as Record<symbol, unknown>)[READONLY_SYMBOL] === true
+    );
+}
+
+/** Whether `value` is any QuantaJS proxy (reactive, shallow or readonly). */
+export function isProxy(value: unknown): boolean {
+    return typeof value === 'object' && value !== null && proxySet.has(value);
+}
+
+interface ReactiveFlags {
+    shallow: boolean;
+    readonly: boolean;
+}
+
+const DEEP: ReactiveFlags = { shallow: false, readonly: false };
+
+/* ------------------------------------------------------------------ *
+ * Map / Set
+ * ------------------------------------------------------------------ */
+
+/**
+ * Reactive wrapper for `Map` and `Set`.
+ *
+ * Collections cannot be proxied by property access — `map.get(k)` is a method
+ * call, not a read of `k` — so each mutating and reading method is
+ * instrumented to track and trigger against the key it touches.
+ */
+function createReactiveCollection(
+    target: Map<unknown, unknown> | Set<unknown>,
+    flags: ReactiveFlags,
+): object {
+    const cache = flags.readonly ? readonlyMap : reactiveMap;
+    const cached = cache.get(target);
+    if (cached) return cached;
+
+    /** Wrap a value on the way out so nested mutations stay reactive. */
+    const wrap = (value: unknown): unknown => {
+        if (flags.shallow) return value;
+        if (typeof value === 'object' && value !== null) {
+            setParent(value as object, target, ITERATE_KEY);
         }
-        return reactiveVal;
+        return createReactive(value, flags);
     };
 
-    const triggerCollectionClear = (keysToInvalidate: any[]) => {
-        batchEffects(() => {
-            trigger(target, 'size');
-            for (const key of keysToInvalidate) {
-                trigger(target, key);
-            }
-        });
+    const readonlyGuard = (op: string): boolean => {
+        if (!flags.readonly) return false;
+        if (__DEV__) {
+            logger.warn(
+                `Reactive: "${op}" was blocked on a readonly collection.`,
+            );
+        }
+        return true;
     };
 
-    const instrumentations: Record<string | symbol, Function> = {
-        get(key: any) {
+    const instrumentations: Record<string | symbol, unknown> = {
+        get(key: unknown) {
             const rawKey = toRaw(key);
-            const result = (target as Map<any, any>).get(rawKey);
-            track(target, rawKey);
-            return wrap(result);
+            track(target, rawKey as string | symbol);
+            return wrap((target as Map<unknown, unknown>).get(rawKey));
         },
-        has(key: any) {
+
+        has(key: unknown) {
             const rawKey = toRaw(key);
-            track(target, rawKey);
+            track(target, rawKey as string | symbol);
             return target.has(rawKey);
         },
-        add(key: any) {
+
+        add(key: unknown) {
+            if (readonlyGuard('add')) return this;
             const rawKey = toRaw(key);
-            const hadKey = target.has(rawKey);
-            const result = (target as Set<any>).add(rawKey);
-            if (!hadKey) {
+            const had = target.has(rawKey);
+            (target as Set<unknown>).add(rawKey);
+            if (!had) {
                 if (typeof rawKey === 'object' && rawKey !== null) {
-                    setParent(rawKey, target, 'size');
+                    setParent(rawKey as object, target, ITERATE_KEY);
                 }
-                trigger(target, 'size');
-                trigger(target, rawKey);
-                if (devtools.enabled)
-                    devtools.notifyStateChange(
-                        target,
-                        'add',
-                        rawKey,
-                        parentMap,
-                    );
+                // One logical change, one flush.
+                batchEffects(() => {
+                    trigger(target, rawKey as string | symbol);
+                    trigger(target, ITERATE_KEY);
+                });
+                notifyDevTools(target, rawKey, rawKey);
             }
             return this;
         },
-        set(key: any, value: any) {
+
+        set(key: unknown, value: unknown) {
+            if (readonlyGuard('set')) return this;
             const rawKey = toRaw(key);
-            const hadKey = (target as Map<any, any>).has(rawKey);
-            const oldValue = (target as Map<any, any>).get(rawKey);
-            const result = (target as Map<any, any>).set(rawKey, value);
-            if (typeof value === 'object' && value !== null) {
-                setParent(value, target, 'size');
+            const rawValue = toRaw(value);
+            const map = target as Map<unknown, unknown>;
+            const had = map.has(rawKey);
+            const oldValue = map.get(rawKey);
+
+            if (had && Object.is(oldValue, rawValue)) return this;
+
+            // The slot is being repointed: release the previous occupant so it
+            // stops bubbling into this collection.
+            if (had) removeParent(oldValue, target, ITERATE_KEY);
+
+            map.set(rawKey, rawValue);
+            if (typeof rawValue === 'object' && rawValue !== null) {
+                setParent(rawValue as object, target, ITERATE_KEY);
             }
-            if (!hadKey) {
-                trigger(target, 'size');
-                trigger(target, rawKey);
-                if (devtools.enabled)
-                    devtools.notifyStateChange(
-                        target,
-                        rawKey,
-                        value,
-                        parentMap,
-                    );
-            } else if (!Object.is(oldValue, value)) {
-                trigger(target, rawKey);
-                trigger(target, 'size'); // Fix: notify iterator-based subscribers on value changes
-                if (devtools.enabled)
-                    devtools.notifyStateChange(
-                        target,
-                        rawKey,
-                        value,
-                        parentMap,
-                    );
-            }
+
+            batchEffects(() => {
+                trigger(target, rawKey as string | symbol);
+                // Size only changes on insert, but iterator-based subscribers
+                // (forEach / entries / spread) must see value changes too.
+                trigger(target, ITERATE_KEY);
+            });
+            notifyDevTools(target, rawKey, rawValue);
             return this;
         },
-        delete(key: any) {
+
+        delete(key: unknown) {
+            if (readonlyGuard('delete')) return false;
             const rawKey = toRaw(key);
-            const hadKey = (target as Map<any, any>).has(rawKey);
+            const had = target.has(rawKey);
+            if (!had) return false;
+
+            const oldValue =
+                target instanceof Map ? target.get(rawKey) : rawKey;
             const result = target.delete(rawKey);
-            if (hadKey) {
-                trigger(target, 'size');
-                trigger(target, rawKey);
-                if (devtools.enabled)
-                    devtools.notifyStateChange(
-                        target,
-                        'delete',
-                        rawKey,
-                        parentMap,
-                    );
-            }
+            removeParent(oldValue, target, ITERATE_KEY);
+
+            batchEffects(() => {
+                trigger(target, rawKey as string | symbol);
+                trigger(target, ITERATE_KEY);
+            });
+            notifyDevTools(target, rawKey, undefined);
             return result;
         },
+
         clear() {
-            const hadItems = target.size !== 0;
-            const keysToInvalidate = hadItems
-                ? target instanceof Map
-                    ? Array.from((target as Map<any, any>).keys())
-                    : Array.from((target as Set<any>).values())
-                : [];
-            const result = target.clear();
-            if (hadItems) {
-                triggerCollectionClear(keysToInvalidate);
-                if (devtools.enabled)
-                    devtools.notifyStateChange(
-                        target,
-                        'clear',
-                        undefined,
-                        parentMap,
-                    );
-            }
-            return result;
+            if (readonlyGuard('clear')) return undefined;
+            if (target.size === 0) return undefined;
+
+            const entries =
+                target instanceof Map
+                    ? [...target.entries()]
+                    : [...target.values()].map((v) => [v, v] as const);
+
+            target.clear();
+
+            batchEffects(() => {
+                trigger(target, ITERATE_KEY);
+                for (const [key, value] of entries) {
+                    removeParent(value, target, ITERATE_KEY);
+                    trigger(target, key as string | symbol);
+                }
+            });
+            notifyDevTools(target, ITERATE_KEY, undefined);
+            return undefined;
         },
-        forEach(callback: Function, thisArg?: any) {
-            track(target, 'size');
-            return target.forEach((value: any, key: any) => {
+
+        forEach(callback: (...args: unknown[]) => void, thisArg?: unknown) {
+            track(target, ITERATE_KEY);
+            const isMap = target instanceof Map;
+            return target.forEach((value: unknown, key: unknown) => {
                 callback.call(
                     thisArg,
                     wrap(value),
-                    target instanceof Map ? key : wrap(key),
+                    // Map keys keep their identity so `map.get(keyFromForEach)`
+                    // works; Set "keys" are values and are wrapped.
+                    isMap ? key : wrap(key),
                     this,
                 );
             });
         },
     };
 
-    // Iterator methods
-    const iteratorMethods = ['keys', 'values', 'entries', Symbol.iterator];
-    iteratorMethods.forEach((method) => {
-        instrumentations[method as string] = function (...args: any[]) {
-            track(target, 'size');
-            const innerIterator = (target as any)[method](...args);
-            const isEntries =
-                method === 'entries' ||
-                (method === Symbol.iterator && target instanceof Map);
+    for (const method of ['keys', 'values', 'entries', Symbol.iterator]) {
+        instrumentations[method as string] = function (...args: unknown[]) {
+            track(target, ITERATE_KEY);
+            const inner = (
+                target as unknown as Record<
+                    string | symbol,
+                    (...a: unknown[]) => Iterator<unknown>
+                >
+            )[method as string](...args);
+            const isMap = target instanceof Map;
+            const yieldsEntries =
+                method === 'entries' || (method === Symbol.iterator && isMap);
 
             return {
                 next() {
-                    const { value, done } = innerIterator.next();
-                    if (done) return { value, done };
+                    const step = inner.next();
+                    if (step.done) return step;
+                    const value = step.value as unknown;
                     return {
-                        value: isEntries
+                        done: false,
+                        value: yieldsEntries
                             ? [
-                                  target instanceof Map
-                                      ? value[0] // Don't wrap Map keys (preserve identity)
-                                      : wrap(value[0]),
-                                  wrap(value[1]),
+                                  (value as unknown[])[0],
+                                  wrap((value as unknown[])[1]),
                               ]
-                            : method === 'keys' && target instanceof Map
-                              ? value // Don't wrap Map keys
+                            : method === 'keys' && isMap
+                              ? value
                               : wrap(value),
-                        done,
                     };
                 },
                 [Symbol.iterator]() {
@@ -206,286 +331,252 @@ function createReactiveCollection(target: Map<any, any> | Set<any>) {
                 },
             };
         };
-    });
+    }
 
     const proxy = new Proxy(target, {
-        get(_, prop: string | symbol, receiver) {
-            if (prop === RAW_SYMBOL) {
-                return target;
+        get(_obj, prop: string | symbol, receiver) {
+            if (prop === RAW_SYMBOL) return target;
+            if (prop === READONLY_SYMBOL) return flags.readonly;
+            if (prop === SHALLOW_SYMBOL) return flags.shallow;
+
+            if (prop === 'size') {
+                track(target, ITERATE_KEY);
+                return target.size;
             }
-            try {
-                if (prop === 'size') {
-                    track(target, 'size');
-                    return target.size;
-                }
-                if (Reflect.has(instrumentations, prop)) {
-                    return typeof instrumentations[prop] === 'function'
-                        ? instrumentations[prop].bind(receiver)
-                        : instrumentations[prop];
-                }
-                track(target, prop);
-                return Reflect.get(target, prop, receiver);
-            } catch (error) {
-                logger.error(
-                    `Reactive: Failed to access collection property "${String(prop)}": ${
-                        error instanceof Error ? error.message : String(error)
-                    }`,
-                );
-                throw error;
+
+            const instrumented = instrumentations[prop];
+            if (instrumented !== undefined) {
+                return typeof instrumented === 'function'
+                    ? instrumented.bind(receiver)
+                    : instrumented;
             }
+
+            track(target, prop);
+            return Reflect.get(target, prop, target);
         },
     });
 
-    reactiveMap.set(target, proxy);
+    cache.set(target, proxy);
     proxySet.add(proxy);
     return proxy;
 }
 
+/** Emit a DevTools event, never letting a listener break the mutation. */
+function notifyDevTools(
+    target: object,
+    prop: string | symbol | unknown,
+    value: unknown,
+): void {
+    if (!devtools.enabled) return;
+    devtools.notifyStateChange(target, prop as string | symbol, value);
+}
+
+/* ------------------------------------------------------------------ *
+ * Objects & arrays
+ * ------------------------------------------------------------------ */
+
 /**
- * Checks if an object is a QuantaJS reactive proxy.
+ * Wrap `target` in a reactive proxy.
+ *
+ * Primitives, `null`, non-proxyable built-ins and `markRaw`-ed objects pass
+ * through unchanged, so callers never need to type-check first.
  */
-export function isReactive(target: any): boolean {
-    return proxySet.has(target);
-}
-
-// createReactive function to handle all data types
-export function createReactive(target: any) {
-    try {
-        // Guard: skip non-proxyable values (primitives, null, Date, RegExp, etc.)
-        if (target === null || target === undefined) {
-            return target;
-        }
-        if (typeof target !== 'object' && typeof target !== 'function') {
-            return target;
-        }
-        // Skip built-in types that don't benefit from Proxy wrapping
-        if (
-            target instanceof Date ||
-            target instanceof RegExp ||
-            target instanceof Error ||
-            target instanceof Promise ||
-            target instanceof WeakMap ||
-            target instanceof WeakSet ||
-            target instanceof ArrayBuffer ||
-            (typeof SharedArrayBuffer !== 'undefined' &&
-                target instanceof SharedArrayBuffer) ||
-            ArrayBuffer.isView(target)
-        ) {
-            return target;
-        }
-
-        // Global cache check (prevents double-wrapping the raw target)
-        if (reactiveMap.has(target)) {
-            return reactiveMap.get(target);
-        }
-
-        // Prevent wrapping an existing proxy in another proxy!
-        // This stops exponential trap chaining when spreading reactive arrays `[...proxies]`
-        if (proxySet.has(target)) {
-            return target;
-        }
-
-        if (target instanceof Map || target instanceof Set) {
-            return createReactiveCollection(target);
-        }
-
-        const proxy = new Proxy(target, {
-            get(
-                obj: { [key: string]: any },
-                prop: string | symbol,
-                receiver: any,
-            ) {
-                if (prop === RAW_SYMBOL) {
-                    return obj;
-                }
-                try {
-                    const result = Reflect.get(obj, prop, receiver);
-
-                    // Track dependencies for `size` property on collections
-                    if (
-                        prop === 'size' &&
-                        (obj instanceof Map || obj instanceof Set)
-                    ) {
-                        track(obj, 'size');
-                        return result;
-                    }
-
-                    // Intercept mutating array methods to batch triggers
-                    if (
-                        Array.isArray(obj) &&
-                        typeof prop === 'string' &&
-                        typeof result === 'function' &&
-                        ARRAY_MUTATOR_SET.has(prop)
-                    ) {
-                        return (...args: any[]) => {
-                            let methodResult: any;
-                            batchEffects(() => {
-                                // Apply to receiver (the proxy) so index sets trap natively
-                                methodResult = result.apply(receiver, args);
-                            });
-                            // Explicitly trigger length because engine updates it before the length-trap hits
-                            trigger(obj, 'length');
-                            return methodResult;
-                        };
-                    }
-
-                    track(obj, prop);
-
-                    // Handle nested reactivity for objects or arrays
-                    if (typeof result === 'object' && result !== null) {
-                        // Cache-aware recursion + set parent on returned Proxy
-                        const nested = createReactive(result);
-                        if (
-                            typeof prop === 'string' ||
-                            typeof prop === 'symbol'
-                        ) {
-                            setParent(result, obj, prop);
-                        }
-                        return nested;
-                    }
-
-                    return result;
-                } catch (error) {
-                    logger.error(
-                        `Reactive: Failed to get property "${String(prop)}": ${
-                            error instanceof Error
-                                ? error.message
-                                : String(error)
-                        }`,
-                    );
-                    throw error;
-                }
-            },
-            set(
-                obj: { [key: string]: any },
-                prop: string,
-                value: any,
-                receiver: any,
-            ) {
-                try {
-                    const oldValue = obj[prop];
-                    const result = Reflect.set(obj, prop, value, receiver);
-
-                    // Trigger updates if value actually changed (Object.is handles NaN, -0 correctly)
-                    if (!Object.is(oldValue, value)) {
-                        trigger(obj, prop);
-                        // Set parent mapping for new nested objects
-                        if (typeof value === 'object' && value !== null) {
-                            createReactive(value); // Cache-safe wrap
-                        }
-
-                        if (devtools.enabled)
-                            devtools.notifyStateChange(
-                                obj,
-                                prop,
-                                value,
-                                parentMap,
-                            );
-                    }
-
-                    return result;
-                } catch (error) {
-                    logger.error(
-                        `Reactive: Failed to set property "${String(prop)}": ${
-                            error instanceof Error
-                                ? error.message
-                                : String(error)
-                        }`,
-                    );
-                    throw error;
-                }
-            },
-            deleteProperty(obj: { [key: string]: any }, prop: string | symbol) {
-                try {
-                    const hadKey = prop in obj;
-                    const result = Reflect.deleteProperty(obj, prop);
-
-                    // Trigger updates if the property was deleted
-                    if (hadKey) {
-                        trigger(obj, prop);
-                        trigger(obj, 'keys'); // Notify ownKeys watchers (e.g., Object.keys())
-                        if (devtools.enabled) {
-                            devtools.notifyStateChange(
-                                obj,
-                                prop,
-                                undefined,
-                                parentMap,
-                            );
-                        }
-                    }
-
-                    return result;
-                } catch (error) {
-                    logger.error(
-                        `Reactive: Failed to delete property "${String(prop)}": ${
-                            error instanceof Error
-                                ? error.message
-                                : String(error)
-                        }`,
-                    );
-                    throw error;
-                }
-            },
-            has(obj: { [key: string]: any }, prop: string | symbol) {
-                try {
-                    track(obj, prop);
-                    return Reflect.has(obj, prop);
-                } catch (error) {
-                    logger.error(
-                        `Reactive: Failed to check property "${String(prop)}" existence: ${
-                            error instanceof Error
-                                ? error.message
-                                : String(error)
-                        }`,
-                    );
-                    throw error;
-                }
-            },
-            ownKeys(obj: { [key: string]: any }) {
-                try {
-                    track(obj, 'keys');
-                    return Reflect.ownKeys(obj);
-                } catch (error) {
-                    logger.error(
-                        `Reactive: Failed to get own keys: ${
-                            error instanceof Error
-                                ? error.message
-                                : String(error)
-                        }`,
-                    );
-                    throw error;
-                }
-            },
-            getOwnPropertyDescriptor(
-                obj: { [key: string]: any },
-                prop: string | symbol,
-            ) {
-                try {
-                    // Phase 7.2: Stop tracking descriptors to reduce noise
-                    return Reflect.getOwnPropertyDescriptor(obj, prop);
-                } catch (error) {
-                    logger.error(
-                        `Reactive: Failed to get property descriptor for "${String(prop)}": ${
-                            error instanceof Error
-                                ? error.message
-                                : String(error)
-                        }`,
-                    );
-                    throw error;
-                }
-            },
-        });
-
-        // Cache the top-level Proxy too
-        reactiveMap.set(target, proxy);
-        proxySet.add(proxy);
-        return proxy;
-    } catch (error) {
-        logger.error(
-            `Reactive: Failed to create reactive object: ${
-                error instanceof Error ? error.message : String(error)
-            }`,
-        );
-        throw error;
+export function createReactive<T>(target: T, flags: ReactiveFlags = DEEP): T {
+    if (target === null || target === undefined) return target;
+    if (typeof target !== 'object' && typeof target !== 'function') {
+        return target;
     }
+
+    const obj = target as unknown as object;
+
+    if (isNonReactiveBuiltin(obj) || isMarkedRaw(obj)) return target;
+
+    // Never wrap a proxy in another proxy: spreading a reactive array
+    // (`[...items]`) would otherwise chain traps exponentially.
+    if (proxySet.has(obj)) return target;
+
+    const cache = flags.readonly
+        ? readonlyMap
+        : flags.shallow
+          ? shallowMap
+          : reactiveMap;
+    const cached = cache.get(obj);
+    if (cached) return cached as unknown as T;
+
+    if (obj instanceof Map || obj instanceof Set) {
+        return createReactiveCollection(
+            obj as Map<unknown, unknown> | Set<unknown>,
+            flags,
+        ) as unknown as T;
+    }
+
+    const proxy = new Proxy(obj as Record<string | symbol, unknown>, {
+        get(source, prop: string | symbol, receiver) {
+            if (prop === RAW_SYMBOL) return source;
+            if (prop === READONLY_SYMBOL) return flags.readonly;
+            if (prop === SHALLOW_SYMBOL) return flags.shallow;
+
+            const result = Reflect.get(source, prop, receiver);
+
+            // Intercept in-place array mutators so that the many index writes
+            // and the implicit `length` update they perform collapse into a
+            // single notification. `length` is triggered explicitly *inside*
+            // the batch because the engine updates it before our set trap runs.
+            if (
+                Array.isArray(source) &&
+                typeof result === 'function' &&
+                typeof prop === 'string' &&
+                ARRAY_MUTATORS.has(prop)
+            ) {
+                if (flags.readonly) {
+                    return () => {
+                        if (__DEV__) {
+                            logger.warn(
+                                `Reactive: "${prop}" was blocked on a readonly array.`,
+                            );
+                        }
+                        return undefined;
+                    };
+                }
+                return (...args: unknown[]) =>
+                    batchEffects(() => {
+                        const out = (
+                            result as (...a: unknown[]) => unknown
+                        ).apply(receiver, args);
+                        trigger(source, 'length');
+                        trigger(source, ITERATE_KEY);
+                        return out;
+                    });
+            }
+
+            track(source, prop);
+
+            if (flags.shallow) return result;
+
+            if (typeof result === 'object' && result !== null) {
+                setParent(result, source, prop);
+                return createReactive(result, flags);
+            }
+
+            return result;
+        },
+
+        set(source, prop: string | symbol, value: unknown, receiver) {
+            if (flags.readonly) {
+                if (__DEV__) {
+                    logger.warn(
+                        `Reactive: set of "${String(prop)}" was blocked on a readonly object.`,
+                    );
+                }
+                return true; // silently ignore, matching Object.freeze semantics
+            }
+
+            // Assigning a proxy would store a proxy inside the raw target and
+            // double-wrap on the way back out.
+            const rawValue = toRaw(value);
+            const hadKey = Object.prototype.hasOwnProperty.call(source, prop);
+            const oldValue = source[prop];
+
+            if (hadKey && Object.is(oldValue, rawValue)) return true;
+
+            // The slot is being repointed: detach the previous occupant so it
+            // no longer bubbles invalidations into this object.
+            if (hadKey && oldValue !== rawValue) {
+                removeParent(oldValue, source, prop);
+            }
+
+            const result = Reflect.set(source, prop, rawValue, receiver);
+            if (!result) return false;
+
+            if (typeof rawValue === 'object' && rawValue !== null) {
+                setParent(rawValue, source, prop);
+            }
+
+            trigger(source, prop);
+            // Adding a key changes the result of Object.keys / for...in /
+            // spread / JSON.stringify, so enumeration subscribers must be
+            // invalidated too. Only on add — a value change does not alter the
+            // key set, and waking every enumerator on every write would be a
+            // significant regression.
+            if (!hadKey) trigger(source, ITERATE_KEY);
+
+            notifyDevTools(source, prop, rawValue);
+            return true;
+        },
+
+        deleteProperty(source, prop: string | symbol) {
+            if (flags.readonly) {
+                if (__DEV__) {
+                    logger.warn(
+                        `Reactive: delete of "${String(prop)}" was blocked on a readonly object.`,
+                    );
+                }
+                return true;
+            }
+
+            const hadKey = Object.prototype.hasOwnProperty.call(source, prop);
+            if (!hadKey) return true;
+
+            const oldValue = source[prop];
+            const result = Reflect.deleteProperty(source, prop);
+            if (!result) return false;
+
+            removeParent(oldValue, source, prop);
+            trigger(source, prop);
+            trigger(source, ITERATE_KEY);
+            notifyDevTools(source, prop, undefined);
+            return true;
+        },
+
+        has(source, prop: string | symbol) {
+            track(source, prop);
+            return Reflect.has(source, prop);
+        },
+
+        ownKeys(source) {
+            // Arrays express their key set through `length`; everything else
+            // uses the synthetic iterate key.
+            track(source, Array.isArray(source) ? 'length' : ITERATE_KEY);
+            return Reflect.ownKeys(source);
+        },
+
+        getOwnPropertyDescriptor(source, prop: string | symbol) {
+            // Deliberately untracked: descriptor reads are an implementation
+            // detail of spread and Object.keys, both of which already track
+            // via ownKeys / get.
+            return Reflect.getOwnPropertyDescriptor(source, prop);
+        },
+    });
+
+    cache.set(obj, proxy);
+    proxySet.add(proxy);
+    return proxy as unknown as T;
 }
+
+/**
+ * Reactive proxy where only top-level properties are tracked.
+ *
+ * Nested objects are returned raw. Use when state holds large structures whose
+ * interiors never change identity — it avoids the cost of proxying the whole
+ * tree.
+ */
+export function shallowReactive<T extends object>(target: T): T {
+    return createReactive(target, { shallow: true, readonly: false }) as T;
+}
+
+/**
+ * Read-only reactive view of `target`.
+ *
+ * Reads track as normal; writes are ignored and warned about in development.
+ * Use to hand state to a consumer that must not mutate it.
+ */
+export function readonly<T extends object>(target: T): T {
+    return createReactive(target, { shallow: false, readonly: true }) as T;
+}
+
+/** Read-only view that does not proxy nested values. */
+export function shallowReadonly<T extends object>(target: T): T {
+    return createReactive(target, { shallow: true, readonly: true }) as T;
+}
+
+export { parentMap };

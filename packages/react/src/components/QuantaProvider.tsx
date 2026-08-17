@@ -1,45 +1,43 @@
-import { ReactNode } from 'react';
+'use client';
+
+import { ReactNode, useMemo } from 'react';
 import type { StoreInstance } from '@quantajs/core';
 import { QuantaContext } from '../context/QuantaContext';
-import { logger } from '@quantajs/core';
 
 export interface QuantaProviderProps {
-    stores: { [key: string]: StoreInstance<any, any, any> };
+    /** Stores to expose to descendants, keyed by the name `useStore` will use. */
+    stores: Record<string, StoreInstance<never, never, never>>;
     children: ReactNode;
 }
 
 /**
- * Provider component that makes a QuantaJS store available to all child components
- * @param stores - The QuantaJS stores instances to provide
- * @param children - Child components that can access the stores
+ * Make a set of stores available to `useStore` / `useStoreSelector` below it.
+ *
+ * The context value is memoised on the `stores` object. Building it inline
+ * would create a new value on every render of the provider and force every
+ * consumer in the tree to re-render, which is the Context fan-out problem a
+ * state library exists to avoid.
  */
 export function QuantaProvider({ stores, children }: QuantaProviderProps) {
-    try {
-        // Validate stores object
-        if (!stores || typeof stores !== 'object') {
-            const errorMessage = 'QuantaProvider: Invalid stores prop provided';
-            logger.error(errorMessage);
-            throw new Error(errorMessage);
-        }
-
-        // Validate each store
-        for (const [name, store] of Object.entries(stores)) {
-            if (!store || typeof store !== 'object') {
-                const errorMessage = `QuantaProvider: Invalid store "${name}" provided`;
-                logger.error(errorMessage);
-                throw new Error(errorMessage);
-            }
-        }
-
-        return (
-            <QuantaContext.Provider value={{ stores }}>
-                {children}
-            </QuantaContext.Provider>
+    if (!stores || typeof stores !== 'object') {
+        throw new Error(
+            'QuantaProvider: Invalid stores prop — expected an object mapping names to store instances.',
         );
-    } catch (error) {
-        logger.error(
-            `QuantaProvider: Failed to render provider: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        throw error;
     }
+
+    for (const [name, store] of Object.entries(stores)) {
+        if (!store || typeof store !== 'object') {
+            throw new Error(
+                `QuantaProvider: Invalid store "${name}" — expected a store instance created with createStore().`,
+            );
+        }
+    }
+
+    const value = useMemo(() => ({ stores }), [stores]);
+
+    return (
+        <QuantaContext.Provider value={value}>
+            {children}
+        </QuantaContext.Provider>
+    );
 }

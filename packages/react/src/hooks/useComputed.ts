@@ -1,62 +1,68 @@
-import { useEffect, useRef } from 'react';
-import { computed, logger } from '@quantajs/core';
-import { useQuantaSelector } from './useQuantaStore';
+'use client';
+
+import { useCallback, useEffect, useRef } from 'react';
+import { computed, type ComputedRef } from '@quantajs/core';
+import { useQuantaSelector, type SelectorOptions } from './useQuantaStore';
 import type { RawActions, StoreInstance } from '@quantajs/core';
 
 /**
- * Hook to create and use computed values that depend on store state.
- * Automatically disposes of the internal computed effect on unmount.
+ * Create a cached derived value from store state and subscribe to it.
  *
- * @param store - The QuantaJS store instance
- * @param computeFn - Function that computes a value based on the store
- * @returns The computed value that updates reactively
+ * The computed is created lazily and disposed when the component unmounts.
+ *
+ * ## StrictMode
+ *
+ * React StrictMode mounts, unmounts and remounts every component in
+ * development. The render body does **not** re-run on that remount, so a hook
+ * that creates its resource during render and nulls the ref in an unmount
+ * cleanup is left permanently without one — the previous implementation did
+ * exactly that and froze at a stale value, then threw
+ * "Cannot read properties of null (reading 'value')".
+ *
+ * Two things make this version safe: the cleanup disposes the computed but
+ * leaves the ref in place, and `ensure()` transparently rebuilds it if it was
+ * disposed. Recreating is cheap — a computed is lazy until read.
  */
 export function useComputed<
     S extends object,
-    GDefs extends Record<string, (state: S) => any> = {},
-    A extends RawActions = {},
+    GDefs extends Record<string, (state: S) => unknown> = Record<
+        string,
+        (state: S) => unknown
+    >,
+    A extends RawActions = RawActions,
     T = unknown,
 >(
     store: StoreInstance<S, GDefs, A>,
     computeFn: (store: StoreInstance<S, GDefs, A>) => T,
+    options?: SelectorOptions<T>,
 ): T {
-    const computedRef = useRef<ReturnType<typeof computed<T>> | null>(null);
+    // Keep the latest compute function without recreating the computed: an
+    // inline arrow is a new identity every render.
+    const computeRef = useRef(computeFn);
+    computeRef.current = computeFn;
 
-    if (!computedRef.current) {
-        try {
-            computedRef.current = computed(() => computeFn(store));
-        } catch (error) {
-            logger.error(
-                `useComputed: Failed to initialize computed: ${
-                    error instanceof Error ? error.message : String(error)
-                }`,
-            );
-            throw error;
+    const refHolder = useRef<ComputedRef<T> | null>(null);
+    const disposedRef = useRef(false);
+
+    /** Return the live computed, rebuilding it after a StrictMode remount. */
+    const ensure = useCallback((): ComputedRef<T> => {
+        if (refHolder.current === null || disposedRef.current) {
+            refHolder.current = computed(() => computeRef.current(store));
+            disposedRef.current = false;
         }
-    }
+        return refHolder.current;
+    }, [store]);
 
-    // Cleanup on unmount
     useEffect(() => {
+        // Re-arm on (re)mount so the value is live again after StrictMode's
+        // synthetic unmount/remount cycle.
+        ensure();
         return () => {
-            if (
-                computedRef.current &&
-                typeof (computedRef.current as any).stop === 'function'
-            ) {
-                (computedRef.current as any).stop();
-                computedRef.current = null;
-            }
+            refHolder.current?.stop();
+            disposedRef.current = true;
         };
-    }, []);
+    }, [ensure]);
 
-    try {
-        // Only re-render when the computed value itself changes
-        return useQuantaSelector(store, () => computedRef.current!.value);
-    } catch (error) {
-        logger.error(
-            `useComputed: Hook execution failed: ${
-                error instanceof Error ? error.message : String(error)
-            }`,
-        );
-        throw error;
-    }
+    const selector = useCallback(() => ensure().value, [ensure]);
+    return useQuantaSelector(store, selector, options);
 }

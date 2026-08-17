@@ -1,11 +1,11 @@
 # QuantaJS v2.0.0 — Full Codebase Audit, Security Review & Product Strategy
 
 **Scope:** `quanta-js/quanta` (`@quantajs/core`, `@quantajs/react`, `@quantajs/devtools` @ 2.0.0) and `quanta-js/quanta-docs`.
-**Method:** full source read, dependency install, `pnpm test` (265 tests), `pnpm build`, `pnpm bench`, plus 22 purpose-written probe cases that were promoted into a permanent `known-defects` regression suite.
-**Date:** 2026-08-17
+**Method:** full source read, dependency install, `pnpm test`, `pnpm build`, `pnpm bench`, plus 22 purpose-written probe cases.
+**Date:** 2026-08-17 · **Remediation:** see §0.1 — most findings are now fixed.
 
-Everything asserted below was **executed and observed**, not inferred. Each finding carries an ID; the executable proof lives in
-`packages/core/src/__tests__/known-defects.test.ts` and `packages/react/src/__tests__/known-defects.test.tsx`.
+Everything asserted below was **executed and observed**, not inferred. The audit text describes v2.0.0 **as released**; §0.1 records
+what has since been fixed. Each fixed defect is covered by a behavioural regression test in the suite (304 tests, up from 265).
 
 ---
 
@@ -41,6 +41,46 @@ stream**, and that one primitive unlocks undo/redo, time travel, collaborative e
 differentiator that Zustand, Jotai and Valtio do not have and cannot easily add.
 
 **Verdict: do not market v2.0.0 to enterprises yet. Ship a 2.1 correctness-and-packaging release first, then build the differentiator.**
+
+---
+
+## 0.1 Remediation status
+
+Phases 1 and 2 of §7 are implemented. The audit text below is preserved as the description of **v2.0.0 as released** — it is the
+record of what was wrong, not of the current tree.
+
+### Fixed
+
+| Area | Findings |
+|---|---|
+| **Packaging** | S-1 (ESM+CJS, no UMD, no global pollution) · B-17 (React ships real types via `tsc`) · B-18 (`'use client'`) · B-19 (`react/jsx-runtime` external) · P-7 (Preact + DevTools unbundled) · P-8 (`sideEffects: false`) |
+| **Security** | S-2 (prototype-pollution guards on every ingest path) · S-3 (`storageArea` check, parse errors contained, validation) · S-4 (DevTools opt-in, no `window` attach until enabled, `redact` option) · S-6 (listener isolation) · S-8 (version-downgrade refused) |
+| **Reactivity** | B-3 (bubble routes through the batch queue *and* schedulers) · B-6 (`ITERATE_KEY` on key add) · B-7 (parent links pruned on reassign/delete) · B-9 (array mutators trigger inside the batch) · B-26 (`batchEffects` returns a value) |
+| **Store** | B-5 (getters win, matching the warning) · B-10 (`$reset` batched) · B-16 (`getOrCreateStore`) · awaitable `$hydrated` · `destroyAllStores()` for teardown |
+| **Persistence** | B-11 (`clear()` re-arms auto-save) · B-12 (`save()` always writes) · P-4 (one serialise per write, not two per mutation) · SSR-safe adapters |
+| **DevTools** | B-2 (raw-target keying — state changes are reported at all now) · B-23 (dotted paths, `STORE_DISPOSE`) |
+| **React** | B-1 (effect-based selection — correct for live proxies *and* projections) · B-4 (StrictMode-safe `useComputed`) · B-8 (no resubscribe per render) · B-13 (fine-grained: a component is not woken by state it never read) · B-20/21/22 |
+| **API surface** | B-14 (`toRaw`, `markRaw`, `readonly`, `shallowReactive`, `untrack`, `effect`, `effectScope`, `nextTick` all exported) |
+
+### Measured effect
+
+| | Before | After |
+|---|---|---|
+| `@quantajs/react` bundle | 86.9 kB / 20.1 kB gz | **7.3 kB / 2.9 kB gz** |
+| `@quantajs/react` types | `export { }` | real declarations |
+| `require('@quantajs/core')` | `{}` + global pollution | 42 working exports |
+| 1k subscribers × 100 updates | ~95 ms | ~51–68 ms |
+| Tests | 265 | **304** |
+
+Benchmarks on this machine carry ±5–25% run-to-run variance, so treat the timing row as directional rather than precise.
+
+### Deliberately not done yet
+
+- **B-15** — the store registry is still a process-wide singleton. A correct fix is a per-request container API, which is a design
+  change worth discussing rather than slipping into a bug-fix pass. `destroyAllStores()` and `getOrCreateStore()` make the current
+  behaviour manageable in the meantime; the SSR caveat is documented in `create-store.ts`.
+- **Async action lifecycle** (`$pending` / `$error` / abort) and **per-path `subscribe`** — new API surface, Phase 3.
+- **The patch stream** — designed separately and deliberately deferred to Phase 4; it will land in its own pull request.
 
 ---
 
@@ -292,10 +332,19 @@ Measured with the repo's own `pnpm bench` on this machine. The absolute numbers 
 | 10k flat property writes | 134 hz (7.4 ms) | ~0.74 µs/write. Fine. |
 | **1k subscribers × 100 updates** | **10.5 hz (95 ms)** | ~0.95 ms per update. Pure O(subscribers) fan-out. |
 
-**P-1 — A cached computed read costs 38× a property read.** Every `.value` access calls `track()`, which does a WeakMap lookup, a Map
-lookup, a `Set.add`, an `effectDeps` WeakMap lookup, and runs inside a `try/catch` that builds an error template string on the failure
-path. A cache *hit* should be a dirty-check and a return. Cache the `Dependency` object on the computed and skip `track()` entirely
-when there is no `activeEffect`.
+**P-1 — WITHDRAWN. The original finding was wrong, and the benchmark that produced it was measuring the wrong thing.**
+
+The `read computed (cached)` benchmark rebuilt the reactive object *and* the computed on every iteration before reading it, so it
+measured construction cost while being named "cached read". The "38× slower than a property read" claim was an artifact of that.
+
+With a corrected benchmark that hoists the setup and measures 1000 reads per iteration, a cached computed read is **3.1× faster than
+a plain reactive property read** (42.8M vs 13.6M reads/sec) — as it should be, because the computed getter returns a cached field
+while the property read goes through a Proxy trap.
+
+There *was* a real inefficiency underneath: `track()` allocated a `Dependency` and a `Map` entry even when no effect was running, so
+every read outside an effect paid for bookkeeping nobody would ever consume. That is fixed (an early return when `activeEffect` is
+null), and it is why object creation and effect throughput improved. But it was never a 38× problem, and the benchmark has been
+corrected so the number cannot mislead again.
 
 **P-2 / P-3 — Store fan-out is O(all subscribers) per mutation.** Every store carries one deep-watcher effect that enumerates all
 top-level keys via `for...in` and then calls `dependency.notify()`, waking **every** subscriber regardless of what they read. This is
@@ -322,7 +371,8 @@ context, that is larger than Zustand + Jotai + Valtio combined, for a thin hooks
 are in every bundle whether used or not. Add `"sideEffects": false` and `./persistence`, `./devtools` subpath exports.
 
 **P-9 — Benchmarks run in CI but gate nothing.** A benchmark that cannot fail is decoration. Persist results and fail the build on
-regression beyond a threshold.
+regression beyond a threshold. The P-1 episode above is the sharper version of this lesson: an *unexamined* benchmark is worse than
+no benchmark, because it produces a number people quote.
 
 ---
 

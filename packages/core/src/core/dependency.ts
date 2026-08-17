@@ -1,71 +1,50 @@
 import type { EffectFunction } from '../type/store-types';
-import { logger } from '../services/logger-service';
 
 /**
- * Manages a set of subscribers (effects or watchers) for a specific reactive property.
- * When a property is modified, its Dependency notifies all subscribers.
+ * The set of subscribers (effects, watchers, store listeners) for one
+ * reactive property.
+ *
+ * This class is deliberately a dumb container. Notification policy —
+ * batching, custom schedulers, circular-dependency detection and error
+ * collection — lives in `core/effect.ts` behind `notifyDependency()`, so that
+ * every trigger in the library, including deep/bubbled ones, goes through
+ * exactly one code path.
+ *
+ * An earlier version exposed a `notify()` method that invoked subscribers
+ * directly. `bubbleTrigger` used it, which meant nested mutations silently
+ * escaped `batchEffects()` and bypassed each effect's scheduler. Keeping the
+ * invocation logic out of this class makes that mistake unrepresentable.
  */
 export class Dependency {
-    private subscribers: Set<EffectFunction>;
+    private subscribers: Set<EffectFunction> = new Set();
 
-    constructor() {
-        this.subscribers = new Set();
+    /** Subscribe a callback to this dependency. */
+    depend(callback: EffectFunction | null | undefined): void {
+        if (callback) this.subscribers.add(callback);
     }
 
-    /**
-     * Subscribe a callback to this dependency.
-     */
-    depend(callback: EffectFunction | null) {
-        if (callback) {
-            this.subscribers.add(callback);
-        }
-    }
-
-    /**
-     * Notify all subscribers that the property has changed.
-     */
-    notify(): void {
-        try {
-            // Snapshot subscribers into an array BEFORE iterating.
-            // Subscribers (effects) may remove/re-add themselves during execution;
-            // iterating the live Set would cause an infinite loop per ES spec.
-            const subscriberSnapshot = [...this.subscribers];
-            for (const subscriber of subscriberSnapshot) {
-                if ((subscriber as any).active === false) continue;
-                try {
-                    subscriber();
-                } catch (error) {
-                    logger.warn(
-                        `Dependency: Subscriber callback failed: ${error instanceof Error ? error.message : String(error)}`,
-                    );
-                }
-            }
-        } catch (error) {
-            logger.error(
-                `Dependency: Failed to notify subscribers: ${error instanceof Error ? error.message : String(error)}`,
-            );
-            throw error;
-        }
-    }
-
-    /**
-     * Unsubscribe a callback from this dependency.
-     */
-    remove(callback: EffectFunction) {
+    /** Unsubscribe a callback from this dependency. */
+    remove(callback: EffectFunction): void {
         this.subscribers.delete(callback);
     }
 
-    /**
-     * Clear all subscribers.
-     */
-    clear() {
+    /** Drop every subscriber. */
+    clear(): void {
         this.subscribers.clear();
     }
 
+    /** How many subscribers are attached. */
+    get size(): number {
+        return this.subscribers.size;
+    }
+
     /**
-     * Get a reference to the subscribers.
-     * Returns the internal set of subscribers.
-     * Note: iterate this set carefully as it may be modified during iteration.
+     * The live subscriber set.
+     *
+     * Callers must snapshot before iterating: subscribers commonly remove and
+     * re-add themselves while running (that is how dependency re-tracking
+     * works), and mutating a `Set` during iteration loops forever per the ES
+     * specification.
      */
     get getSubscribers(): ReadonlySet<EffectFunction> {
         return this.subscribers;

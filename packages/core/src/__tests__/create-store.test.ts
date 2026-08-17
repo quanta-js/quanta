@@ -70,7 +70,7 @@ describe('createStore', () => {
                         count() {}, // conflicts with state
                     },
                 });
-            }).toThrow(/conflicts with state/);
+            }).toThrow(/conflicts with a state property/);
         });
 
         it('should validate action/getter name collisions', () => {
@@ -85,7 +85,7 @@ describe('createStore', () => {
                         doubled() {}, // conflicts with getter
                     },
                 });
-            }).toThrow(/conflicts with getter/);
+            }).toThrow(/conflicts with a getter/);
         });
 
         it('should warn on getter shadowing state (but not throw)', () => {

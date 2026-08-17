@@ -1,3 +1,13 @@
 export { default as computed } from './computed';
-export { reactive, isReactive } from './reactive';
 export { default as watch } from './watch';
+export {
+    reactive,
+    shallowReactive,
+    readonly,
+    shallowReadonly,
+    isReactive,
+    isReadonly,
+    isProxy,
+    toRaw,
+    markRaw,
+} from './reactive';

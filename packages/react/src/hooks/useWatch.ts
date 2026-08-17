@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef } from 'react';
 import { watch, logger } from '@quantajs/core';
 import type { RawActions, StoreInstance } from '@quantajs/core';
