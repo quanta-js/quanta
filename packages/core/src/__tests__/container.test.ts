@@ -198,6 +198,37 @@ describe('containers', () => {
     });
 });
 
+describe('getters read through store.subscribe()', () => {
+    it('never serves a stale computed value to a coarse subscriber', () => {
+        // Regression test: a getter read once (priming its cache) before any
+        // mutation, then read again from inside `store.subscribe()` after an
+        // action mutates its dependency, used to alternate between the fresh
+        // value and the one from *before* that mutation. The store's own
+        // "something changed" notifier and the getter's cache-invalidation
+        // are two independent effects triggered by the same write; both are
+        // deferred to the same `batchEffects` flush (every action runs
+        // inside one), and the notifier happened to flush first — so it
+        // could read the getter before its cache had been invalidated.
+        const definition = counter();
+        const store = definition();
+
+        const seenByAction = new Map<number, number>();
+        store.subscribe(() => {
+            seenByAction.set(store.count, store.doubled);
+        });
+
+        // Priming read, before any mutation — the condition that exposed the
+        // bug: it's what causes the getter's underlying effect to register
+        // *after* the store's own notifier effect for the same dependency.
+        void store.doubled;
+
+        for (let i = 1; i <= 6; i++) {
+            store.bump();
+            expect(seenByAction.get(store.count)).toBe(store.count * 2);
+        }
+    });
+});
+
 describe('default container', () => {
     it('is used when no container is passed', () => {
         const definition = counter();

@@ -120,6 +120,11 @@ const computed = <T>(getter: () => T): ComputedRef<T> => {
                 dirty = true;
                 trigger(ref, 'value');
             },
+            // Flip `dirty` immediately, even inside a batch — see
+            // {@link EffectOptions.eager}. Without this, a coarse subscriber
+            // triggered by the same batched write can read `.value` before
+            // this scheduler has run and get a value that's one write stale.
+            eager: true,
         },
     );
 

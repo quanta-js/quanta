@@ -68,6 +68,15 @@ reading.
 - Diagnostics are `__DEV__`-gated and emitted once at the boundary rather than
   restacked at every layer — one error used to produce seven log lines.
 - `batchEffects()` returns its callback's value.
+- **A `computed` read through `store.subscribe()` could be one write stale.**
+  Found by the new `examples/vanilla` verification app. A store's coarse
+  "something changed" notifier and a getter's cache-invalidation are separate
+  effects triggered by the same write, both deferred to the same
+  `batchEffects` flush; the notifier happened to flush first, so it could read
+  the getter before its cache had been invalidated — visible every other
+  mutation once a getter had been read at least once. Getter invalidation
+  (`EffectOptions.eager`) now runs immediately instead of waiting its turn in
+  the batch queue.
 - **New:** `effect`, `effectScope`, `untrack`, `nextTick`, `toRaw`, `markRaw`,
   `readonly`, `shallowReactive`, `shallowReadonly`, `isProxy`, `isReadonly`.
 
