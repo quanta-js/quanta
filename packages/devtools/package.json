@@ -42,13 +42,14 @@
         "lint:fix": "eslint . --ext .ts,.tsx --fix"
     },
     "peerDependencies": {
-        "@quantajs/core": "workspace:*"
+        "@quantajs/core": ">=2.0.0"
     },
     "dependencies": {
         "preact": "^10.28.4"
     },
     "devDependencies": {
-        "@preact/preset-vite": "^2.10.3"
+        "@preact/preset-vite": "^2.10.3",
+        "@quantajs/core": "workspace:*"
     },
     "files": [
         "dist"
