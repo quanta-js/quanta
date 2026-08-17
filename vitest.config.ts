@@ -30,11 +30,15 @@ export default defineConfig({
                 'packages/devtools/src/DevTools.tsx',
                 'packages/devtools/src/components/**',
             ],
+            // Raised to just below the levels reached by the 2.1 pass, so the
+            // improvement is locked in and a regression fails the build rather
+            // than quietly eroding. Leave a couple of points of headroom so
+            // ordinary refactors don't trip the gate.
             thresholds: {
-                lines: 82,
-                functions: 88,
-                branches: 62,
-                statements: 82,
+                lines: 86,
+                functions: 89,
+                branches: 71,
+                statements: 84,
             },
         },
         typecheck: {
