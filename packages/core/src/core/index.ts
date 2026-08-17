@@ -1,2 +1,7 @@
-export { default as createStore } from './create-store';
-export { useStore } from './create-store';
+export {
+    default as createStore,
+    getOrCreateStore,
+    useStore,
+    hasStore,
+    destroyAllStores,
+} from './create-store';

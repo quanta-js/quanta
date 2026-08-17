@@ -1,9 +1,10 @@
+'use client';
+
 import { createContext, useContext } from 'react';
 import type { StoreInstance } from '@quantajs/core';
-import { logger } from '@quantajs/core';
 
 export interface QuantaContextValue {
-    stores: { [name: string]: StoreInstance<any, any, any> };
+    stores: Record<string, StoreInstance<never, never, never>>;
 }
 
 // Use null default so we can detect when used outside a Provider
@@ -18,11 +19,10 @@ export function useQuantaContext(): QuantaContextValue {
     const context = useContext(QuantaContext);
 
     if (context === null) {
-        const errorMessage =
+        throw new Error(
             'useQuantaContext must be used within a QuantaProvider. ' +
-            'Wrap your component tree with <QuantaProvider stores={...}>.';
-        logger.error(`QuantaContext: ${errorMessage}`);
-        throw new Error(errorMessage);
+                'Wrap your component tree with <QuantaProvider stores={…}>.',
+        );
     }
 
     return context;

@@ -28,14 +28,15 @@
     "scripts": {
         "test:types": "tsc --noEmit",
         "dev": "npm run format && npm run lint:fix && npm run build",
-        "build": "npm run clean && vite build",
+        "build": "npm run clean && vite build && npm run build:types",
         "preview": "vite preview",
         "clean": "rimraf dist",
         "lint": "eslint \"src/**/*.{ts,tsx}\"",
         "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
-        "format": "prettier --write \"src/**/*.{ts,tsx}\""
+        "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+        "build:types": "tsc -p tsconfig.build.json"
     },
-    "main": "./dist/index.js",
+    "main": "./dist/index.cjs",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
@@ -43,21 +44,28 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js",
             "require": "./dist/index.cjs"
-        }
+        },
+        "./package.json": "./package.json"
     },
     "files": [
         "dist"
     ],
     "sideEffects": false,
     "peerDependencies": {
-        "react": ">=16.8.0"
+        "react": ">=18.0.0",
+        "@quantajs/devtools": "workspace:*"
     },
     "dependencies": {
-        "@quantajs/core": "workspace:*",
-        "@quantajs/devtools": "workspace:*"
+        "@quantajs/core": "workspace:*"
     },
     "devDependencies": {
         "@types/react": "^19.2.14",
-        "react": "^19.2.4"
+        "react": "^19.2.4",
+        "@quantajs/devtools": "workspace:*"
+    },
+    "peerDependenciesMeta": {
+        "@quantajs/devtools": {
+            "optional": true
+        }
     }
 }

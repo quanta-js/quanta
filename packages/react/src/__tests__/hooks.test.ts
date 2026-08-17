@@ -169,7 +169,7 @@ describe('useStore (context-based)', () => {
 
         expect(() => {
             renderHook(() => useStore('nonexistent'), { wrapper });
-        }).toThrow(/does not exist/);
+        }).toThrow(/is not registered on the nearest QuantaProvider/);
     });
 
     it('should throw consistent error for missing store in useStoreSelector', () => {
@@ -189,7 +189,7 @@ describe('useStore (context-based)', () => {
                     ),
                 { wrapper },
             );
-        }).toThrow(/does not exist in the context/);
+        }).toThrow(/is not registered on the nearest QuantaProvider/);
     });
 });
 

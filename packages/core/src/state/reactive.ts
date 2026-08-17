@@ -1,19 +1,41 @@
-import { createReactive, isReactive } from '../core/create-reactive';
+import {
+    createReactive,
+    shallowReactive as createShallow,
+    readonly as createReadonly,
+    shallowReadonly as createShallowReadonly,
+} from '../core/create-reactive';
 
 /**
- * Creates a reactive proxy around an object, array, Map, or Set.
+ * Wrap an object, array, `Map` or `Set` in a deeply reactive proxy.
  *
- * @param target - The object to make reactive
- * @returns A reactive proxy
+ * Reads inside an effect register a dependency; writes notify the dependents
+ * of exactly the properties that changed. Nested objects are wrapped lazily on
+ * first access, so the cost is proportional to what you actually touch.
+ *
+ * Primitives, `null`, non-proxyable built-ins (`Date`, `RegExp`, `Promise`,
+ * typed arrays…) and `markRaw`-ed objects are returned unchanged.
+ *
+ * @example
+ * ```ts
+ * const state = reactive({ user: { name: 'Ada' }, tags: ['x'] });
+ * effect(() => console.log(state.user.name)); // logs 'Ada'
+ * state.user.name = 'Grace';                  // logs 'Grace'
+ * ```
  */
 export function reactive<T extends object>(target: T): T {
     return createReactive(target);
 }
 
-/**
- * Checks if a value is a QuantaJS reactive proxy.
- *
- * @param value - The value to check
- * @returns True if the value is reactive
- */
-export { isReactive };
+export {
+    createShallow as shallowReactive,
+    createReadonly as readonly,
+    createShallowReadonly as shallowReadonly,
+};
+
+export {
+    isReactive,
+    isReadonly,
+    isProxy,
+    toRaw,
+    markRaw,
+} from '../core/create-reactive';

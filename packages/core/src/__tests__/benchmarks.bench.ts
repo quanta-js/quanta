@@ -60,11 +60,26 @@ describe('computed performance', () => {
         computed(() => state.a + state.b);
     });
 
-    bench('read computed (cached)', () => {
-        const state = createReactive({ a: 1, b: 2 });
-        const sum = computed(() => state.a + state.b);
-        void sum.value;
-        void sum.value; // should be cached
+    // The previous version of this benchmark rebuilt the reactive object AND
+    // the computed on every iteration, so it measured construction cost while
+    // being named "cached read". Hoist the setup so the measured body is only
+    // the thing under test.
+    const cachedState = createReactive({ a: 1, b: 2 });
+    const cachedSum = computed(() => cachedState.a + cachedState.b);
+    void cachedSum.value; // warm the cache once, outside the measurement
+
+    bench('read computed (cached) x1000', () => {
+        for (let i = 0; i < 1000; i++) void cachedSum.value;
+    });
+
+    const plainState = createReactive({ a: 1, b: 2 });
+    bench('read plain reactive property x1000 (baseline)', () => {
+        for (let i = 0; i < 1000; i++) void plainState.a;
+    });
+
+    bench('computed invalidate + recompute', () => {
+        cachedState.a = cachedState.a + 1;
+        void cachedSum.value;
     });
 });
 

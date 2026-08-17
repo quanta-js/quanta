@@ -119,7 +119,16 @@ export type StoreInstance<
         };
         actions: A;
         subscribe: (callback: StoreSubscriber) => () => void;
+        notifyAll: () => void;
         $reset: () => void;
-        $persist?: PersistenceManager;
+        $persist?: PersistenceManager | null;
+        /**
+         * Resolves once the first hydration attempt has settled.
+         *
+         * Always present, even without persistence configured (in which case it
+         * is already resolved), so `await store.$hydrated` is unconditionally
+         * safe to write.
+         */
+        $hydrated: Promise<void>;
         $destroy: () => void;
     };

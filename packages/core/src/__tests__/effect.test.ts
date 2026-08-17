@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { track, trigger, batchEffects, reactiveEffect } from '../core/effect';
+import {
+    track,
+    trigger,
+    batchEffects,
+    reactiveEffect,
+    notifyDependency,
+} from '../core/effect';
 import { Dependency } from '../core/dependency';
 
 describe('effect system', () => {
@@ -174,80 +180,117 @@ describe('effect system', () => {
 });
 
 describe('Dependency', () => {
-    it('should add and notify subscribers', () => {
+    /**
+     * `Dependency` is a subscriber container only. Notification policy —
+     * batching, schedulers, error collection — lives in `notifyDependency()`
+     * in core/effect.ts, so that direct and bubbled triggers share one path.
+     */
+    const notify = (dep: Dependency) => {
+        const errors: unknown[] = [];
+        notifyDependency(dep, errors);
+        if (errors.length > 0) throw errors[0];
+    };
+
+    it('notifies every subscriber', () => {
         const dep = new Dependency();
         const callback = vi.fn();
 
         dep.depend(callback);
-        dep.notify();
+        notify(dep);
 
         expect(callback).toHaveBeenCalledOnce();
     });
 
-    it('should handle null callback gracefully', () => {
+    it('ignores a null callback', () => {
         const dep = new Dependency();
         expect(() => dep.depend(null)).not.toThrow();
+        expect(dep.size).toBe(0);
     });
 
-    it('should remove subscribers', () => {
+    it('stops notifying a removed subscriber', () => {
         const dep = new Dependency();
         const callback = vi.fn();
 
         dep.depend(callback);
         dep.remove(callback);
-        dep.notify();
+        notify(dep);
 
         expect(callback).not.toHaveBeenCalled();
     });
 
-    it('should clear all subscribers', () => {
+    it('drops every subscriber on clear()', () => {
         const dep = new Dependency();
-        const cb1 = vi.fn();
-        const cb2 = vi.fn();
+        const first = vi.fn();
+        const second = vi.fn();
 
-        dep.depend(cb1);
-        dep.depend(cb2);
+        dep.depend(first);
+        dep.depend(second);
         dep.clear();
-        dep.notify();
+        notify(dep);
 
-        expect(cb1).not.toHaveBeenCalled();
-        expect(cb2).not.toHaveBeenCalled();
+        expect(first).not.toHaveBeenCalled();
+        expect(second).not.toHaveBeenCalled();
+        expect(dep.size).toBe(0);
     });
 
-    it('should return internal subscriber set (ReadonlySet)', () => {
+    it('exposes its subscribers as a readonly set', () => {
         const dep = new Dependency();
-        const cb = vi.fn();
+        const callback = vi.fn();
 
-        dep.depend(cb);
-        const subs = dep.getSubscribers;
-        // getSubscribers now returns the internal Set (ReadonlySet)
-        expect(subs.size).toBe(1);
-        expect(subs.has(cb)).toBe(true);
+        dep.depend(callback);
+
+        expect(dep.getSubscribers.size).toBe(1);
+        expect(dep.getSubscribers.has(callback)).toBe(true);
     });
 
-    it('should isolate subscriber errors', () => {
+    it('deduplicates a subscriber added twice', () => {
         const dep = new Dependency();
-        const badCb = vi.fn(() => {
+        const callback = vi.fn();
+
+        dep.depend(callback);
+        dep.depend(callback);
+        notify(dep);
+
+        expect(callback).toHaveBeenCalledOnce();
+        expect(dep.size).toBe(1);
+    });
+
+    it('runs every subscriber even when one throws, then surfaces the error', () => {
+        const dep = new Dependency();
+        const failing = vi.fn(() => {
             throw new Error('boom');
         });
-        const goodCb = vi.fn();
+        const healthy = vi.fn();
 
-        dep.depend(badCb);
-        dep.depend(goodCb);
+        dep.depend(failing);
+        dep.depend(healthy);
 
-        // Should not throw — isolated via try/catch
-        expect(() => dep.notify()).not.toThrow();
-        expect(goodCb).toHaveBeenCalled();
+        const errors: unknown[] = [];
+        notifyDependency(dep, errors);
+
+        // A broken subscriber must not stop the others...
+        expect(healthy).toHaveBeenCalledOnce();
+        // ...but its failure must not be swallowed either.
+        expect(errors).toHaveLength(1);
+        expect((errors[0] as Error).message).toBe('boom');
     });
 
-    it('should not add duplicate subscribers (Set behavior)', () => {
+    it('tolerates a subscriber that unsubscribes itself mid-notify', () => {
+        // Snapshot-before-iterate: mutating a Set while iterating it loops
+        // forever per the ES spec, and re-tracking effects do exactly this.
         const dep = new Dependency();
-        const cb = vi.fn();
+        const order: string[] = [];
 
-        dep.depend(cb);
-        dep.depend(cb);
-        dep.notify();
+        const first = () => {
+            order.push('first');
+            dep.remove(second);
+        };
+        const second = () => order.push('second');
 
-        expect(cb).toHaveBeenCalledOnce();
+        dep.depend(first);
+        dep.depend(second);
+        notify(dep);
+
+        expect(order).toEqual(['first', 'second']);
     });
 });

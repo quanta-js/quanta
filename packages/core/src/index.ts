@@ -1,11 +1,64 @@
-export { reactive, computed, watch, isReactive } from './state';
-export { createStore, useStore } from './core';
-export { batchEffects } from './core/effect';
+/* ------------------------------------------------------------------ *
+ * Reactive state
+ * ------------------------------------------------------------------ */
+export {
+    reactive,
+    shallowReactive,
+    readonly,
+    shallowReadonly,
+    computed,
+    watch,
+    isReactive,
+    isReadonly,
+    isProxy,
+    toRaw,
+    markRaw,
+} from './state';
 
-// Persistence exports
+export type { ComputedRef } from './state/computed';
+export type { WatchOptions, WatchStopHandle } from './state/watch';
+
+/* ------------------------------------------------------------------ *
+ * Effects
+ * ------------------------------------------------------------------ */
+export {
+    effect,
+    reactiveEffect,
+    effectScope,
+    batchEffects,
+    untrack,
+    nextTick,
+    pauseTracking,
+    resumeTracking,
+} from './core/effect';
+
+export type { EffectRunner, EffectOptions, EffectScope } from './core/effect';
+
+/* ------------------------------------------------------------------ *
+ * Stores
+ * ------------------------------------------------------------------ */
+export {
+    createStore,
+    getOrCreateStore,
+    useStore,
+    hasStore,
+    destroyAllStores,
+} from './core';
+
+/* ------------------------------------------------------------------ *
+ * Persistence
+ * ------------------------------------------------------------------ */
 export * from './persistence';
 
-// Logger export
+/* ------------------------------------------------------------------ *
+ * DevTools (opt-in — see the security note in devtools/index.ts)
+ * ------------------------------------------------------------------ */
+export { enableDevTools, disableDevTools, devtools } from './devtools';
+export type { DevToolsEvent, DevToolsOptions } from './devtools';
+
+/* ------------------------------------------------------------------ *
+ * Utilities
+ * ------------------------------------------------------------------ */
 export {
     logger,
     Logger,
@@ -13,7 +66,16 @@ export {
     createLogger,
 } from './services/logger-service';
 
-// Type exports
+export { debounce } from './utils/debounce';
+export {
+    sanitizePayload,
+    safeJsonParse,
+    safeJsonReviver,
+} from './utils/sanitize';
+
+/* ------------------------------------------------------------------ *
+ * Types
+ * ------------------------------------------------------------------ */
 export type {
     StateDefinition,
     GetterDefinitions,
