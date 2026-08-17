@@ -10,7 +10,7 @@
  * Finding IDs refer to ANALYSIS-v2.md at the repo root.
  */
 import { describe, it, expect, vi } from 'vitest';
-import React, { StrictMode } from 'react';
+import { StrictMode } from 'react';
 import { render, act, screen } from '@testing-library/react';
 import { createStore } from '@quantajs/core';
 import { useQuantaSelector, useQuantaStore } from '../hooks/useQuantaStore';
