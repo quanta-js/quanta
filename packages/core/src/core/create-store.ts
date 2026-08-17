@@ -71,12 +71,38 @@ export function instantiateStore<
     /** Everything the store owns, released together by `$destroy`. */
     const scope: EffectScope = effectScope();
 
+    /**
+     * Per-action lifecycle state, keyed by action name.
+     *
+     * Declared here rather than beside the action wiring below because the
+     * store's coarse change-notifier has to depend on it: `pending`/`error`
+     * are reactive in their own right, but they live on a *separate* reactive
+     * object from `state`, so an effect watching only `state` never wakes when
+     * they flip. That made `store.subscribe()` — and everything built on it,
+     * including React's `useQuanta` — miss them entirely, except when an
+     * action happened to also write state at around the same time, which made
+     * it look intermittently correct.
+     */
+    const asyncState = reactive<
+        Record<string, { pending: number; error: Error | null }>
+    >({});
+
     scope.run(() => {
         reactiveEffect(() => {
             // Touch every top-level key so this effect depends on all of them;
             // nested changes arrive by bubbling.
             for (const key in state) {
                 void (state as Record<string, unknown>)[key];
+            }
+
+            // Same, for action lifecycle state. Enumerating also subscribes to
+            // the key set itself, so an action registered later (the actions
+            // are wired up after this effect is created) re-runs this and picks
+            // up its entry.
+            for (const key in asyncState) {
+                const entry = asyncState[key];
+                void entry.pending;
+                void entry.error;
             }
 
             // Subscriber callbacks routinely read reactive state. Without
@@ -283,15 +309,8 @@ export function instantiateStore<
     ) as unknown as Store<S, G, A>;
 
     // ---- actions -----------------------------------------------------
-    /**
-     * Per-action lifecycle state.
-     *
-     * Reactive so that `store.load.pending` read inside a component or effect
-     * subscribes to it like any other state.
-     */
-    const asyncState = reactive<
-        Record<string, { pending: number; error: Error | null }>
-    >({});
+    // `asyncState` is declared above, alongside the change-notifier that has
+    // to depend on it.
     const inFlight = new Map<string, AbortGroup>();
 
     if (options.actions) {
@@ -383,16 +402,17 @@ function makeAction(
         const previousSignal = (boundTo as { $signal?: AbortSignal }).$signal;
 
         const entry = asyncState[actionName];
-        entry.pending++;
-        entry.error = null;
-        if (controller) group.add(controller);
 
         const settle = (error?: unknown): void => {
-            entry.pending = Math.max(0, entry.pending - 1);
-            if (error !== undefined) {
-                entry.error =
-                    error instanceof Error ? error : new Error(String(error));
-            }
+            batchEffects(() => {
+                entry.pending = Math.max(0, entry.pending - 1);
+                if (error !== undefined) {
+                    entry.error =
+                        error instanceof Error
+                            ? error
+                            : new Error(String(error));
+                }
+            });
             if (controller) group.remove(controller);
         };
 
@@ -404,11 +424,29 @@ function makeAction(
                 writable: true,
             });
 
-            // Actions are the unit of change: batching means a multi-write
-            // action notifies subscribers once.
-            const result = batchEffects(() =>
-                actionFn.apply(boundTo, args),
-            ) as unknown;
+            // Actions are the unit of change: one batch spans the lifecycle
+            // bookkeeping *and* the action body, so subscribers wake once per
+            // call rather than once per field written. A synchronous action
+            // settles inside this same batch — its `pending` never being
+            // observable from outside is the point — while an async one
+            // returns at its first await, flushing a single "started"
+            // notification and settling later in its own batch.
+            const result = batchEffects(() => {
+                entry.pending++;
+                entry.error = null;
+                if (controller) group.add(controller);
+
+                let value: unknown;
+                try {
+                    value = actionFn.apply(boundTo, args);
+                } catch (error) {
+                    settle(error);
+                    throw error;
+                }
+
+                if (!isThenable(value)) settle();
+                return value;
+            }) as unknown;
 
             if (isThenable(result)) {
                 return result.then(
@@ -423,11 +461,7 @@ function makeAction(
                 );
             }
 
-            settle();
             return result;
-        } catch (error) {
-            settle(error);
-            throw error;
         } finally {
             Object.defineProperty(boundTo, '$signal', {
                 value: previousSignal,

@@ -59,13 +59,10 @@ function AddItemForm() {
 /**
  * Exercises an async action's `pending` / `error` / `abort()`.
  *
- * Reads them through `useQuantaValue` selectors rather than off a
- * `useQuanta`-resolved store: `pending`/`error` live on a separate reactive
- * object from the store's own `state`, and `useQuanta`'s whole-store
- * subscription only wakes on a `state` change. A selector tracks its read
- * directly, so it reacts to the two independently — reading them off
- * `useQuanta`'s store here would appear to work only by coincidence,
- * whenever a state write happens to land near the same tick.
+ * These are read through `useQuantaValue` selectors so this component wakes
+ * *only* for the checkout action's own lifecycle, not for every cart change —
+ * reading them off a `useQuanta`-resolved store works too, but subscribes to
+ * the whole store.
  */
 function CheckoutButton() {
     const cart = useQuantaActions(useCartStore);
