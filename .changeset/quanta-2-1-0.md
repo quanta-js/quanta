@@ -140,6 +140,13 @@ Attached to synchronous actions too, so making an action async later is not a
 breaking change for its callers. Deliberately minimal — no caching, retries or
 invalidation, which belong to a server-state library.
 
+`pending` and `error` live on a reactive object separate from `state`, so the
+store's coarse change-notifier depends on both — otherwise `store.subscribe()`,
+and everything built on it including React's `useQuanta`, would miss a
+lifecycle change entirely unless the action happened to write state at around
+the same moment. One call notifies subscribers once, not once per field
+written; a synchronous action settles inside the same batch as its body.
+
 ### React
 
 - `useQuantaSelector` tracks **what the selector reads** rather than comparing

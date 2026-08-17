@@ -546,4 +546,74 @@ describe('async action lifecycle', () => {
         expect(captured?.aborted).toBe(true);
         await promise;
     });
+
+    /**
+     * `pending`/`error` live on a reactive object separate from `state`. They
+     * were reactive in isolation — a raw `effect()` reading them woke
+     * correctly — but the store's coarse change-notifier only enumerated
+     * `state`, so `store.subscribe()` never fired for them. Everything built
+     * on `subscribe` inherited the gap, including React's `useQuanta`, which
+     * made an action's loading flag appear to work only when that action also
+     * happened to write state at around the same moment.
+     */
+    describe('lifecycle changes reach store.subscribe()', () => {
+        const silentAction = () =>
+            defineStore(name('silent'), {
+                state: () => ({ untouched: 0 }),
+                actions: {
+                    // Deliberately writes no state, so the only thing a
+                    // subscriber could react to is the lifecycle flags.
+                    async run(shouldFail = false) {
+                        await Promise.resolve();
+                        if (shouldFail) throw new Error('nope');
+                    },
+                },
+            });
+
+        it('notifies when pending flips on and back off', async () => {
+            const store = silentAction()();
+            const seen: boolean[] = [];
+            store.subscribe(() => seen.push(store.run.pending));
+
+            const promise = store.run();
+            expect(seen).toContain(true);
+
+            await promise;
+            expect(seen[seen.length - 1]).toBe(false);
+        });
+
+        it('notifies when an action rejects', async () => {
+            const store = silentAction()();
+            let notifications = 0;
+            store.subscribe(() => notifications++);
+
+            await expect(store.run(true)).rejects.toThrow('nope');
+
+            expect(notifications).toBeGreaterThan(0);
+            expect(store.run.error?.message).toBe('nope');
+        });
+
+        it('notifies once per lifecycle transition, not once per field', () => {
+            // `pending` and `error` are both written when a call starts; that
+            // is one event, so it should wake subscribers once.
+            const store = silentAction()();
+            let notifications = 0;
+            store.subscribe(() => notifications++);
+
+            void store.run();
+
+            expect(notifications).toBe(1);
+        });
+
+        it('still notifies for an action that only writes state', () => {
+            // Guards the wiring above from breaking the ordinary path.
+            const store = counter()();
+            let notifications = 0;
+            store.subscribe(() => notifications++);
+
+            store.bump();
+
+            expect(notifications).toBe(1);
+        });
+    });
 });
