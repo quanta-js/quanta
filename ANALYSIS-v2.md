@@ -186,7 +186,9 @@ unvalidated path join (CWE-22) on a public endpoint and should not be left in pl
 - `normalizePersistedPayload` accepts a payload whose `version` is **greater** than the configured version and applies it unmigrated.
   A rollback or a crafted payload feeds future-shaped data into an old schema. Discard or hard-fail instead.
 - The publish workflow requests `id-token: write` but never passes `--provenance`, and no `NODE_AUTH_TOKEN` is wired into the publish
-  step. CI has no `pnpm audit`, no CodeQL, no SBOM. For a library asking enterprises to depend on it, npm provenance is table stakes.
+  step. For a library asking enterprises to depend on it, npm provenance is table stakes. CodeQL *is* enabled (via GitHub's default
+  setup — it runs on PRs but has no committed workflow file, so it isn't visible in the repo); consider committing it as a workflow
+  so the configuration is reviewable. Still missing: a `pnpm audit` gate and an SBOM.
 - `SECURITY.md` has no supported-versions table and no response SLA. Enable GitHub Private Vulnerability Reporting.
 
 ---
