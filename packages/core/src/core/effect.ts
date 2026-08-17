@@ -10,6 +10,22 @@ export interface EffectOptions {
     /** If true, the effect will not run immediately upon creation. */
     lazy?: boolean;
     /**
+     * Run the scheduler immediately when a dependency changes, even inside an
+     * active `batchEffects()`, instead of deferring it to the batch flush.
+     *
+     * For an ordinary effect, deferring is correct — it is how N writes
+     * inside one batch collapse into one subscriber notification. A
+     * `computed`'s scheduler is different: it only flips a `dirty` flag, an
+     * idempotent, side-effect-free step with no reason to wait. If it *is*
+     * deferred, a plain effect that also depends on the same source (e.g. a
+     * store's coarse "something changed" notifier) can run first in the same
+     * flush pass and read the computed before it has been invalidated —
+     * serving a value that is one write stale. Marking the flag eagerly
+     * closes that window; the scheduler's own `trigger()` call for
+     * *downstream* subscribers still goes through normal batching.
+     */
+    eager?: boolean;
+    /**
      * Called when the effect is stopped. Used by {@link effectScope} and by
      * framework adapters that need to release resources with the effect.
      */
@@ -28,6 +44,8 @@ export interface EffectRunner extends EffectFunction {
     stop: () => void;
     /** Custom scheduler (if provided). */
     scheduler?: (effect: EffectRunner) => void;
+    /** Whether the scheduler runs immediately, bypassing batch deferral. */
+    eager?: boolean;
 }
 
 /** target -> (property -> Dependency) */
@@ -120,8 +138,10 @@ function scheduleEffect(effect: EffectFunction, errors: unknown[]): void {
     if (runner.active === false) return;
 
     // Inside a batch we only record the effect; the outermost batch flushes it.
-    // The Set dedupes, which is what collapses N writes into one run.
-    if (batchDepth > 0) {
+    // The Set dedupes, which is what collapses N writes into one run. An
+    // `eager` effect (a computed's invalidation) skips this queue — see
+    // {@link EffectOptions.eager}.
+    if (batchDepth > 0 && !runner.eager) {
         effectQueue.add(effect);
         return;
     }
@@ -421,6 +441,9 @@ export function reactiveEffect(
 
     if (options?.scheduler) {
         wrappedEffect.scheduler = options.scheduler;
+    }
+    if (options?.eager) {
+        wrappedEffect.eager = true;
     }
 
     effectDeps.set(wrappedEffect, deps);
