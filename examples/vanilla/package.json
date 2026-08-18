@@ -1,7 +1,7 @@
 {
     "name": "example-vanilla",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.0.1",
     "type": "module",
     "description": "No framework. @quantajs/core driving the DOM directly, plus ESM/CJS entry-point smoke tests against the built package.",
     "scripts": {

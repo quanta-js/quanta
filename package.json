@@ -54,6 +54,9 @@
   "pnpm": {
     "overrides": {
       "minimatch": ">=10.2.3"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

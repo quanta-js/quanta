@@ -11,9 +11,7 @@ const licenseBanner = readFileSync(resolve(__dirname, '../../LICENSE'), 'utf8');
 // bundled extractor is older than the TypeScript version the project uses. A
 // plain `tsc` pass has no such coupling and fails loudly if it cannot resolve.
 export default defineConfig({
-    plugins: [
-        banner(licenseBanner) as never,
-    ],
+    plugins: [banner(licenseBanner) as never],
     build: {
         lib: {
             entry: resolve(__dirname, 'src/index.ts'),

@@ -1,7 +1,7 @@
 {
     "name": "example-nextjs-app",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.0.1",
     "description": "Next.js App Router: a per-request container, dehydrate/hydrate through a 'use client' boundary, and a build check that the client boundary survives the real bundler.",
     "scripts": {
         "dev": "next dev",

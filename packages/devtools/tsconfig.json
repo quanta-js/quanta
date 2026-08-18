@@ -6,9 +6,7 @@
         "jsx": "react-jsx",
         "jsxImportSource": "preact",
         "paths": {
-            "@/*": [
-                "./src/*"
-            ]
+            "@/*": ["./src/*"]
         }
     },
     "include": ["src"],
