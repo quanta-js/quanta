@@ -62,7 +62,6 @@ export { targetMap };
  */
 let anyChangeSubscribers = 0;
 
-
 let activeEffect: EffectFunction | null = null;
 
 /**
