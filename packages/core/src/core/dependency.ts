@@ -18,6 +18,16 @@ import type { EffectFunction } from '../type/store-types';
 export class Dependency {
     private subscribers: Set<EffectFunction> = new Set();
 
+    /**
+     * Whether this is an object's coarse ANY_CHANGE channel.
+     *
+     * `trigger` skips the coarse lookup entirely while no such channel has a
+     * subscriber, which requires knowing when one gains its first subscriber
+     * and loses its last. A `Dependency` does not otherwise know which key it
+     * belongs to, so the flag is set where it is created.
+     */
+    coarse = false;
+
     /** Subscribe a callback to this dependency. */
     depend(callback: EffectFunction | null | undefined): void {
         if (callback) this.subscribers.add(callback);

@@ -2,7 +2,7 @@ import { Dependency } from './dependency';
 import { logger } from '../services/logger-service';
 import { __DEV__ } from '../utils/env';
 import type { EffectFunction } from '../type/store-types';
-import { bubbleTrigger, parentMap } from '../utils/deep-trigger';
+import { bubbleTrigger, parentMap, ANY_CHANGE } from '../utils/deep-trigger';
 
 export interface EffectOptions {
     /** Custom scheduler invoked instead of the effect when dependencies change. */
@@ -51,6 +51,17 @@ export interface EffectRunner extends EffectFunction {
 /** target -> (property -> Dependency) */
 const targetMap = new WeakMap<object, Map<string | symbol, Dependency>>();
 export { targetMap };
+
+/**
+ * How many dependencies currently have a subscriber on their coarse channel.
+ *
+ * `trigger` runs on every write in the process, so the ANY_CHANGE lookup has
+ * to be free when nothing uses it. A plain `reactive()` object with no store
+ * attached never has an ANY_CHANGE subscriber, and an integer compare is
+ * cheaper than the Map.get it replaces.
+ */
+let anyChangeSubscribers = 0;
+
 
 let activeEffect: EffectFunction | null = null;
 
@@ -175,7 +186,22 @@ function scheduleEffect(effect: EffectFunction, errors: unknown[]): void {
  */
 export function notifyDependency(dep: Dependency, errors: unknown[]): void {
     const subscribers = dep.getSubscribers;
-    if (subscribers.size === 0) return;
+    const size = subscribers.size;
+    if (size === 0) return;
+
+    // The snapshot exists because a subscriber commonly removes and re-adds
+    // itself while running — that is how dependency re-tracking works — and
+    // mutating a Set during iteration loops forever per the ES specification.
+    //
+    // With exactly one subscriber there is nothing to iterate *past*, so the
+    // copy buys nothing and costs an array allocation on the hottest path in
+    // the library. One dependency with one subscriber is the overwhelmingly
+    // common shape: a component reading a field, a computed reading a source.
+    if (size === 1) {
+        const only = subscribers.values().next().value;
+        if (only !== undefined) scheduleEffect(only, errors);
+        return;
+    }
 
     for (const subscriber of [...subscribers]) {
         scheduleEffect(subscriber, errors);
@@ -189,6 +215,19 @@ export function notifyDependency(dep: Dependency, errors: unknown[]): void {
  * but it also should not prevent them from running — so errors are collected
  * during the pass and surfaced afterwards.
  */
+/**
+ * Unsubscribe an effect from a dependency, keeping the coarse-channel count
+ * accurate.
+ *
+ * Without the decrement the counter only grows, so the ANY_CHANGE lookup in
+ * `trigger` would stay switched on for the rest of the process after the first
+ * store was created — the optimisation would work exactly once.
+ */
+function releaseDep(dep: Dependency, effect: EffectFunction): void {
+    dep.remove(effect);
+    if (dep.coarse && dep.size === 0) anyChangeSubscribers--;
+}
+
 function settleErrors(errors: unknown[]): void {
     if (errors.length === 0) return;
 
@@ -317,19 +356,36 @@ export function nextTick(fn?: () => void): Promise<void> {
  * every depth.
  */
 export function trigger(target: object, prop: string | symbol): void {
+    // Deliberately still allocated per call. Making it lazy measures at ~6ns
+    // and requires either a shared array that `scheduleEffect` would mutate
+    // across re-entrant triggers, or a module-level sink that must be saved
+    // and restored — both of which risk surfacing an error at the wrong time.
+    // Not worth 6ns.
     const errors: unknown[] = [];
 
     const depsMap = targetMap.get(target);
     if (depsMap !== undefined) {
         const dep = depsMap.get(prop);
         if (dep !== undefined) notifyDependency(dep, errors);
+
+        // The coarse channel: one dependency per object rather than one per
+        // key, which is what replaced the store's O(state-size) enumeration.
+        // Skipped entirely when nothing subscribes to it anywhere, so a bare
+        // `reactive()` write pays an integer compare instead of a Map lookup.
+        if (anyChangeSubscribers > 0) {
+            const anyDep = depsMap.get(ANY_CHANGE);
+            if (anyDep !== undefined) notifyDependency(anyDep, errors);
+        }
     }
 
     // Only walk upwards when this object is actually attached to a parent;
     // root-level state has no parents and this check keeps the common case free.
     if (parentMap.has(target)) {
-        bubbleTrigger(target, targetMap, (dep) =>
-            notifyDependency(dep, errors),
+        bubbleTrigger(
+            target,
+            targetMap,
+            (dep) => notifyDependency(dep, errors),
+            anyChangeSubscribers > 0,
         );
     }
 
@@ -362,6 +418,10 @@ export function track(target: object, prop: string | symbol): void {
         depsMap.set(prop, dep);
     }
 
+    if (prop === ANY_CHANGE) {
+        dep.coarse = true;
+        if (dep.size === 0) anyChangeSubscribers++;
+    }
     dep.depend(activeEffect);
 
     // Record the dep on the effect so a later re-run can unsubscribe from it.
@@ -409,7 +469,7 @@ export function reactiveEffect(
 
         // Drop stale subscriptions before re-tracking. Without this an effect
         // whose dependencies change over time accumulates subscribers forever.
-        for (const dep of deps) dep.remove(wrappedEffect);
+        for (const dep of deps) releaseDep(dep, wrappedEffect);
         deps.clear();
 
         effectStack.push(wrappedEffect);
@@ -432,7 +492,7 @@ export function reactiveEffect(
     wrappedEffect.stop = () => {
         if (!wrappedEffect.active) return;
         wrappedEffect.active = false;
-        for (const dep of deps) dep.remove(wrappedEffect);
+        for (const dep of deps) releaseDep(dep, wrappedEffect);
         deps.clear();
         effectDeps.delete(wrappedEffect);
         effectQueue.delete(wrappedEffect);

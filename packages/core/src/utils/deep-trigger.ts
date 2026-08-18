@@ -23,6 +23,30 @@ import type { Dependency } from '../core/dependency';
  */
 const parentMap = new WeakMap<object, Map<object, Set<string | symbol>>>();
 
+/**
+ * A per-object "something in here changed" channel.
+ *
+ * Subscribing to it costs one dependency for the whole object and stays O(1)
+ * as the object grows, where subscribing per key costs one dependency per key
+ * *and* re-registers every one of them on each notification.
+ *
+ * Declared in this module rather than beside `ITERATE_KEY` because both
+ * `effect.ts` and `create-reactive.ts` need it, and this is the only one of
+ * the three with no imports from the other two — putting it anywhere else
+ * closes an import cycle.
+ */
+export const ANY_CHANGE = Symbol('quanta.any');
+
+/**
+ * How far the allocation-free linear walk will go before handing over to the
+ * full graph walk.
+ *
+ * Without a visited set the fast path cannot detect a cycle, so it is bounded
+ * instead. State nested deeper than this is rare enough that the extra
+ * allocations do not matter.
+ */
+const LINEAR_FAST_PATH_MAX_DEPTH = 32;
+
 export { parentMap };
 
 /**
@@ -99,13 +123,46 @@ export function bubbleTrigger(
     target: object,
     targetMap: WeakMap<object, Map<string | symbol, Dependency>>,
     notify: (dep: Dependency) => void,
+    notifyAnyChange = false,
 ): void {
     try {
+        // Fast path: a strictly linear chain — every node has exactly one
+        // parent holding it at exactly one key. That is the shape of virtually
+        // all application state, and it needs no queue, no visited set and no
+        // dedupe set, because a linear walk cannot revisit a node or reach the
+        // same dependency twice.
+        //
+        // The full graph walk below exists for shared subtrees, which are
+        // legal and must stay correct; this just stops every ordinary nested
+        // write paying for machinery only they need. The depth cap is a cycle
+        // guard: without a visited set, a cycle would spin here forever.
+        let node: object = target;
+        for (let depth = 0; depth < LINEAR_FAST_PATH_MAX_DEPTH; depth++) {
+            const parents = parentMap.get(node);
+            if (parents === undefined || parents.size === 0) return; // done
+            if (parents.size > 1) break; // branching — fall back
+
+            const [parent, keys] = parents.entries().next().value!;
+            if (keys.size > 1) break; // one object at several keys — fall back
+
+            const parentDeps = targetMap.get(parent);
+            if (parentDeps !== undefined) {
+                if (notifyAnyChange) {
+                    const anyDep = parentDeps.get(ANY_CHANGE);
+                    if (anyDep !== undefined) notify(anyDep);
+                }
+                const key = keys.values().next().value!;
+                const dep = parentDeps.get(key);
+                if (dep !== undefined) notify(dep);
+            }
+            node = parent;
+        }
+
         // Breadth-first over the ancestor DAG. An object can sit at several
         // paths at once (shared instances), so this is a graph walk, not a
         // simple parent chain.
-        const queue: object[] = [target];
-        const visited = new Set<object>([target]);
+        const queue: object[] = [node];
+        const visited = new Set<object>([node]);
 
         // A single Dependency can be reachable through several edges — a
         // diamond in the ownership graph, or one object stored at two keys of
@@ -124,6 +181,15 @@ export function bubbleTrigger(
             for (const [parent, keys] of parents) {
                 const parentDeps = targetMap.get(parent);
                 if (parentDeps !== undefined) {
+                    // Coarse channel for this ancestor, so a subscriber to the
+                    // whole subtree costs one dependency instead of one per key.
+                    if (notifyAnyChange) {
+                        const anyDep = parentDeps.get(ANY_CHANGE);
+                        if (anyDep !== undefined && !notified.has(anyDep)) {
+                            notified.add(anyDep);
+                            notify(anyDep);
+                        }
+                    }
                     for (const key of keys) {
                         const dep = parentDeps.get(key);
                         if (dep !== undefined && !notified.has(dep)) {
