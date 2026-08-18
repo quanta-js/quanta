@@ -1,5 +1,12 @@
 # example-nextjs-app
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [29d2952]
+    - @quantajs/react@2.1.1
+
 ## 0.0.1
 
 ### Patch Changes

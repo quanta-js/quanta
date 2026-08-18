@@ -1,7 +1,7 @@
 {
     "name": "example-react-vite",
     "private": true,
-    "version": "0.0.1",
+    "version": "0.0.2",
     "type": "module",
     "description": "React + Vite: StrictMode, every hook, an async action's pending/error/abort, and a build-output check that code-splitting (the lazy panel and QuantaDevTools' Preact chunk) actually happened.",
     "scripts": {
