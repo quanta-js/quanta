@@ -475,3 +475,48 @@ describe('composition', () => {
         expect(calls).toBe(2);
     });
 });
+
+/**
+ * `createReactive` consults its proxy cache *before* the builtin and
+ * already-a-proxy guards, because a cached proxy can only exist if a previous
+ * call already ran and passed those guards. `markRaw` deliberately stays in
+ * front of the cache: it can be applied to an object that has already been
+ * made reactive, and it must still win.
+ */
+describe('reactive cache/guard ordering', () => {
+    it('returns the identical proxy for repeat reads of a nested object', () => {
+        const state = reactive({ nested: { deep: { v: 1 } } });
+        expect(state.nested).toBe(state.nested);
+        expect(state.nested.deep).toBe(state.nested.deep);
+    });
+
+    it('still refuses to wrap builtins that have no cache entry', () => {
+        const date = new Date();
+        const state = reactive({
+            when: date,
+            re: /x/,
+            buf: new ArrayBuffer(8),
+        });
+        expect(toRaw(state.when)).toBe(date);
+        expect(isReactive(state.when)).toBe(false);
+        expect(isReactive(state.re)).toBe(false);
+        expect(isReactive(state.buf)).toBe(false);
+    });
+
+    it('never double-wraps an existing proxy', () => {
+        const inner = reactive({ a: 1 });
+        expect(reactive(inner)).toBe(inner);
+    });
+
+    it('markRaw wins even when applied after the proxy was cached', () => {
+        const heavy = { big: true };
+        const state = reactive({ heavy });
+        expect(isReactive(state.heavy)).toBe(true); // cached proxy exists
+
+        markRaw(heavy);
+
+        // markRaw is checked ahead of the cache, so it takes effect for reads
+        // made after the mark rather than being shadowed by the cache hit.
+        expect(reactive(heavy)).toBe(heavy);
+    });
+});
