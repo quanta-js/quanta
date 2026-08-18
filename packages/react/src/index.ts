@@ -17,8 +17,12 @@ export { useComputed } from './hooks/useComputed';
 /* --- Components ----------------------------------------------------- */
 export { QuantaProvider } from './components/QuantaProvider';
 export type { QuantaProviderProps } from './components/QuantaProvider';
-export { QuantaDevTools } from './components/QuantaDevTools';
-export type { QuantaDevToolsProps } from './components/QuantaDevTools';
+/**
+ * Deprecated placeholder. The real panel is at `@quantajs/react/devtools`; see
+ * `QuantaDevToolsStub` for why it cannot live here.
+ */
+export { QuantaDevTools } from './components/QuantaDevToolsStub';
+export type { QuantaDevToolsProps } from './components/devtools-types';
 
 /* --- Context -------------------------------------------------------- */
 export {

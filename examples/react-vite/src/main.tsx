@@ -1,7 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createContainer } from '@quantajs/core';
-import { QuantaProvider, QuantaDevTools } from '@quantajs/react';
+import { QuantaProvider } from '@quantajs/react';
+// The panel lives on a subpath, not the barrel: it dynamically imports
+// `@quantajs/devtools`, and bundlers resolve that statically — so keeping it
+// in the main entry broke the build of every app that had not installed that
+// optional peer. This example declares `@quantajs/devtools` as a dependency,
+// which is what earns it the right to import from here.
+import { QuantaDevTools } from '@quantajs/react/devtools';
 import App from './App';
 
 // An explicit container, not the ambient one. A client-only app *could* rely

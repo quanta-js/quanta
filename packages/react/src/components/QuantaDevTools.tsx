@@ -2,20 +2,9 @@
 
 import { useEffect } from 'react';
 import { enableDevTools, disableDevTools } from '@quantajs/core';
+import type { QuantaDevToolsProps } from './devtools-types';
 
-export interface QuantaDevToolsProps {
-    /**
-     * Force the panel on or off. When omitted, the panel mounts only in a
-     * development build.
-     */
-    visible?: boolean;
-    /**
-     * Property paths to mask in the panel, e.g. `['token', 'user.ssn']`.
-     * DevTools reports full state and every action argument, so redact
-     * anything sensitive before it reaches the panel.
-     */
-    redact?: string[];
-}
+export type { QuantaDevToolsProps };
 
 function isDevBuild(): boolean {
     try {
@@ -32,10 +21,22 @@ function isDevBuild(): boolean {
 /**
  * Mount the QuantaJS DevTools panel.
  *
+ * Import this from `@quantajs/react/devtools`, not from `@quantajs/react`.
+ *
  * The panel UI is loaded with a **dynamic import**, so `@quantajs/devtools`
  * and its Preact runtime are code-split into a separate chunk instead of being
  * bundled into every application that imports `@quantajs/react`. When the panel
  * is not rendered, the chunk is never fetched.
+ *
+ * That dynamic import is also why this module is not reachable from the
+ * package barrel. `import('@quantajs/devtools')` is a static specifier, so a
+ * bundler resolves it at build time to plan the chunk — and `@quantajs/devtools`
+ * is an *optional* peer, so it is frequently not installed. In 2.1.0 this
+ * module sat in the barrel, and the result was that any application importing
+ * anything at all from `@quantajs/react` failed to build with
+ * `Module not found: Can't resolve '@quantajs/devtools'` unless it happened to
+ * have the package. Keeping the import behind a subpath means only the
+ * applications that ask for the panel need the peer.
  */
 export const QuantaDevTools = ({ visible, redact }: QuantaDevToolsProps) => {
     useEffect(() => {
