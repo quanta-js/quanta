@@ -14,9 +14,19 @@ export default defineConfig({
     plugins: [banner(licenseBanner) as never],
     build: {
         lib: {
-            entry: resolve(__dirname, 'src/index.ts'),
+            // Two entries, deliberately. The DevTools panel dynamically
+            // imports `@quantajs/devtools`, and a bundler resolves that static
+            // specifier at build time — so while the panel lived in the main
+            // entry, every consumer without that optional peer installed failed
+            // to build. Splitting it out means only `@quantajs/react/devtools`
+            // pulls the peer into the graph.
+            entry: {
+                index: resolve(__dirname, 'src/index.ts'),
+                devtools: resolve(__dirname, 'src/devtools.ts'),
+            },
             formats: ['es', 'cjs'],
-            fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
+            fileName: (format, entryName) =>
+                `${entryName}.${format === 'es' ? 'js' : 'cjs'}`,
         },
         sourcemap: true,
         rollupOptions: {

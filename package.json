@@ -18,7 +18,8 @@
     "version:update": "pnpm changeset version && pnpm install",
     "publish": "pnpm build && pnpm changeset publish",
     "examples:build": "pnpm --filter \"./examples/**\" build",
-    "examples:verify": "pnpm --filter \"./examples/**\" verify"
+    "examples:verify": "pnpm --filter \"./examples/**\" verify",
+    "verify:packaging": "node scripts/verify-packaging.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
