@@ -17,6 +17,6 @@ jobs:
   triage:
     runs-on: ubuntu-latest
     steps:
-      - uses: JeelGajera/Dispatch/apps/action@v0.1.0
+      - uses: JeelGajera/Dispatch/apps/action@v0
         with:
           jev-key: ${{ secrets.TYPESAFE_API_KEY }}
