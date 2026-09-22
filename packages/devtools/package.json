@@ -5,12 +5,12 @@
         "name": "Jeel Gajera",
         "url": "https://github.com/JeelGajera"
     },
-    "description": "DevTools for QuantaJS",
+    "description": "In-page state inspector for QuantaJS stores.",
     "keywords": [
         "quantajs",
-        "quanta",
+        "devtools",
         "state-management",
-        "reactivity"
+        "debugging"
     ],
     "repository": {
         "type": "git",
