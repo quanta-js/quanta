@@ -2,6 +2,10 @@ import { defineConfig } from 'vitest/config';
 import path from 'path';
 
 export default defineConfig({
+    define: {
+        // Injected by the devtools build; tests render the panel from source.
+        __DEVTOOLS_VERSION__: JSON.stringify('test'),
+    },
     test: {
         globals: true,
         environment: 'node',

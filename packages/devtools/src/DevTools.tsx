@@ -4,7 +4,6 @@ import { useDevToolsBridge } from './hooks/useDevToolsBridge';
 import { StoreInspector } from './components/StoreInspector';
 import { ActionLog } from './components/ActionLog';
 import Icon from './components/ui/icon';
-import packageJson from '../package.json';
 
 export function DevTools() {
     const [isOpen, setIsOpen] = useState(false);
@@ -20,7 +19,7 @@ export function DevTools() {
     );
 
     const actionsCount = actions.length;
-    const quantaVersion = packageJson.version;
+    const quantaVersion = __DEVTOOLS_VERSION__;
 
     if (!isOpen) {
         return (

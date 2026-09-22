@@ -39,7 +39,6 @@
     "typescript": "^6.0.2",
     "vite": "^8.3.0",
     "vite-plugin-banner": "^0.8.1",
-    "vite-plugin-dts": "^4.5.4",
     "vitest": "^4.1.11"
   },
   "workspaces": [
@@ -49,8 +48,6 @@
   "pnpm": {
     "overrides": {
       "minimatch": ">=10.2.3",
-      "fast-uri": ">=3.1.6",
-      "lodash": ">=4.18.1",
       "brace-expansion": ">=5.0.9"
     },
     "onlyBuiltDependencies": [

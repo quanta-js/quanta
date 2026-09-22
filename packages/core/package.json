@@ -31,12 +31,13 @@
     "scripts": {
         "test:types": "tsc --noEmit",
         "dev": "npm run format && npm run lint:fix && npm run build",
-        "build": "npm run clean && vite build",
+        "build": "npm run clean && vite build && npm run build:types",
         "preview": "vite preview",
         "clean": "rimraf dist",
         "lint": "eslint \"src/**/*.{ts,tsx}\"",
         "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
-        "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,scss,md}\""
+        "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
+        "build:types": "tsc -p tsconfig.build.json"
     },
     "devDependencies": {},
     "main": "./dist/index.cjs",
