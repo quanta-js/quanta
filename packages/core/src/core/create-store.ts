@@ -10,13 +10,11 @@ import type {
 import { reactive, computed } from '../state';
 import type { ComputedRef } from '../state/computed';
 import { flattenStore } from '../utils/flattenStore';
-import { Dependency } from './dependency';
 import {
     reactiveEffect,
     pauseTracking,
     resumeTracking,
     batchEffects,
-    notifyDependency,
     effectScope,
     track,
     type EffectScope,
@@ -65,9 +63,38 @@ export function instantiateStore<
 
     const state = reactive(initialState);
 
-    /** Store-wide "something changed" channel backing `subscribe()`. */
-    const dependency = new Dependency();
+    /** Callbacks registered through `subscribe()`. */
     const subscribers = new Set<StoreSubscriber<S>>();
+
+    /**
+     * Call every subscriber with the state.
+     *
+     * One throwing subscriber must not stop the others, but its error must
+     * not vanish either: run them all, then rethrow the first failure, the
+     * same policy effects follow.
+     */
+    const notifySubscribers = (): void => {
+        if (subscribers.size === 0) return;
+        const errors: unknown[] = [];
+        for (const callback of [...subscribers]) {
+            try {
+                callback(state);
+            } catch (error) {
+                errors.push(error);
+            }
+        }
+        if (errors.length === 0) return;
+        if (__DEV__) {
+            for (const error of errors.slice(1)) {
+                logger.error(
+                    `Store "${name}": subscriber threw: ${
+                        error instanceof Error ? error.message : String(error)
+                    }`,
+                );
+            }
+        }
+        throw errors[0];
+    };
 
     /** Everything the store owns, released together by `$destroy`. */
     const scope: EffectScope = effectScope();
@@ -114,7 +141,7 @@ export function instantiateStore<
                 scheduler: () => {
                     const previous = pauseTracking();
                     try {
-                        notifyDependency(dependency, []);
+                        notifySubscribers();
                     } finally {
                         resumeTracking(previous);
                     }
@@ -173,7 +200,7 @@ export function instantiateStore<
         persistenceManager = createPersistenceManager<Record<string, unknown>>(
             () => state as unknown as Record<string, unknown>,
             (incoming) => mergeExternal(state, incoming, name),
-            () => notifyDependency(dependency, []),
+            notifySubscribers,
             options.persist as unknown as PersistenceConfig<
                 Record<string, unknown>
             >,
@@ -191,29 +218,13 @@ export function instantiateStore<
 
         subscribe(callback: StoreSubscriber<S>): () => void {
             subscribers.add(callback);
-            dependency.depend(callback as () => void);
             return () => {
                 subscribers.delete(callback);
-                dependency.remove(callback as () => void);
             };
         },
 
         notifyAll(): void {
-            for (const cb of [...subscribers]) {
-                try {
-                    cb(state);
-                } catch (error) {
-                    if (__DEV__) {
-                        logger.warn(
-                            `Store "${name}": subscriber threw: ${
-                                error instanceof Error
-                                    ? error.message
-                                    : String(error)
-                            }`,
-                        );
-                    }
-                }
-            }
+            notifySubscribers();
         },
 
         /**
@@ -292,7 +303,6 @@ export function instantiateStore<
                 }
                 inFlight.clear();
                 scope.stop();
-                dependency.clear();
                 subscribers.clear();
                 host.onDestroy();
                 devtools.unregisterStore(name);

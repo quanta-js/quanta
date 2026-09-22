@@ -23,8 +23,8 @@ export type RawActions = ActionsTree;
 /** Internal effect callback — no arguments. */
 export type EffectFunction = () => void;
 
-/** Store change subscriber — receives an optional state snapshot. */
-export type StoreSubscriber<S = unknown> = (snapshot?: S) => void;
+/** Store change subscriber — receives the store's reactive state. */
+export type StoreSubscriber<S = unknown> = (state: S) => void;
 
 /** Disposable effect with `stop()` for cleanup. */
 export type EffectDisposer = EffectFunction & { stop: () => void };
