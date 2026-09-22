@@ -97,6 +97,29 @@ export const scenarios = {
         },
     }),
 
+    'filter over 1000 objects': (Q) => ({
+        iterations: 200,
+        setup() {
+            const s = Q.reactive({
+                todos: Array.from({ length: 1000 }, (_, i) => ({
+                    id: i,
+                    done: i % 2 === 0,
+                })),
+            });
+            const open = Q.computed(
+                () => s.todos.filter((t) => !t.done).length,
+            );
+            void open.value;
+            return { s, open };
+        },
+        run({ s, open }, n) {
+            for (let i = 0; i < n; i++) {
+                s.todos[0].done = !s.todos[0].done;
+                void open.value;
+            }
+        },
+    }),
+
     '100 writes in a batch': (Q) => ({
         iterations: 1_000,
         setup() {

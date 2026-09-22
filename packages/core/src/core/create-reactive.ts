@@ -6,6 +6,7 @@ import {
     setParent,
     removeParent,
     ANY_CHANGE,
+    ARRAY_ITERATE,
 } from '../utils/deep-trigger';
 
 export { ANY_CHANGE };
@@ -85,6 +86,187 @@ const ARRAY_MUTATORS = new Set([
     'fill',
     'copyWithin',
 ]);
+
+/* ------------------------------------------------------------------ *
+ * Array iteration
+ * ------------------------------------------------------------------ */
+
+const FLAGS: Record<string, ReactiveFlags> = {
+    '00': { shallow: false, readonly: false },
+    '10': { shallow: true, readonly: false },
+    '01': { shallow: false, readonly: true },
+    '11': { shallow: true, readonly: true },
+};
+
+/** The flags a proxy was created with, read back through its get trap. */
+function flagsOf(proxy: unknown): ReactiveFlags {
+    const p = proxy as Record<symbol, unknown>;
+    return FLAGS[
+        `${p[SHALLOW_SYMBOL] === true ? 1 : 0}${p[READONLY_SYMBOL] === true ? 1 : 0}`
+    ];
+}
+
+/** Wrap an array item the way the get trap would, including its parent edge. */
+function wrapItem(
+    item: unknown,
+    raw: object,
+    index: number,
+    flags: ReactiveFlags,
+): unknown {
+    if (flags.shallow || item === null || typeof item !== 'object') return item;
+    setParent(item as object, raw, String(index));
+    return createReactive(item, flags);
+}
+
+type ArrayMethod = (this: unknown[], ...args: unknown[]) => unknown;
+type Callback = (...args: unknown[]) => unknown;
+
+const ARRAY_PROTO = Array.prototype as unknown as Record<
+    string | symbol,
+    ArrayMethod
+>;
+
+/**
+ * Non-mutating array methods, run against the raw array.
+ *
+ * Called through the proxy, a method like `reduce` reads `length` and then
+ * every index through the traps — `get` and, for most methods, `has` as
+ * well — registering one or two dependencies per element. These track the
+ * array's contents once and hand the callback reactive items, so reads
+ * inside the callback are still tracked.
+ */
+const arrayInstrumentations: Record<string | symbol, ArrayMethod> =
+    Object.create(null);
+
+for (const method of [
+    'forEach',
+    'map',
+    'filter',
+    'find',
+    'findIndex',
+    'findLast',
+    'findLastIndex',
+    'some',
+    'every',
+    'flatMap',
+] as const) {
+    arrayInstrumentations[method] = function (
+        this: unknown[],
+        callback: unknown,
+        thisArg?: unknown,
+    ) {
+        const raw = toRaw(this);
+        track(raw, ARRAY_ITERATE);
+        const flags = flagsOf(this);
+        const proxy = this;
+        const result = ARRAY_PROTO[method].call(
+            raw,
+            (item: unknown, index: unknown) =>
+                (callback as Callback).call(
+                    thisArg,
+                    wrapItem(item, raw, index as number, flags),
+                    index,
+                    proxy,
+                ),
+        );
+        if (flags.shallow) return result;
+        // The items these return come from the raw array.
+        if (method === 'filter') {
+            return (result as unknown[]).map((item) =>
+                createReactive(item, flags),
+            );
+        }
+        if (method === 'find' || method === 'findLast') {
+            return createReactive(result, flags);
+        }
+        return result;
+    };
+}
+
+for (const method of ['reduce', 'reduceRight'] as const) {
+    arrayInstrumentations[method] = function (
+        this: unknown[],
+        ...args: unknown[]
+    ) {
+        // Without an initial value the first accumulator is a raw element;
+        // keep the traps' behaviour for that rarer form.
+        if (args.length < 2) {
+            return ARRAY_PROTO[method].apply(this, args);
+        }
+        const raw = toRaw(this);
+        track(raw, ARRAY_ITERATE);
+        const flags = flagsOf(this);
+        const proxy = this;
+        const callback = args[0] as Callback;
+        return ARRAY_PROTO[method].call(
+            raw,
+            (acc: unknown, item: unknown, index: unknown) =>
+                callback(
+                    acc,
+                    wrapItem(item, raw, index as number, flags),
+                    index,
+                    proxy,
+                ),
+            args[1],
+        );
+    };
+}
+
+for (const method of ['includes', 'indexOf', 'lastIndexOf'] as const) {
+    arrayInstrumentations[method] = function (
+        this: unknown[],
+        ...args: unknown[]
+    ) {
+        const raw = toRaw(this);
+        track(raw, ARRAY_ITERATE);
+        const search = ARRAY_PROTO[method];
+        const found = search.apply(raw, args);
+        // The raw array stores raw values, so a proxy argument is searched
+        // for by its target too.
+        if ((found === -1 || found === false) && args.length > 0) {
+            return search.apply(raw, [toRaw(args[0]), ...args.slice(1)]);
+        }
+        return found;
+    };
+}
+
+for (const method of ['values', 'entries', 'keys', Symbol.iterator] as const) {
+    arrayInstrumentations[method] = function (this: unknown[]) {
+        const raw = toRaw(this);
+        track(raw, ARRAY_ITERATE);
+        const inner = (
+            raw as unknown as Record<string | symbol, () => Iterator<unknown>>
+        )[method as string]();
+        if (method === 'keys') return inner;
+        const flags = flagsOf(this);
+        let index = 0;
+        return {
+            next() {
+                const step = inner.next();
+                if (step.done) return step;
+                const i = index++;
+                return {
+                    done: false,
+                    value:
+                        method === 'entries'
+                            ? [
+                                  (step.value as unknown[])[0],
+                                  wrapItem(
+                                      (step.value as unknown[])[1],
+                                      raw,
+                                      i,
+                                      flags,
+                                  ),
+                              ]
+                            : wrapItem(step.value, raw, i, flags),
+                };
+            },
+            [Symbol.iterator]() {
+                return this;
+            },
+        };
+    };
+}
 
 /**
  * Built-ins that gain nothing from a Proxy and break subtly behind one
@@ -512,6 +694,22 @@ export function createReactive<T>(target: T, flags: ReactiveFlags = DEEP): T {
             if (prop === SHALLOW_SYMBOL) return flags.shallow;
 
             const result = Reflect.get(source, prop, receiver);
+
+            if (Array.isArray(source)) {
+                const instrumented = arrayInstrumentations[prop];
+                if (
+                    instrumented !== undefined &&
+                    result ===
+                        (
+                            Array.prototype as unknown as Record<
+                                string | symbol,
+                                unknown
+                            >
+                        )[prop]
+                ) {
+                    return instrumented;
+                }
+            }
 
             // Intercept in-place array mutators so that the many index writes
             // and the implicit `length` update they perform collapse into a
