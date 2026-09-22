@@ -165,7 +165,7 @@ export function createContainer(id?: string): StoreContainer {
             store.$hydrate(pending as Partial<S>);
         }
 
-        if (devtools.enabled) devtools.registerStore(name, store);
+        devtools.registerStore(name, store);
         return store;
     }
 

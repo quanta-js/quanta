@@ -182,7 +182,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 ```
 
-Call it before creating stores, then mount the panel from [`@quantajs/devtools`](https://www.npmjs.com/package/@quantajs/devtools). DevTools is off by default because it exposes all state and action arguments to the page.
+Then mount the panel from [`@quantajs/devtools`](https://www.npmjs.com/package/@quantajs/devtools). DevTools is off by default because it exposes all state and action arguments to the page.
 
 ## License
 
