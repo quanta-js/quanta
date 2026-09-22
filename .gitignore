@@ -33,3 +33,4 @@ tsconfig.tsbuildinfo
 *.njsproj
 *.sln
 *.sw?
+packages/react/.readme-check
