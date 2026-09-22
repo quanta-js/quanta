@@ -5,14 +5,16 @@
         "name": "Jeel Gajera",
         "url": "https://github.com/JeelGajera"
     },
-    "description": "React integration for QuantaJS - A compact, scalable, and developer-friendly state management library for React applications.",
+    "description": "React bindings for QuantaJS stores.",
     "keywords": [
         "quantajs",
-        "quanta",
         "state-management",
-        "reactivity",
+        "store",
         "react",
-        "hooks"
+        "hooks",
+        "ssr",
+        "nextjs",
+        "typescript"
     ],
     "repository": {
         "type": "git",

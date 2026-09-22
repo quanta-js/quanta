@@ -5,12 +5,17 @@
         "name": "Jeel Gajera",
         "url": "https://github.com/JeelGajera"
     },
-    "description": "A compact, scalable, and developer-friendly state management library designed for any JavaScript environment. It includes a reactivity system that enables efficient and flexible data handling, making complex state management easy.",
+    "description": "Framework-agnostic reactive stores with request-scoped containers, async action state and persistence. No runtime dependencies.",
     "keywords": [
         "quantajs",
-        "quanta",
         "state-management",
-        "reactivity"
+        "store",
+        "reactivity",
+        "reactive",
+        "proxy",
+        "ssr",
+        "persistence",
+        "typescript"
     ],
     "repository": {
         "type": "git",
