@@ -136,8 +136,15 @@ export const flattenStore = <
         },
 
         getOwnPropertyDescriptor(target, prop: string | symbol) {
+            // The store's own API ($patch, subscribe, state, getters…) is
+            // reported non-enumerable, so Object.keys(), spread and
+            // JSON.stringify see the data rather than the machinery.
             if (Object.prototype.hasOwnProperty.call(target, prop)) {
-                return Reflect.getOwnPropertyDescriptor(target, prop);
+                const descriptor = Reflect.getOwnPropertyDescriptor(
+                    target,
+                    prop,
+                );
+                return descriptor && { ...descriptor, enumerable: false };
             }
             for (const bucket of [
                 target.getters as object,
