@@ -7,7 +7,7 @@ import type {
     StoreDefinitionOptions,
 } from '../type/store-types';
 import { instantiateStore } from './create-store';
-import { devtools } from '../devtools';
+import { registerStore } from '../devtools/hook';
 import { logger } from '../services/logger-service';
 import { __DEV__ } from '../utils/env';
 import { isSafeKey } from '../utils/sanitize';
@@ -165,7 +165,7 @@ export function createContainer(id?: string): StoreContainer {
             store.$hydrate(pending as Partial<S>);
         }
 
-        devtools.registerStore(name, store);
+        registerStore(name, store);
         return store;
     }
 
