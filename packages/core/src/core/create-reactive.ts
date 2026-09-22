@@ -40,8 +40,7 @@ export const ITERATE_KEY = Symbol('quanta.iterate');
 export function toRaw<T>(observed: T): T {
     if (observed === null || typeof observed !== 'object') return observed;
     const raw = (observed as Record<symbol, unknown>)[RAW_SYMBOL] as
-        | T
-        | undefined;
+        T | undefined;
     return raw ? toRaw(raw) : observed;
 }
 

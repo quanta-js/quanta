@@ -15,8 +15,7 @@ function detectDev(): boolean {
     // Vite / modern bundlers: import.meta.env.DEV
     try {
         const meta = import.meta as unknown as
-            | { env?: { DEV?: boolean; MODE?: string } }
-            | undefined;
+            { env?: { DEV?: boolean; MODE?: string } } | undefined;
         if (meta && meta.env) {
             if (typeof meta.env.DEV === 'boolean') return meta.env.DEV;
             if (typeof meta.env.MODE === 'string') {

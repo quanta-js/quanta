@@ -80,11 +80,13 @@ class Logger {
         if (!this.config.colors || !this.isNode) return '';
 
         const colors: {
-            [K in
-                | LogLevel.DEBUG
-                | LogLevel.INFO
-                | LogLevel.WARN
-                | LogLevel.ERROR]: string;
+            [
+                K in
+                    | LogLevel.DEBUG
+                    | LogLevel.INFO
+                    | LogLevel.WARN
+                    | LogLevel.ERROR
+            ]: string;
         } = {
             [LogLevel.DEBUG]: '\x1b[36m', // Cyan
             [LogLevel.INFO]: '\x1b[32m', // Green
