@@ -27,6 +27,14 @@ export type DevToolsEvent =
 
 type DevToolsListener = (event: DevToolsEvent) => void;
 
+interface Ref<T extends object> {
+    deref(): T | undefined;
+}
+
+const WeakRefCtor = (
+    globalThis as { WeakRef?: new <T extends object>(target: T) => Ref<T> }
+).WeakRef;
+
 export interface DevToolsOptions {
     /**
      * Property paths to redact from emitted events, e.g. `['token', 'user.ssn']`.
@@ -56,7 +64,24 @@ const REDACTED = '[redacted]';
  */
 class DevToolsBridge {
     private listeners = new Set<DevToolsListener>();
-    private stores = new Map<string, unknown>();
+    /**
+     * Registered stores, held weakly: every store is registered, including
+     * while DevTools is off, and a strong reference would keep alive the
+     * stores of any container that is never disposed (on a server, one per
+     * request).
+     */
+    private stores = new Map<string, Ref<object>>();
+
+    /** Live registered stores, pruning any that were collected. */
+    private liveStores(): Array<[string, object]> {
+        const live: Array<[string, object]> = [];
+        for (const [name, ref] of this.stores) {
+            const store = ref.deref();
+            if (store === undefined) this.stores.delete(name);
+            else live.push([name, store]);
+        }
+        return live;
+    }
 
     /**
      * Raw state object -> store name.
@@ -142,7 +167,7 @@ class DevToolsBridge {
     /** Subscribe to the event stream; existing stores are replayed. */
     subscribe(listener: DevToolsListener): () => void {
         this.listeners.add(listener);
-        for (const [name, store] of this.stores) {
+        for (const [name, store] of this.liveStores()) {
             try {
                 listener({ type: 'STORE_INIT', payload: { name, store } });
             } catch (error) {
@@ -162,9 +187,19 @@ class DevToolsBridge {
         };
     }
 
+    /**
+     * Record a store. Called for every store, enabled or not: DevTools is
+     * usually switched on after the first stores exist (a React panel enables
+     * it from an effect, after the first render created them), and a store
+     * missed here would never appear. Only emitting is gated on `enabled`.
+     */
     registerStore(name: string, store: { state?: object }): void {
-        if (!this._enabled) return;
-        this.stores.set(name, store);
+        // Without WeakRef, fall back to registering only while enabled.
+        if (WeakRefCtor === undefined && !this._enabled) return;
+        this.stores.set(
+            name,
+            WeakRefCtor ? new WeakRefCtor(store) : { deref: () => store },
+        );
         if (store.state) {
             // Register the raw target: that is the identity the proxy traps
             // report against. Registering the proxy too is harmless and makes
@@ -175,15 +210,51 @@ class DevToolsBridge {
         this.emit({ type: 'STORE_INIT', payload: { name, store } });
     }
 
-    unregisterStore(name: string): void {
+    unregisterStore(name: string, instance?: object): void {
         // Always allow cleanup, even when disabled.
-        const store = this.stores.get(name) as { state?: object } | undefined;
+        const store = this.stores.get(name)?.deref() as
+            { state?: object } | undefined;
+        // Another container may have registered a store under the same name
+        // since; only remove the entry if it is still this one.
+        if (instance !== undefined && store !== instance) return;
         if (store?.state) {
             this.stateMap.delete(toRaw(store.state));
             this.stateMap.delete(store.state);
         }
         this.stores.delete(name);
         this.emit({ type: 'STORE_DISPOSE', payload: { name } });
+    }
+
+    /**
+     * A plain copy of a store's state and getter values, with the configured
+     * `redact` paths masked. This is what a panel should display: rendering
+     * the live store would bypass redaction.
+     */
+    snapshot(
+        name: string,
+    ): { state: unknown; getters: Record<string, unknown> } | undefined {
+        const store = this.stores.get(name)?.deref() as
+            | {
+                  state?: object;
+                  getters?: Record<string, { value: unknown }>;
+              }
+            | undefined;
+        if (!store) return undefined;
+
+        const getters: Record<string, unknown> = {};
+        for (const key of Object.keys(store.getters ?? {})) {
+            let value: unknown;
+            try {
+                value = store.getters![key].value;
+            } catch (error) {
+                value = `[threw: ${error instanceof Error ? error.message : String(error)}]`;
+            }
+            getters[key] = redactTree(key, value, this.redactions);
+        }
+        return {
+            state: redactTree('', toRaw(store.state), this.redactions),
+            getters,
+        };
     }
 
     /** The store a given state object belongs to, if any. */
@@ -258,16 +329,81 @@ class DevToolsBridge {
         });
     }
 
-    /** Replace a value whose path matches a configured redaction. */
+    /** Mask a changed value, including matching keys nested inside it. */
     private redact(path: string, value: unknown): unknown {
         if (this.redactions.length === 0) return value;
-        for (const pattern of this.redactions) {
-            if (path === pattern || path.endsWith(`.${pattern}`)) {
-                return REDACTED;
-            }
-        }
-        return value;
+        return redactTree(path, value, this.redactions);
     }
+}
+
+/** Whether a dotted path matches a redaction pattern. */
+function matches(path: string, patterns: string[]): boolean {
+    for (const pattern of patterns) {
+        if (path === pattern || path.endsWith(`.${pattern}`)) return true;
+    }
+    return false;
+}
+
+/**
+ * Copy a value into plain data, masking any path that matches a pattern.
+ * Proxies are unwrapped, cycles are cut and depth is bounded.
+ */
+function redactTree(
+    path: string,
+    value: unknown,
+    patterns: string[],
+    seen = new WeakSet<object>(),
+    depth = 0,
+): unknown {
+    if (path !== '' && matches(path, patterns)) return REDACTED;
+    if (value === null || typeof value !== 'object') return value;
+
+    const raw = toRaw(value) as object;
+    if (seen.has(raw) || depth > 32) return '[circular]';
+    seen.add(raw);
+
+    const child = (key: string) => (path === '' ? key : `${path}.${key}`);
+    let out: unknown;
+    if (Array.isArray(raw)) {
+        out = raw.map((item, i) =>
+            redactTree(child(String(i)), item, patterns, seen, depth + 1),
+        );
+    } else if (raw instanceof Map) {
+        const copy = new Map();
+        for (const [key, item] of raw) {
+            copy.set(
+                key,
+                redactTree(child(String(key)), item, patterns, seen, depth + 1),
+            );
+        }
+        out = copy;
+    } else if (raw instanceof Set) {
+        out = new Set(
+            [...raw].map((item, i) =>
+                redactTree(child(String(i)), item, patterns, seen, depth + 1),
+            ),
+        );
+    } else if (
+        Object.getPrototypeOf(raw) === Object.prototype ||
+        Object.getPrototypeOf(raw) === null
+    ) {
+        const copy: Record<string, unknown> = {};
+        for (const key of Object.keys(raw)) {
+            copy[key] = redactTree(
+                child(key),
+                (raw as Record<string, unknown>)[key],
+                patterns,
+                seen,
+                depth + 1,
+            );
+        }
+        out = copy;
+    } else {
+        // Dates, class instances and the like are shown as they are.
+        out = raw;
+    }
+    seen.delete(raw);
+    return out;
 }
 
 /** Redact matching keys anywhere inside an action argument. */

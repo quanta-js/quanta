@@ -305,7 +305,7 @@ export function instantiateStore<
                 scope.stop();
                 subscribers.clear();
                 host.onDestroy();
-                devtools.unregisterStore(name);
+                devtools.unregisterStore(name, flattened);
             } catch (error) {
                 if (__DEV__) {
                     logger.error(
