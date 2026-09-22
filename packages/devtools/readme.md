@@ -1,89 +1,50 @@
 # @quantajs/devtools
 
-![QuantaJS Banner](https://raw.githubusercontent.com/quanta-js/quanta/master/assets/quantajs_banner.png)
-
 [![CI](https://github.com/quanta-js/quanta/actions/workflows/ci.yml/badge.svg)](https://github.com/quanta-js/quanta/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@quantajs/devtools.svg)](https://www.npmjs.com/package/@quantajs/devtools)
 
-Powerful DevTools for QuantaJS with real-time state inspection and action/event tracking.
+An in-page inspector for [`@quantajs/core`](https://www.npmjs.com/package/@quantajs/core) stores: live state and an action log. Renders inside a shadow root, so it does not touch your page's styles.
 
-## ✨ Why You'll Like It
+## Install
 
-- 🔍 Live store state explorer
-- 🧾 Action timeline with payload inspection
-- 🛡️ Safe serialization for complex/circular objects
-- 🔌 Simple mount API for any app setup
-
-## 📦 Installation
-
-```bash
-npm install @quantajs/devtools @quantajs/core
-# or
-pnpm add @quantajs/devtools @quantajs/core
-# or
-yarn add @quantajs/devtools @quantajs/core
+```sh
+npm install -D @quantajs/devtools
 ```
 
-## 🚀 Quick Start
+## React
 
-```ts
-import { createStore } from '@quantajs/core';
-import { mountDevTools } from '@quantajs/devtools';
+Use the panel from [`@quantajs/react`](https://www.npmjs.com/package/@quantajs/react):
 
-createStore('counter', {
-    state: () => ({ count: 0 }),
-    actions: {
-        increment() {
-            this.count++;
-        },
-    },
-});
+```tsx
+import { QuantaDevTools } from '@quantajs/react/devtools';
 
-const cleanup = mountDevTools(); // auto-detects dev mode
-```
-
-## ⚙️ Mount with Options
-
-```ts
-import { mountDevTools } from '@quantajs/devtools';
-
-mountDevTools({ visible: true });
-mountDevTools({ target: '#devtools-root' });
-mountDevTools({
-    target: document.body,
-    onError(error) {
-        console.warn('DevTools mount issue:', error.message);
-    },
-});
-```
-
-### `DevToolsOptions`
-
-```ts
-interface DevToolsOptions {
-    visible?: boolean;
-    target?: HTMLElement | string;
-    onError?: (error: Error) => void;
+export function DevPanel() {
+    return <QuantaDevTools redact={['token']} />;
 }
 ```
 
-## 🛠️ Exports
+## Any other setup
 
-- `mountDevTools(options?)`
-- `DevTools` (Preact component)
+```ts
+import { enableDevTools } from '@quantajs/core';
+import { mountDevTools } from '@quantajs/devtools';
 
-## ⚛️ React Users
+enableDevTools({ redact: ['token'] });
+const unmount = mountDevTools({ visible: true });
+```
 
-If you use `@quantajs/react`, you can render `QuantaDevTools` directly from that package.
+`mountDevTools` options:
 
-## 🤝 Contributing
+| Option    | Default                 |                                        |
+| --------- | ----------------------- | -------------------------------------- |
+| `visible` | development builds only | Force the panel on or off              |
+| `target`  | `'body'`                | Element or selector to mount into      |
+| `onError` | —                       | Called when the target cannot be found |
 
-Contributions are welcome. Share bug reports, DX feedback, and UI/UX improvements through issues and PRs.
+## Security
 
-## ⭐ Support
+DevTools sees every store's state and every action argument, and exposes them to scripts on the page. Enable it in development only, and list sensitive paths in `redact`.
 
-If QuantaJS helps your team, please star the repo:
-https://github.com/quanta-js/quanta
-
-## 📜 License
+## License
 
 MIT
