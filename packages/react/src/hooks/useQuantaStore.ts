@@ -3,6 +3,8 @@
 import {
     useCallback,
     useDebugValue,
+    useEffect,
+    useLayoutEffect,
     useRef,
     useSyncExternalStore,
 } from 'react';
@@ -15,6 +17,10 @@ import {
     type StateTree,
     type Store,
 } from '@quantajs/core';
+
+/** useLayoutEffect in the browser, without the server-render warning. */
+const useIsomorphicLayoutEffect =
+    typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 /**
  * Compares the previous and next selector results to decide whether to
@@ -145,29 +151,21 @@ export function useQuantaSelector<
     selector: (store: Store<S, G, A>) => T,
     options?: SelectorOptions<T>,
 ): T {
-    // Latest selector/equality without making them subscription dependencies.
-    // An inline arrow selector is a new identity on every render; keying the
-    // subscription on it would tear down and recreate the store subscription
-    // on every single render.
+    const equality = options?.equalityFn ?? defaultEquality;
+
+    // The selector and equality of the last *committed* render. The tracking
+    // effect reads these, so a render React discards can never leave the
+    // subscription pointing at its selector. An inline arrow is a new
+    // identity every render; keeping it out of the subscription's
+    // dependencies avoids tearing down the subscription on every render.
     const selectorRef = useRef(selector);
+    const equalityRef = useRef<EqualityFn<T>>(equality);
 
-    const equalityRef = useRef<EqualityFn<T>>(
-        options?.equalityFn ?? defaultEquality,
-    );
-    equalityRef.current = options?.equalityFn ?? defaultEquality;
-
-    // Whether the selector changed identity this render. A selector closing
-    // over a prop (`s => mode === 'a' ? s.a : s.b`) is a different function
-    // *and* reads different state, so both the cached value and the tracked
-    // dependency set belong to the previous one and must be rebuilt.
-    const selectorChanged = selectorRef.current !== selector;
-    selectorRef.current = selector;
-
-    // `value` is the snapshot React reads. It must be stable between renders
-    // unless the selection genuinely changed, or useSyncExternalStore will
-    // loop forever ("getSnapshot should be cached").
+    // `value` is what the component receives. It must be stable between
+    // renders unless the selection genuinely changed.
     const valueRef = useRef<{ current: T } | null>(null);
     const runnerRef = useRef<EffectRunner | null>(null);
+    const notifyRef = useRef<(() => void) | null>(null);
 
     // React compares consecutive `getSnapshot()` results with Object.is and
     // skips the render when they match. A selector returning a live reactive
@@ -176,11 +174,10 @@ export function useQuantaSelector<
     // even though the contents changed.
     //
     // So the snapshot is a version token, bumped whenever the selection
-    // changes, and the value is returned separately. React re-renders on the
-    // token; the component reads the freshly-computed value.
+    // changes, and the value is returned separately.
     const versionRef = useRef(0);
 
-    /** Run the selector inside the tracking effect and store the result. */
+    /** Run the committed selector and store the result if it changed. */
     const readIntoRef = useCallback(() => {
         const next = selectorRef.current(store);
         if (valueRef.current === null) {
@@ -196,6 +193,9 @@ export function useQuantaSelector<
         (onStoreChange: () => void) => {
             // Dispose any runner left over from a previous store.
             runnerRef.current?.stop();
+            notifyRef.current = onStoreChange;
+
+            const rendered = valueRef.current;
 
             // The effect body both computes the value and registers the
             // dependencies it read. The scheduler fires when any of them
@@ -222,6 +222,12 @@ export function useQuantaSelector<
             );
             runnerRef.current = runner;
 
+            // The store may have changed between render and subscribe. React
+            // re-reads the snapshot after subscribing and re-renders if it
+            // moved, so bump it when the first tracked run disagrees with
+            // what was rendered.
+            if (valueRef.current !== rendered) versionRef.current++;
+
             return () => {
                 runner.stop();
                 if (runnerRef.current === runner) runnerRef.current = null;
@@ -230,37 +236,51 @@ export function useQuantaSelector<
         [readIntoRef],
     );
 
-    // Rebuild eagerly when the selector changed, so *this* render already sees
-    // the new selection and the runner re-tracks against the new dependencies.
-    // Re-running the runner recomputes and re-tracks in one step; it never
-    // notifies React, because notification lives in the scheduler.
-    if (selectorChanged && valueRef.current !== null) {
-        const runner = runnerRef.current;
-        if (runner !== null && runner.active) {
-            runner();
-        } else {
-            untrack(() => {
-                valueRef.current = { current: selector(store) };
-            });
-        }
-    }
-
     const getVersion = useCallback(() => versionRef.current, []);
-
     useSyncExternalStore(subscribe, getVersion, getVersion);
 
-    // Before the subscription exists (first render, and during SSR) there is
-    // no computed value yet. Read untracked so this does not leak a dependency
-    // into whatever effect might be running around us.
+    // Compute what this render shows without touching the dependency graph:
+    // renders can be discarded or replayed, so subscribing belongs in the
+    // commit phase below.
+    let value: T;
+    const selectorChanged = selectorRef.current !== selector;
     if (valueRef.current === null) {
-        untrack(() => {
-            valueRef.current = { current: selectorRef.current(store) };
-        });
+        // First render (and SSR): lazily initialise the cache.
+        valueRef.current = { current: untrack(() => selector(store)) };
+        value = valueRef.current.current;
+    } else if (selectorChanged) {
+        // A different selector can read different state (a closure over a
+        // prop, say), so the cached value belongs to the old one.
+        const previous = valueRef.current.current;
+        const next = untrack(() => selector(store));
+        value = equality(previous, next) ? previous : next;
+    } else {
+        value = valueRef.current.current;
     }
 
-    // Non-null by construction: either the runner populated it, or the
-    // untracked read directly above did.
-    const value = valueRef.current!.current;
+    useIsomorphicLayoutEffect(() => {
+        equalityRef.current = equality;
+        if (selectorRef.current === selector) return;
+        selectorRef.current = selector;
+        if (valueRef.current?.current !== value) {
+            valueRef.current = { current: value };
+        }
+
+        // Re-track against the committed selector. If the state changed
+        // since render, the runner's result differs from what was shown and
+        // the component re-renders.
+        const runner = runnerRef.current;
+        if (runner === null || !runner.active) return;
+        runner();
+        // Compare the values themselves: the default equality treats every
+        // object as changed (for in-place mutation), which here would
+        // re-render forever.
+        if (!Object.is(valueRef.current?.current, value)) {
+            versionRef.current++;
+            notifyRef.current?.();
+        }
+    });
+
     useDebugValue(value);
     return value;
 }
