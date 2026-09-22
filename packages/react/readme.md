@@ -73,6 +73,8 @@ No provider is needed in a client-only app. Stores resolve against the nearest `
 | `useComputed(store, fn, options?)`               | What `fn` reads         | A cached derivation scoped to a component                    |
 | `useWatch(store, source, callback, options?)`    | What `source` reads     | Side effects on change                                       |
 
+Selectors run on render and whenever state they read changes, so keep them cheap. Define an expensive selector outside the component (or wrap it in `useCallback`), or use `useComputed` for a cached derivation.
+
 `useQuantaStore(store)` and `useQuantaSelector(store, selector)` are the same as `useQuanta` and `useQuantaValue` but take a resolved store instead of a definition.
 
 A selector that builds a new object or array on every call should pass `shallow` so unchanged projections do not re-render:
