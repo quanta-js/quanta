@@ -1,20 +1,22 @@
 import { defineConfig } from 'vite';
-import dts from 'vite-plugin-dts';
 import banner from 'vite-plugin-banner';
 import { resolve } from 'path';
 import { readFileSync } from 'fs';
 import preact from '@preact/preset-vite';
 
 const licenseBanner = readFileSync(resolve(__dirname, '../../LICENSE'), 'utf8');
+const { version } = JSON.parse(
+    readFileSync(resolve(__dirname, 'package.json'), 'utf8'),
+);
 
+// Declarations are emitted by `tsc -p tsconfig.build.json`.
 export default defineConfig({
     root: '.',
+    define: {
+        __DEVTOOLS_VERSION__: JSON.stringify(version),
+    },
     plugins: [
         preact(),
-        dts({
-            insertTypesEntry: true,
-            exclude: ['test/**/*', 'src/__tests__/**'],
-        }),
         banner({
             content: licenseBanner,
         }) as any,

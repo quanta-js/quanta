@@ -1,5 +1,4 @@
 import { defineConfig } from 'vite';
-import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
 import banner from 'vite-plugin-banner';
 import { readFileSync } from 'fs';
@@ -7,16 +6,9 @@ import { readFileSync } from 'fs';
 const licenseBanner = readFileSync(resolve(__dirname, '../../LICENSE'), 'utf8');
 
 export default defineConfig({
-    plugins: [
-        dts({
-            include: ['src/**/*.ts'],
-            exclude: ['src/**/*.test.ts', 'src/__tests__/**'],
-            rollupTypes: true,
-            outDir: 'dist',
-            insertTypesEntry: true,
-        }),
-        banner(licenseBanner) as never,
-    ],
+    // Declarations are emitted by `tsc -p tsconfig.build.json`, as in
+    // @quantajs/react.
+    plugins: [banner(licenseBanner) as never],
     build: {
         lib: {
             entry: resolve(__dirname, 'src/index.ts'),

@@ -37,10 +37,11 @@
     "scripts": {
         "test:types": "tsc --noEmit",
         "dev": "vite",
-        "build": "npm run clean && vite build",
+        "build": "npm run clean && vite build && npm run build:types",
         "clean": "rimraf dist",
         "lint": "eslint . --ext .ts,.tsx",
-        "lint:fix": "eslint . --ext .ts,.tsx --fix"
+        "lint:fix": "eslint . --ext .ts,.tsx --fix",
+        "build:types": "tsc -p tsconfig.build.json"
     },
     "peerDependencies": {
         "@quantajs/core": ">=2.0.0"
