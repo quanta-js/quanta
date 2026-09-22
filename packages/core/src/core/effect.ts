@@ -46,6 +46,8 @@ export interface EffectRunner extends EffectFunction {
     scheduler?: (effect: EffectRunner) => void;
     /** Whether the scheduler runs immediately, bypassing batch deferral. */
     eager?: boolean;
+    /** Whether the effect body is executing right now. */
+    running?: boolean;
 }
 
 /** target -> (property -> Dependency) */
@@ -65,10 +67,32 @@ let anyChangeSubscribers = 0;
 let activeEffect: EffectFunction | null = null;
 
 /**
- * Per-effect set of `Dependency` objects the effect is subscribed to.
- * Used to clean up stale subscriptions before each re-run.
+ * What an effect is subscribed to, and which run last read each dependency.
+ *
+ * Subscriptions persist across runs. `track` stamps each dependency with the
+ * current run number, and after the run any dependency with an older stamp
+ * is released. Unsubscribing and resubscribing every dependency on every
+ * run, as before, cost several Set mutations per dependency per run.
  */
-const effectDeps = new WeakMap<EffectFunction, Set<Dependency>>();
+interface EffectState {
+    deps: Map<Dependency, number>;
+    run: number;
+}
+const effectDeps = new WeakMap<EffectFunction, EffectState>();
+
+/**
+ * Whether `effect` is mid-run and has not read `dep` yet in this run.
+ *
+ * Such a subscription is left over from the previous run. Notifying through
+ * it would make an effect that writes a value before reading it trip the
+ * circular-dependency check, which could not happen while subscriptions
+ * were cleared at the start of each run.
+ */
+function isStaleWhileRunning(effect: EffectFunction, dep: Dependency): boolean {
+    if ((effect as EffectRunner).running !== true) return false;
+    const state = effectDeps.get(effect);
+    return state !== undefined && state.deps.get(dep) !== state.run;
+}
 
 let batchDepth = 0;
 const effectQueue = new Set<EffectFunction>();
@@ -162,7 +186,7 @@ function scheduleEffect(effect: EffectFunction, errors: unknown[]): void {
         } else {
             // A self-triggering effect would recurse forever. Detect it at the
             // point of re-entry rather than blowing the stack.
-            if (effectStack.includes(effect)) {
+            if (runner.running === true) {
                 throw new Error(
                     `Circular dependency detected: effect "${
                         effect.name || 'anonymous'
@@ -198,12 +222,16 @@ export function notifyDependency(dep: Dependency, errors: unknown[]): void {
     // common shape: a component reading a field, a computed reading a source.
     if (size === 1) {
         const only = subscribers.values().next().value;
-        if (only !== undefined) scheduleEffect(only, errors);
+        if (only !== undefined && !isStaleWhileRunning(only, dep)) {
+            scheduleEffect(only, errors);
+        }
         return;
     }
 
     for (const subscriber of [...subscribers]) {
-        scheduleEffect(subscriber, errors);
+        if (!isStaleWhileRunning(subscriber, dep)) {
+            scheduleEffect(subscriber, errors);
+        }
     }
 }
 
@@ -386,7 +414,9 @@ export function trigger(target: object, prop: string | symbol): void {
         // write instead of once per dependency it happens to share.
         const effects = new Set<EffectFunction>();
         const collect = (d: Dependency): void => {
-            for (const effect of d.getSubscribers) effects.add(effect);
+            for (const effect of d.getSubscribers) {
+                if (!isStaleWhileRunning(effect, d)) effects.add(effect);
+            }
         };
         if (dep !== undefined) collect(dep);
         if (anyDep !== undefined) collect(anyDep);
@@ -412,6 +442,8 @@ export function trigger(target: object, prop: string | symbol): void {
  */
 export function track(target: object, prop: string | symbol): void {
     if (activeEffect === null) return;
+    const state = effectDeps.get(activeEffect);
+    if (state === undefined) return; // a stopped effect
 
     let depsMap = targetMap.get(target);
     if (depsMap === undefined) {
@@ -425,15 +457,16 @@ export function track(target: object, prop: string | symbol): void {
         depsMap.set(prop, dep);
     }
 
-    if (prop === ANY_CHANGE) {
-        dep.coarse = true;
-        if (dep.size === 0) anyChangeSubscribers++;
+    const seen = state.deps.get(dep);
+    if (seen === state.run) return; // already read in this run
+    if (seen === undefined) {
+        if (prop === ANY_CHANGE) {
+            dep.coarse = true;
+            if (dep.size === 0) anyChangeSubscribers++;
+        }
+        dep.depend(activeEffect);
     }
-    dep.depend(activeEffect);
-
-    // Record the dep on the effect so a later re-run can unsubscribe from it.
-    const deps = effectDeps.get(activeEffect);
-    if (deps !== undefined) deps.add(dep);
+    state.deps.set(dep, state.run);
 }
 
 /* ------------------------------------------------------------------ *
@@ -459,12 +492,12 @@ export function reactiveEffect(
     effectFn: EffectFunction,
     options?: EffectOptions,
 ): EffectRunner {
-    const deps = new Set<Dependency>();
+    const state: EffectState = { deps: new Map(), run: 0 };
 
     const wrappedEffect = (() => {
         if (!wrappedEffect.active) return;
 
-        if (effectStack.includes(wrappedEffect)) {
+        if (wrappedEffect.running === true) {
             const message = `Circular dependency detected: effect "${
                 effectFn.name || 'anonymous'
             }" triggered itself. Stack: ${effectStack
@@ -474,19 +507,25 @@ export function reactiveEffect(
             throw new Error(message);
         }
 
-        // Drop stale subscriptions before re-tracking. Without this an effect
-        // whose dependencies change over time accumulates subscribers forever.
-        for (const dep of deps) releaseDep(dep, wrappedEffect);
-        deps.clear();
-
+        const run = ++state.run;
         effectStack.push(wrappedEffect);
+        wrappedEffect.running = true;
         const previousActive = activeEffect;
         activeEffect = wrappedEffect;
         try {
             effectFn();
         } finally {
             effectStack.pop();
+            wrappedEffect.running = false;
             activeEffect = previousActive;
+            // Release what this run did not read. Without this an effect
+            // whose dependencies change over time accumulates them forever.
+            for (const [dep, seen] of state.deps) {
+                if (seen !== run) {
+                    releaseDep(dep, wrappedEffect);
+                    state.deps.delete(dep);
+                }
+            }
         }
     }) as EffectRunner;
 
@@ -499,8 +538,8 @@ export function reactiveEffect(
     wrappedEffect.stop = () => {
         if (!wrappedEffect.active) return;
         wrappedEffect.active = false;
-        for (const dep of deps) releaseDep(dep, wrappedEffect);
-        deps.clear();
+        for (const dep of state.deps.keys()) releaseDep(dep, wrappedEffect);
+        state.deps.clear();
         effectDeps.delete(wrappedEffect);
         effectQueue.delete(wrappedEffect);
         options?.onStop?.();
@@ -513,7 +552,7 @@ export function reactiveEffect(
         wrappedEffect.eager = true;
     }
 
-    effectDeps.set(wrappedEffect, deps);
+    effectDeps.set(wrappedEffect, state);
 
     // Register with the enclosing scope, if any, so the scope can dispose it.
     activeScope?.add(wrappedEffect);
