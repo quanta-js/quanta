@@ -95,7 +95,7 @@ describe('readonly() of a reactive proxy', () => {
         state.count = 1;
         state.nested.v = 10;
 
-        expect([...new Set(seen)]).toEqual([0, 1, 11]);
+        expect(seen).toEqual([0, 1, 11]);
     });
 
     it('blocks writes on a readonly view of a reactive Map', () => {
