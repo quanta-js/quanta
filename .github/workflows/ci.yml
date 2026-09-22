@@ -162,3 +162,6 @@ jobs:
       # would.
       - name: 📦 Verify the published artifact
         run: pnpm verify:packaging
+
+      - name: 📝 Type-check README examples
+        run: pnpm verify:readme
