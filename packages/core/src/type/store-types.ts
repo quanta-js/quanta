@@ -107,6 +107,8 @@ export interface StoreApi<S, G extends GettersTree<S>, A extends ActionsTree> {
     readonly $hydrated: Promise<void>;
     /** Serialisable snapshot of this store's state. */
     $dehydrate(): S;
+    /** Lets `JSON.stringify(store)` serialise the state. */
+    toJSON(): S;
     /** Replace state from a snapshot, as one notification. */
     $hydrate(snapshot: Partial<S>): void;
     /** Release every effect, subscriber and watcher this store owns. */

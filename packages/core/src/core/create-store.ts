@@ -278,6 +278,11 @@ export function instantiateStore<
             return structuredCopy(toRaw(state)) as S;
         },
 
+        /** `JSON.stringify(store)` serialises the state. */
+        toJSON(): S {
+            return structuredCopy(toRaw(state)) as S;
+        },
+
         /** Replace state from a snapshot, as one notification. */
         $hydrate(snapshot: Partial<S>): void {
             if (!snapshot || typeof snapshot !== 'object') return;
