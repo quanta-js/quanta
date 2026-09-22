@@ -56,6 +56,7 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
     let destroyed = false;
     let crossTabUnsubscribe: (() => void) | null = null;
     let autoSaveUnsub: (() => void) | null = null;
+    let removePageListeners: (() => void) | null = null;
 
     /**
      * Monotonic counter bumped by the auto-save watcher.
@@ -338,11 +339,32 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
         }
     };
 
+    /**
+     * Write any pending change when the page is hidden or unloaded, so the
+     * debounce window cannot lose the last edit.
+     */
+    const setupPageListeners = (): void => {
+        if (removePageListeners || typeof window === 'undefined') return;
+        const flush = (): void => {
+            void debouncedSave.flush();
+        };
+        const onVisibility = (): void => {
+            if (document.visibilityState === 'hidden') flush();
+        };
+        window.addEventListener('pagehide', flush);
+        document.addEventListener('visibilitychange', onVisibility);
+        removePageListeners = () => {
+            window.removeEventListener('pagehide', flush);
+            document.removeEventListener('visibilitychange', onVisibility);
+        };
+    };
+
     // Hydrate, then start watching. Auto-save is only armed afterwards so the
     // act of hydrating cannot trigger a write-back of what we just read.
     void load().then(() => {
         setupAutoSave();
         setupCrossTabSync();
+        setupPageListeners();
     });
 
     return {
@@ -393,16 +415,20 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
         isRehydrated: () => isRehydrated,
 
         destroy() {
+            // Write the last change rather than dropping it. The adapter call
+            // starts synchronously, before `destroyed` blocks further writes.
+            void debouncedSave.flush();
             destroyed = true;
             if (autoSaveUnsub) {
                 autoSaveUnsub();
                 autoSaveUnsub = null;
             }
+            removePageListeners?.();
+            removePageListeners = null;
             if (crossTabUnsubscribe) {
                 crossTabUnsubscribe();
                 crossTabUnsubscribe = null;
             }
-            debouncedSave.cancel();
         },
     };
 }
