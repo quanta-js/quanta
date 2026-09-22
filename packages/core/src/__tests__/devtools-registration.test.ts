@@ -119,3 +119,50 @@ describe('same store name in two containers', () => {
         expect(devtools.snapshot(name)).toBeDefined();
     });
 });
+
+describe('enabling and disabling', () => {
+    it('stops reporting after disableDevTools()', () => {
+        const store = defineStore(unique('off'), {
+            state: () => ({ n: 0 }),
+        })(createContainer());
+        enableDevTools();
+        const { events, unsubscribe } = record();
+        disableDevTools();
+
+        store.n = 1;
+        unsubscribe();
+
+        expect(events.some((e) => e.type === 'STATE_CHANGE')).toBe(false);
+    });
+
+    it('reports again, including stores created meanwhile, after re-enabling', () => {
+        enableDevTools();
+        disableDevTools();
+        const name = unique('meanwhile');
+        const store = defineStore(name, { state: () => ({ n: 0 }) })(
+            createContainer(),
+        );
+        enableDevTools();
+        const { events, unsubscribe } = record();
+
+        store.n = 1;
+        unsubscribe();
+
+        expect(
+            events.some(
+                (e) =>
+                    e.type === 'STATE_CHANGE' && e.payload.storeName === name,
+            ),
+        ).toBe(true);
+    });
+
+    it('devtools.unregisterStore(name) still removes a store by name', () => {
+        const name = unique('byname');
+        defineStore(name, { state: () => ({ n: 0 }) })(createContainer());
+        enableDevTools();
+
+        devtools.unregisterStore(name);
+
+        expect(devtools.snapshot(name)).toBeUndefined();
+    });
+});

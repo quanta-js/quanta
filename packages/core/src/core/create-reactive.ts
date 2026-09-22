@@ -10,7 +10,7 @@ import {
 } from '../utils/deep-trigger';
 
 export { ANY_CHANGE };
-import { devtools } from '../devtools';
+import { devtoolsSink } from '../devtools/hook';
 
 /** Retrieves the raw target behind a proxy. */
 export const RAW_SYMBOL = Symbol('quanta.raw');
@@ -618,8 +618,7 @@ function notifyDevTools(
     prop: string | symbol | unknown,
     value: unknown,
 ): void {
-    if (!devtools.enabled) return;
-    devtools.notifyStateChange(target, prop as string | symbol, value);
+    devtoolsSink?.stateChanged(target, prop as string | symbol, value);
 }
 
 /* ------------------------------------------------------------------ *

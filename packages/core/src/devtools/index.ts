@@ -2,6 +2,14 @@ import { logger } from '../services/logger-service';
 import { __DEV__, isBrowser } from '../utils/env';
 import { toRaw } from '../core/create-reactive';
 import { getParentChain } from '../utils/deep-trigger';
+import {
+    setDevToolsSink,
+    registerStore,
+    unregisterStore,
+    registeredStore,
+    registeredStores,
+    type DevToolsSink,
+} from './hook';
 
 export type DevToolsEvent =
     | { type: 'STORE_INIT'; payload: { name: string; store: unknown } }
@@ -26,14 +34,6 @@ export type DevToolsEvent =
       };
 
 type DevToolsListener = (event: DevToolsEvent) => void;
-
-interface Ref<T extends object> {
-    deref(): T | undefined;
-}
-
-const WeakRefCtor = (
-    globalThis as { WeakRef?: new <T extends object>(target: T) => Ref<T> }
-).WeakRef;
 
 export interface DevToolsOptions {
     /**
@@ -62,26 +62,8 @@ const REDACTED = '[redacted]';
  * import time, which exposed all application state to any script on the page
  * in production.
  */
-class DevToolsBridge {
+class DevToolsBridge implements DevToolsSink {
     private listeners = new Set<DevToolsListener>();
-    /**
-     * Registered stores, held weakly: every store is registered, including
-     * while DevTools is off, and a strong reference would keep alive the
-     * stores of any container that is never disposed (on a server, one per
-     * request).
-     */
-    private stores = new Map<string, Ref<object>>();
-
-    /** Live registered stores, pruning any that were collected. */
-    private liveStores(): Array<[string, object]> {
-        const live: Array<[string, object]> = [];
-        for (const [name, ref] of this.stores) {
-            const store = ref.deref();
-            if (store === undefined) this.stores.delete(name);
-            else live.push([name, store]);
-        }
-        return live;
-    }
 
     /**
      * Raw state object -> store name.
@@ -106,6 +88,7 @@ class DevToolsBridge {
             this.enable();
         } else {
             this._enabled = false;
+            setDevToolsSink(null);
         }
     }
 
@@ -120,6 +103,10 @@ class DevToolsBridge {
     enable(options: DevToolsOptions = {}): void {
         this._enabled = true;
         if (options.redact) this.redactions = options.redact;
+        for (const [name, store] of registeredStores()) {
+            this.indexState(name, store);
+        }
+        setDevToolsSink(this);
 
         // Attach only now — never as an import side effect.
         if (isBrowser()) {
@@ -131,6 +118,7 @@ class DevToolsBridge {
     /** Turn DevTools off and remove the global handle. */
     disable(): void {
         this._enabled = false;
+        setDevToolsSink(null);
         if (isBrowser()) {
             delete (window as unknown as Record<string, unknown>)
                 .__QUANTA_DEVTOOLS__;
@@ -167,7 +155,7 @@ class DevToolsBridge {
     /** Subscribe to the event stream; existing stores are replayed. */
     subscribe(listener: DevToolsListener): () => void {
         this.listeners.add(listener);
-        for (const [name, store] of this.liveStores()) {
+        for (const [name, store] of registeredStores()) {
             try {
                 listener({ type: 'STORE_INIT', payload: { name, store } });
             } catch (error) {
@@ -187,42 +175,49 @@ class DevToolsBridge {
         };
     }
 
-    /**
-     * Record a store. Called for every store, enabled or not: DevTools is
-     * usually switched on after the first stores exist (a React panel enables
-     * it from an effect, after the first render created them), and a store
-     * missed here would never appear. Only emitting is gated on `enabled`.
-     */
+    /** Record a store. The core calls this for every store it creates. */
     registerStore(name: string, store: { state?: object }): void {
-        // Without WeakRef, fall back to registering only while enabled.
-        if (WeakRefCtor === undefined && !this._enabled) return;
-        this.stores.set(
-            name,
-            WeakRefCtor ? new WeakRefCtor(store) : { deref: () => store },
-        );
-        if (store.state) {
-            // Register the raw target: that is the identity the proxy traps
-            // report against. Registering the proxy too is harmless and makes
-            // direct lookups by proxy work for external tooling.
-            this.stateMap.set(toRaw(store.state), name);
-            this.stateMap.set(store.state, name);
-        }
+        registerStore(name, store);
+    }
+
+    /** Forget a store, by default whichever one holds `name`. */
+    unregisterStore(name: string, instance?: object): void {
+        const store = instance ?? registeredStore(name);
+        if (store !== undefined) unregisterStore(name, store);
+    }
+
+    /** Map a store's state to its name, for resolving mutation paths. */
+    private indexState(name: string, store: object): void {
+        const state = (store as { state?: object }).state;
+        if (!state) return;
+        // The raw target is the identity the proxy traps report against;
+        // the proxy is registered too for direct lookups by tooling.
+        this.stateMap.set(toRaw(state), name);
+        this.stateMap.set(state, name);
+    }
+
+    /* DevToolsSink: installed by enable(), called by the core. */
+
+    storeRegistered(name: string, store: object): void {
+        this.indexState(name, store);
         this.emit({ type: 'STORE_INIT', payload: { name, store } });
     }
 
-    unregisterStore(name: string, instance?: object): void {
-        // Always allow cleanup, even when disabled.
-        const store = this.stores.get(name)?.deref() as
-            { state?: object } | undefined;
-        // Another container may have registered a store under the same name
-        // since; only remove the entry if it is still this one.
-        if (instance !== undefined && store !== instance) return;
-        if (store?.state) {
-            this.stateMap.delete(toRaw(store.state));
-            this.stateMap.delete(store.state);
+    storeDisposed(name: string, store: object): void {
+        const state = (store as { state?: object }).state;
+        if (state) {
+            this.stateMap.delete(toRaw(state));
+            this.stateMap.delete(state);
         }
-        this.stores.delete(name);
         this.emit({ type: 'STORE_DISPOSE', payload: { name } });
+    }
+
+    stateChanged(target: object, prop: string | symbol, value: unknown): void {
+        this.notifyStateChange(target, prop, value);
+    }
+
+    actionCalled(storeName: string, actionName: string, args: unknown[]): void {
+        this.notifyActionCall(storeName, actionName, args);
     }
 
     /**
@@ -233,7 +228,7 @@ class DevToolsBridge {
     snapshot(
         name: string,
     ): { state: unknown; getters: Record<string, unknown> } | undefined {
-        const store = this.stores.get(name)?.deref() as
+        const store = registeredStore(name) as
             | {
                   state?: object;
                   getters?: Record<string, { value: unknown }>;

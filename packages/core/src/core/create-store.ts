@@ -26,7 +26,7 @@ import type {
 } from '../type/persistence-types';
 import { logger } from '../services/logger-service';
 import { __DEV__ } from '../utils/env';
-import { devtools } from '../devtools';
+import { devtoolsSink, unregisterStore } from '../devtools/hook';
 import { isSafeKey } from '../utils/sanitize';
 import { toRaw, ANY_CHANGE } from './create-reactive';
 
@@ -310,7 +310,7 @@ export function instantiateStore<
                 scope.stop();
                 subscribers.clear();
                 host.onDestroy();
-                devtools.unregisterStore(name, flattened);
+                unregisterStore(name, flattened);
             } catch (error) {
                 if (__DEV__) {
                     logger.error(
@@ -416,9 +416,7 @@ function makeAction(
     inFlight.set(actionName, group);
 
     const invoke = (...args: unknown[]): unknown => {
-        if (devtools.enabled) {
-            devtools.notifyActionCall(storeName, actionName, args);
-        }
+        devtoolsSink?.actionCalled(storeName, actionName, args);
 
         const controller =
             typeof AbortController !== 'undefined'
