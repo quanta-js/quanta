@@ -12,7 +12,7 @@ export function DevTools() {
     const [activeTab, setActiveTab] = useState<'inspector' | 'actions'>(
         'inspector',
     );
-    const { stores, actions, selectedStore, setSelectedStore } =
+    const { stores, actions, selectedStore, setSelectedStore, snapshotOf } =
         useDevToolsBridge();
 
     const filteredStores = Object.keys(stores).filter((name) =>
@@ -146,6 +146,11 @@ export function DevTools() {
                         <StoreInspector
                             stores={stores}
                             selectedStore={selectedStore}
+                            snapshot={
+                                selectedStore
+                                    ? snapshotOf(selectedStore)
+                                    : undefined
+                            }
                         />
                     ) : (
                         <ActionLog actions={actions} />

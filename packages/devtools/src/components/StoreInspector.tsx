@@ -1,10 +1,13 @@
 import { useState } from 'preact/hooks';
 import Icon from './ui/icon';
 import { safeSerializeCompact } from '../utils/safeSerialize';
+import type { StoreSnapshot } from '../hooks/useDevToolsBridge';
 
 interface StoreInspectorProps {
     stores: Record<string, any>;
     selectedStore: string | null;
+    /** Redacted, plain state and getter values to display. */
+    snapshot?: StoreSnapshot;
 }
 
 /* ─── Interactive JSON Tree ─────────────── */
@@ -85,7 +88,11 @@ const JSONObject = ({ data, depth = 0 }: { data: any; depth?: number }) => {
 
 /* ─── Store Inspector ───────────────────── */
 
-export function StoreInspector({ stores, selectedStore }: StoreInspectorProps) {
+export function StoreInspector({
+    stores,
+    selectedStore,
+    snapshot,
+}: StoreInspectorProps) {
     if (!selectedStore || !stores[selectedStore]) {
         return (
             <div class="qdt-empty">
@@ -186,22 +193,22 @@ export function StoreInspector({ stores, selectedStore }: StoreInspectorProps) {
             <div class="qdt-card">
                 <div class="qdt-card-title">State</div>
                 <div class="qdt-json">
-                    <JSONValue value={store.state} depth={0} />
+                    <JSONValue value={snapshot?.state} depth={0} />
                 </div>
             </div>
 
             {/* Getters */}
             <div class="qdt-card">
                 <div class="qdt-card-title">Getters</div>
-                {store.getters && Object.keys(store.getters).length > 0 ? (
+                {snapshot && Object.keys(snapshot.getters).length > 0 ? (
                     <div class="qdt-json">
-                        {Object.entries(store.getters).map(
-                            ([key, getter]: [string, any]) => (
+                        {Object.entries(snapshot.getters).map(
+                            ([key, value]) => (
                                 <div class="qdt-json-row" key={key}>
                                     <span class="qdt-json-key">{key}</span>
                                     <span class="qdt-json-colon">: </span>
                                     <span class="qdt-json-number">
-                                        {safeSerializeCompact(getter.value)}
+                                        {safeSerializeCompact(value)}
                                     </span>
                                 </div>
                             ),
