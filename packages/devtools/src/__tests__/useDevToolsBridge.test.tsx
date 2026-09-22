@@ -141,4 +141,91 @@ describe('useDevToolsBridge', () => {
         });
         vi.useRealTimers();
     });
+
+    it('removes a store when it is disposed', async () => {
+        function Probe() {
+            snapshot = useDevToolsBridge();
+            return null;
+        }
+        await act(async () => {
+            render(h(Probe, {}), container);
+        });
+        await flushUpdates();
+
+        await act(async () => {
+            emit?.({
+                type: 'STORE_INIT',
+                payload: { name: 'cart', store: { state: {} } },
+            });
+        });
+        await flushUpdates();
+        expect(snapshot?.selectedStore).toBe('cart');
+
+        await act(async () => {
+            emit?.({ type: 'STORE_DISPOSE', payload: { name: 'cart' } });
+        });
+        await flushUpdates();
+
+        expect(snapshot?.stores.cart).toBeUndefined();
+        expect(snapshot?.selectedStore).toBeNull();
+    });
+
+    it('re-renders once for a burst of state changes', async () => {
+        let renders = 0;
+        function Probe() {
+            renders++;
+            snapshot = useDevToolsBridge();
+            return null;
+        }
+        await act(async () => {
+            render(h(Probe, {}), container);
+        });
+        await flushUpdates();
+
+        const before = snapshot!.version;
+        const rendersBefore = renders;
+        await act(async () => {
+            for (let i = 0; i < 50; i++) {
+                emit?.({
+                    type: 'STATE_CHANGE',
+                    payload: { storeName: 'cart' },
+                });
+            }
+        });
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 40));
+        });
+
+        expect(snapshot!.version).toBe(before + 1);
+        expect(renders - rendersBefore).toBe(1);
+    });
+
+    it('displays the bridge snapshot rather than the live store', async () => {
+        (window as any).__QUANTA_DEVTOOLS__.snapshot = vi.fn(() => ({
+            state: { token: '[redacted]' },
+            getters: {},
+        }));
+        function Probe() {
+            snapshot = useDevToolsBridge();
+            return null;
+        }
+        await act(async () => {
+            render(h(Probe, {}), container);
+        });
+        await flushUpdates();
+        await act(async () => {
+            emit?.({
+                type: 'STORE_INIT',
+                payload: {
+                    name: 'auth',
+                    store: { state: { token: 'secret' } },
+                },
+            });
+        });
+        await flushUpdates();
+
+        expect(snapshot?.snapshotOf('auth')?.state).toEqual({
+            token: '[redacted]',
+        });
+    });
 });
