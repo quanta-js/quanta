@@ -47,7 +47,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
-const PACKAGES = ['core', 'react'];
+const PACKAGES = ['core', 'react', 'devtools'];
 
 const run = (cmd, args, cwd) =>
     execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe' });
@@ -311,6 +311,42 @@ export { useQuanta, useQuantaValue };
         );
     }
     log('devtools subpath still reaches the peer: ok');
+
+    /* ---------------------------------------------------------------- *
+     * 7. @quantajs/devtools must load under both require() and import
+     *
+     * Checked in its own fixture: the one above must not have it installed.
+     * ---------------------------------------------------------------- */
+    const devApp = join(workdir, 'devtools-app');
+    mkdirSync(devApp);
+    writeFileSync(
+        join(devApp, 'package.json'),
+        JSON.stringify({
+            name: 'packaging-fixture-devtools',
+            private: true,
+            version: '0.0.0',
+            dependencies: {
+                '@quantajs/core': `file:${tarballs.core}`,
+                '@quantajs/devtools': `file:${tarballs.devtools}`,
+            },
+        }),
+    );
+    run('npm', ['install', '--no-audit', '--no-fund'], devApp);
+    writeFileSync(
+        join(devApp, 'check.cjs'),
+        `const cjs = require('@quantajs/devtools');
+if (typeof cjs.mountDevTools !== 'function') {
+    throw new Error('require("@quantajs/devtools") has no mountDevTools');
+}
+import('@quantajs/devtools').then((esm) => {
+    if (typeof esm.mountDevTools !== 'function') {
+        throw new Error('import("@quantajs/devtools") has no mountDevTools');
+    }
+    console.log('devtools require + import: ok');
+});
+`,
+    );
+    log(run('node', ['check.cjs'], devApp).trim());
 
     log('\npackaging verification passed');
 } catch (error) {
