@@ -1,10 +1,22 @@
 version: 2
 updates:
+  # The root manifest covers every workspace package and example.
   - package-ecosystem: "npm"
-    directory: "/" # root package.json
+    directory: "/"
     schedule:
       interval: "weekly"
-  - package-ecosystem: "npm"
-    directory: "/packages/"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: "weekly" 
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
