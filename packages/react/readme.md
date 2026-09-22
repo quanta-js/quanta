@@ -1,119 +1,173 @@
 # @quantajs/react
 
-![QuantaJS Banner](https://raw.githubusercontent.com/quanta-js/quanta/master/assets/quantajs_banner.png)
-
 [![CI](https://github.com/quanta-js/quanta/actions/workflows/ci.yml/badge.svg)](https://github.com/quanta-js/quanta/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@quantajs/react.svg)](https://www.npmjs.com/package/@quantajs/react)
 
-React bindings for QuantaJS with stable subscriptions, smart selectors, and ergonomic provider usage.
+React bindings for [`@quantajs/core`](https://www.npmjs.com/package/@quantajs/core). Built on `useSyncExternalStore`; works with React 18 and 19, StrictMode, SSR and the Next.js App Router.
 
-## ✨ Why You'll Like It
+## Install
 
-- ⚛️ React-friendly subscription model
-- 🎯 Selector hooks for minimal re-renders
-- 🧠 Great TypeScript inference and DX
-- 🔌 Works directly with QuantaJS core APIs
-
-## 📦 Installation
-
-```bash
-npm install @quantajs/react @quantajs/core
-# or
-pnpm add @quantajs/react @quantajs/core
-# or
-yarn add @quantajs/react @quantajs/core
+```sh
+npm install @quantajs/core @quantajs/react
 ```
 
-## 🚀 Quick Start
+## Usage
+
+```ts
+// stores/todos.ts
+import { defineStore } from '@quantajs/core';
+
+export const useTodoStore = defineStore('todos', {
+    state: () => ({ items: [] as { text: string; done: boolean }[] }),
+    getters: {
+        remaining: (s) => s.items.filter((t) => !t.done).length,
+    },
+    actions: {
+        add(text: string) {
+            this.items.push({ text, done: false });
+        },
+    },
+});
+```
 
 ```tsx
-import React from 'react';
-import { createStore, QuantaProvider, useStore } from '@quantajs/react';
+// Todos.tsx
+import { useQuanta, useQuantaActions, useQuantaValue } from '@quantajs/react';
+import { useTodoStore } from './stores/todos';
 
-const counterStore = createStore('counter', {
-    state: () => ({ count: 0 }),
+// Re-renders only when `remaining` changes.
+export function Remaining() {
+    const remaining = useQuantaValue(useTodoStore, (s) => s.remaining);
+    return <p>{remaining} left</p>;
+}
+
+// Never re-renders on store changes.
+export function AddButton() {
+    const todos = useQuantaActions(useTodoStore);
+    return <button onClick={() => todos.add('New todo')}>Add</button>;
+}
+
+// Re-renders on any change to the store.
+export function List() {
+    const todos = useQuanta(useTodoStore);
+    return (
+        <ul>
+            {todos.items.map((t, i) => (
+                <li key={i}>{t.text}</li>
+            ))}
+        </ul>
+    );
+}
+```
+
+No provider is needed in a client-only app. Stores resolve against the nearest `<QuantaProvider>`'s container, or the ambient one.
+
+## Hooks
+
+| Hook                                             | Subscribes to           | Use for                                                      |
+| ------------------------------------------------ | ----------------------- | ------------------------------------------------------------ |
+| `useQuantaValue(definition, selector, options?)` | What the selector reads | Most components                                              |
+| `useQuanta(definition)`                          | The whole store         | Small stores, or components that read most of it             |
+| `useQuantaActions(definition)`                   | Nothing                 | Components that only call actions                            |
+| `useLocalStore(definition)`                      | The whole store         | A store instance owned by one component, disposed on unmount |
+| `useComputed(store, fn, options?)`               | What `fn` reads         | A cached derivation scoped to a component                    |
+| `useWatch(store, source, callback, options?)`    | What `source` reads     | Side effects on change                                       |
+
+`useQuantaStore(store)` and `useQuantaSelector(store, selector)` are the same as `useQuanta` and `useQuantaValue` but take a resolved store instead of a definition.
+
+A selector that builds a new object or array on every call should pass `shallow` so unchanged projections do not re-render:
+
+```tsx
+import { shallow, useQuantaValue } from '@quantajs/react';
+import { useTodoStore } from './stores/todos';
+
+export function Summary() {
+    const { remaining, total } = useQuantaValue(
+        useTodoStore,
+        (s) => ({ remaining: s.remaining, total: s.items.length }),
+        { equalityFn: shallow },
+    );
+    return (
+        <p>
+            {remaining} of {total} left
+        </p>
+    );
+}
+```
+
+## Async action state
+
+```tsx
+import { defineStore } from '@quantajs/core';
+import { useQuantaActions, useQuantaValue } from '@quantajs/react';
+
+const useProfile = defineStore('profile', {
+    state: () => ({ name: '' }),
     actions: {
-        increment() {
-            this.count++;
+        async load() {
+            const res = await fetch('/api/me', { signal: this.$signal });
+            this.name = (await res.json()).name;
         },
     },
 });
 
-function Counter() {
-    const counter = useStore('counter');
+export function Profile() {
+    const profile = useQuantaActions(useProfile);
+    const pending = useQuantaValue(useProfile, (s) => s.load.pending);
+    const error = useQuantaValue(useProfile, (s) => s.load.error);
 
+    if (pending)
+        return <button onClick={() => profile.load.abort()}>Cancel</button>;
     return (
-        <button onClick={() => counter.increment()}>
-            Count: {counter.count}
-        </button>
+        <>
+            <button onClick={() => profile.load().catch(() => {})}>Load</button>
+            {error && <p>{error.message}</p>}
+        </>
     );
 }
+```
 
-export default function App() {
+## Server rendering
+
+`<QuantaProvider>` takes an optional `container` and an optional `snapshot` from `container.dehydrate()`. The snapshot is applied before the first render, so the client's markup matches the server's.
+
+```tsx
+'use client';
+
+import type { ReactNode } from 'react';
+import type { ContainerSnapshot } from '@quantajs/core';
+import { QuantaProvider } from '@quantajs/react';
+
+export function Providers(props: {
+    snapshot: ContainerSnapshot;
+    children: ReactNode;
+}) {
     return (
-        <QuantaProvider stores={{ counter: counterStore }}>
-            <Counter />
+        <QuantaProvider snapshot={props.snapshot}>
+            {props.children}
         </QuantaProvider>
     );
 }
 ```
 
-## 🎯 Selector Example
+On the server, create a container per request, resolve stores against it, and pass its snapshot down. Never resolve a store against the ambient container on the server: it is shared across requests. See [`examples/nextjs-app`](https://github.com/quanta-js/quanta/tree/master/examples/nextjs-app).
+
+## DevTools
+
+```sh
+npm install -D @quantajs/devtools
+```
 
 ```tsx
-import { useQuantaSelector } from '@quantajs/react';
+import { QuantaDevTools } from '@quantajs/react/devtools';
 
-function CounterValue({ store }: { store: any }) {
-    const count = useQuantaSelector(store, (s) => s.count);
-    return <span>{count}</span>;
+export function DevPanel() {
+    return <QuantaDevTools redact={['token']} />;
 }
 ```
 
-## 🧪 Component-Scoped Store
+The panel is loaded lazily and mounts only in development builds unless `visible` is set. `@quantajs/react` itself never imports `@quantajs/devtools`.
 
-```tsx
-import { useCreateStore } from '@quantajs/react';
-
-function DraftEditor() {
-    const draft = useCreateStore(
-        'draft-editor',
-        () => ({ text: '' }),
-        undefined,
-        {
-            setText(value: string) {
-                this.text = value;
-            },
-        },
-    );
-
-    return (
-        <textarea
-            value={draft.text}
-            onChange={(e) => draft.setText(e.currentTarget.value)}
-        />
-    );
-}
-```
-
-## 🛠️ Main Exports
-
-- Hooks: `useQuantaStore`, `useQuantaSelector`, `useStore`, `useStoreSelector`, `useCreateStore`, `useWatch`, `useComputed`
-- Components: `QuantaProvider`, `QuantaDevTools`
-- Core re-exports: `createStore`, `reactive`, `computed`, `watch`, `logger`
-
-## 📌 Notes
-
-- `QuantaProvider` expects `stores={{ [name]: store }}`.
-- `useStore(name)` and `useStoreSelector(name, selector)` use that exact key.
-
-## 🤝 Contributing
-
-Contributions are welcome. If you spot docs gaps, edge-case hook behavior, or type improvements, open an issue/PR.
-
-## ⭐ Support
-
-If QuantaJS helps your app, please star the repo:
-https://github.com/quanta-js/quanta
-
-## 📜 License
+## License
 
 MIT

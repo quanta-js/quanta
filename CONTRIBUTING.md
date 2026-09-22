@@ -1,27 +1,38 @@
 # Contributing to QuantaJS
 
-Thank you for your interest in contributing! We welcome all contributions to improve this project.
+## Setup
 
-## How to Contribute
+```sh
+pnpm install
+pnpm build
+pnpm test
+```
 
-- **Bug Reports & Feature Requests:**
-  - Use the issue templates for bug reports and feature requests.
-- **Pull Requests:**
-  - Fork the repo and create your branch from `main`.
-  - Follow the code style (see `.prettierrc` and `.eslintrc`).
-  - Add or update tests as needed.
-  - Ensure your code builds and passes CI.
-  - Reference related issues in your PR description.
+Requires Node 20+ and pnpm 10.
+
+## Before opening a pull request
+
+```sh
+pnpm lint
+pnpm test:types
+pnpm test:coverage
+pnpm verify:packaging
+```
+
+- Branch from `master`.
+- Add tests for behaviour changes.
+- Add a changeset for anything that affects a published package: `pnpm changeset`.
+- Use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages, e.g. `fix(core): …`.
+- Code style is enforced by Prettier and ESLint (`eslint.config.mjs`).
+
+## Reporting bugs
+
+Open an issue with a minimal reproduction. Report security issues privately as described in [SECURITY.md](./SECURITY.md).
 
 ## Code of Conduct
 
-This project follows a [Code of Conduct](CODE_OF_CONDUCT.md) to foster an open and welcoming environment.
-
-## Community
-
-- Join discussions, ask questions, and help others in issues and PRs.
-- Be respectful and constructive.
+This project follows the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License. 
+By contributing, you agree that your contributions are licensed under the MIT License.

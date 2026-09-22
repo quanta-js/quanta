@@ -1,62 +1,157 @@
 # QuantaJS
-![Logo](./assets/quantajs_banner.png)
+
+![QuantaJS](./assets/quantajs_banner.png)
 
 [![CI](https://github.com/quanta-js/quanta/actions/workflows/ci.yml/badge.svg)](https://github.com/quanta-js/quanta/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@quantajs/core.svg)](https://www.npmjs.com/package/@quantajs/core)
+[![license](https://img.shields.io/npm/l/@quantajs/core.svg)](./LICENSE)
 
-A compact, scalable, and developer-friendly **state management library** designed for any JavaScript environment. It includes a **reactivity system** that enables efficient and flexible data handling, making complex state management easy.
+State management with request isolation, async action state and versioned persistence built in. Framework-agnostic, with no runtime dependencies.
 
+- **Typed stores without generics.** `defineStore` infers state, getters and actions; `this` inside an action is the fully typed store.
+- **Deep reactivity.** Mutate state directly. Reads inside effects, computed values and React selectors are tracked per property.
+- **Async actions that report their own state.** Every action has reactive `pending` and `error`, an `abort()`, and an `AbortSignal` at `this.$signal`.
+- **Request-scoped containers.** One container per app, per server request or per test, with `dehydrate()` / `hydrate()` for SSR.
+- **Persistence with migrations.** Versioned schemas, cross-tab sync, and sanitised loading of untrusted storage.
 
-## 🚀 Features
+## Packages
 
-✅ **Framework-Agnostic** – Works in any JavaScript environment  
-✅ **Reactive State** – Simple yet powerful reactivity system  
-✅ **Scalable** – Suitable for small to large applications  
-✅ **Side Effects Handling** – Manage async actions with ease  
-✅ **Intuitive API** – Easy to learn and use  
+| Package                                     |                                             |
+| ------------------------------------------- | ------------------------------------------- |
+| [`@quantajs/core`](./packages/core)         | Reactivity, stores, containers, persistence |
+| [`@quantajs/react`](./packages/react)       | React hooks and provider                    |
+| [`@quantajs/devtools`](./packages/devtools) | In-page state inspector (optional)          |
 
-
-## 📦 Installation
+## Install
 
 ```sh
-npm install @quantajs/core
-# or
-yarn add @quantajs/core
-# or
-pnpm add @quantajs/core
+npm install @quantajs/core @quantajs/react
 ```
 
-## ⚡ Quick Start
+## Quick start
 
-```javascript
-import { createStore } from "@quantajs/core";
+```ts
+// stores/cart.ts
+import { defineStore } from '@quantajs/core';
 
-const counter = createStore("counter", {
-  state: () => ({ count: 0 }),
-  actions: {
-    increment() {
-      this.count++;
+export const useCartStore = defineStore('cart', {
+    state: () => ({ items: [] as { name: string; price: number }[] }),
+    getters: {
+        total: (s) => s.items.reduce((sum, item) => sum + item.price, 0),
     },
-    decrement() {
-      this.count--;
+    actions: {
+        add(name: string, price: number) {
+            this.items.push({ name, price });
+        },
+        async checkout() {
+            await fetch('/api/checkout', {
+                method: 'POST',
+                signal: this.$signal,
+            });
+            this.items = [];
+        },
     },
-  },
 });
-
-console.log(counter.count); // 0
-counter.increment();
-console.log(counter.count); // 1
-
 ```
 
+```tsx
+// Cart.tsx
+import { useQuantaActions, useQuantaValue } from '@quantajs/react';
+import { useCartStore } from './stores/cart';
 
-## 📜 License
-This project is licensed under the MIT [License](/LICENSE) - see the LICENSE file for details.
+export function Cart() {
+    const total = useQuantaValue(useCartStore, (s) => s.total);
+    const pending = useQuantaValue(useCartStore, (s) => s.checkout.pending);
+    const error = useQuantaValue(useCartStore, (s) => s.checkout.error);
+    const cart = useQuantaActions(useCartStore);
 
-## Get Started
-Ready to dive in? Check out the [Installation](https://www.quantajs.com/docs/getting-started/installation) guide or explore the [Quick Start](https://www.quantajs.com/docs/getting-started/quick-start-guide) to see QuantaJS in action!
+    return (
+        <>
+            <button
+                disabled={pending}
+                onClick={() => cart.checkout().catch(() => {})}
+            >
+                Pay ${total}
+            </button>
+            {error && <p>{error.message}</p>}
+        </>
+    );
+}
+```
 
-## 💬 Contributing
-We welcome contributions! Feel free to open issues, submit PRs, or suggest improvements.
+`useQuantaValue` re-renders only when what the selector read changes. `useQuantaActions` never re-renders.
 
-## ⭐ Support
-If you find this library useful, consider giving it a ⭐ star on [GitHub](https://github.com/quanta-js/quanta)!
+The same store works without a framework:
+
+```ts
+// main.ts
+import { useCartStore } from './stores/cart';
+
+const cart = useCartStore();
+cart.subscribe(() => console.log('total', cart.total));
+cart.add('Widget', 9.99);
+```
+
+## Server rendering
+
+A store definition holds no state, so it is safe at module scope. On the server, resolve it against a container created per request:
+
+```tsx
+// app/page.tsx — a Server Component
+import { createContainer } from '@quantajs/core';
+import { useCartStore } from '../stores/cart';
+import { Cart } from '../Cart';
+import { Providers } from './providers';
+
+export default function Page() {
+    const container = createContainer();
+    useCartStore(container).add('Widget', 9.99);
+
+    const snapshot = container.dehydrate();
+    container.dispose();
+
+    return (
+        <Providers snapshot={snapshot}>
+            <Cart />
+        </Providers>
+    );
+}
+```
+
+```tsx
+// app/providers.tsx
+'use client';
+
+import type { ReactNode } from 'react';
+import type { ContainerSnapshot } from '@quantajs/core';
+import { QuantaProvider } from '@quantajs/react';
+
+export function Providers(props: {
+    snapshot: ContainerSnapshot;
+    children: ReactNode;
+}) {
+    return (
+        <QuantaProvider snapshot={props.snapshot}>
+            {props.children}
+        </QuantaProvider>
+    );
+}
+```
+
+See [`examples/nextjs-app`](./examples/nextjs-app) for the complete App Router setup.
+
+## Examples
+
+- [`examples/vanilla`](./examples/vanilla) — no framework, with persistence
+- [`examples/react-vite`](./examples/react-vite) — every React hook, async actions, DevTools
+- [`examples/nextjs-app`](./examples/nextjs-app) — per-request containers and hydration
+
+Each is built and verified in CI.
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## License
+
+[MIT](./LICENSE)
