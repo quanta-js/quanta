@@ -13,7 +13,7 @@ export default defineConfig({
         preact(),
         dts({
             insertTypesEntry: true,
-            exclude: ['test/**/*'],
+            exclude: ['test/**/*', 'src/__tests__/**'],
         }),
         banner({
             content: licenseBanner,
@@ -23,15 +23,15 @@ export default defineConfig({
         cssCodeSplit: false,
         lib: {
             entry: resolve(__dirname, 'src/index.ts'),
-            name: 'QuantaDevTools',
-            fileName: (format) => `index.${format}.js`,
+            // ES + CJS with explicit extensions. A UMD bundle named `.js`
+            // inside a `"type": "module"` package is parsed as ESM by Node,
+            // so `require()` of it returned an empty object.
+            formats: ['es', 'cjs'],
+            fileName: (format) => (format === 'es' ? 'index.mjs' : 'index.cjs'),
         },
         rollupOptions: {
             external: ['@quantajs/core'],
             output: {
-                globals: {
-                    '@quantajs/core': 'QuantaCore',
-                },
                 assetFileNames: (assetInfo) => {
                     if (assetInfo.name === 'style.css') {
                         return 'index.css';
