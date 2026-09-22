@@ -363,29 +363,37 @@ export function trigger(target: object, prop: string | symbol): void {
     const errors: unknown[] = [];
 
     const depsMap = targetMap.get(target);
-    if (depsMap !== undefined) {
-        const dep = depsMap.get(prop);
-        if (dep !== undefined) notifyDependency(dep, errors);
+    const dep = depsMap?.get(prop);
 
-        // The coarse channel: one dependency per object rather than one per
-        // key, which is what replaced the store's O(state-size) enumeration.
-        // Skipped entirely when nothing subscribes to it anywhere, so a bare
-        // `reactive()` write pays an integer compare instead of a Map lookup.
-        if (anyChangeSubscribers > 0) {
-            const anyDep = depsMap.get(ANY_CHANGE);
-            if (anyDep !== undefined) notifyDependency(anyDep, errors);
-        }
-    }
+    // The coarse channel: one dependency per object rather than one per
+    // key, which is what replaced the store's O(state-size) enumeration.
+    // Skipped entirely when nothing subscribes to it anywhere, so a bare
+    // `reactive()` write pays an integer compare instead of a Map lookup.
+    const anyDep =
+        anyChangeSubscribers > 0 ? depsMap?.get(ANY_CHANGE) : undefined;
 
     // Only walk upwards when this object is actually attached to a parent;
     // root-level state has no parents and this check keeps the common case free.
-    if (parentMap.has(target)) {
-        bubbleTrigger(
-            target,
-            targetMap,
-            (dep) => notifyDependency(dep, errors),
-            anyChangeSubscribers > 0,
-        );
+    const bubbles = parentMap.has(target);
+
+    if (anyDep === undefined && !bubbles) {
+        // One dependency: nothing to deduplicate against.
+        if (dep !== undefined) notifyDependency(dep, errors);
+    } else {
+        // Several dependencies can hold the same effect — one reading
+        // `state.user` and `state.user.name` sits on both the direct and the
+        // bubbled dependency. Collect first so each effect runs once per
+        // write instead of once per dependency it happens to share.
+        const effects = new Set<EffectFunction>();
+        const collect = (d: Dependency): void => {
+            for (const effect of d.getSubscribers) effects.add(effect);
+        };
+        if (dep !== undefined) collect(dep);
+        if (anyDep !== undefined) collect(anyDep);
+        if (bubbles) {
+            bubbleTrigger(target, targetMap, collect, anyChangeSubscribers > 0);
+        }
+        for (const effect of effects) scheduleEffect(effect, errors);
     }
 
     settleErrors(errors);
