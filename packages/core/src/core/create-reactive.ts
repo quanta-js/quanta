@@ -56,6 +56,9 @@ export function toRaw<T>(observed: T): T {
  * ```
  */
 export function markRaw<T extends object>(value: T): T {
+    // A frozen or sealed object cannot take the marker, and createReactive
+    // never proxies one anyway.
+    if (!Object.isExtensible(value)) return value;
     Object.defineProperty(value, SKIP_SYMBOL, {
         value: true,
         enumerable: false,
@@ -89,6 +92,9 @@ const ARRAY_MUTATORS = new Set([
  */
 function isNonReactiveBuiltin(target: object): boolean {
     return (
+        // A proxy over a frozen or sealed object cannot return a wrapped
+        // nested value without violating the get-trap invariant.
+        !Object.isExtensible(target) ||
         target instanceof Date ||
         target instanceof RegExp ||
         target instanceof Error ||
@@ -110,8 +116,10 @@ function isNonReactiveBuiltin(target: object): boolean {
 const reactiveMap = new WeakMap<object, object>();
 /** raw target -> its shallow reactive proxy. */
 const shallowMap = new WeakMap<object, object>();
-/** raw target -> its readonly proxy. */
+/** raw target -> its deep readonly proxy. */
 const readonlyMap = new WeakMap<object, object>();
+/** raw target -> its shallow readonly proxy. */
+const shallowReadonlyMap = new WeakMap<object, object>();
 /** Every proxy we have handed out, so we never wrap a proxy in a proxy. */
 const proxySet = new WeakSet<object>();
 
@@ -146,6 +154,16 @@ interface ReactiveFlags {
 
 const DEEP: ReactiveFlags = { shallow: false, readonly: false };
 
+/**
+ * The proxy cache for a flag combination. Each combination needs its own:
+ * sharing one between deep and shallow let whichever call came first win,
+ * so `readonly(x)` could come back shallow and leave nested values writable.
+ */
+function cacheFor(flags: ReactiveFlags): WeakMap<object, object> {
+    if (flags.readonly) return flags.shallow ? shallowReadonlyMap : readonlyMap;
+    return flags.shallow ? shallowMap : reactiveMap;
+}
+
 /* ------------------------------------------------------------------ *
  * Map / Set
  * ------------------------------------------------------------------ */
@@ -161,7 +179,7 @@ function createReactiveCollection(
     target: Map<unknown, unknown> | Set<unknown>,
     flags: ReactiveFlags,
 ): object {
-    const cache = flags.readonly ? readonlyMap : reactiveMap;
+    const cache = cacheFor(flags);
     const cached = cache.get(target);
     if (cached) return cached;
 
@@ -445,11 +463,7 @@ export function createReactive<T>(target: T, flags: ReactiveFlags = DEEP): T {
     // for a symbol property read it costs nothing to keep here.
     if (isMarkedRaw(obj)) return target;
 
-    const cache = flags.readonly
-        ? readonlyMap
-        : flags.shallow
-          ? shallowMap
-          : reactiveMap;
+    const cache = cacheFor(flags);
 
     // Cache first.
     //
@@ -472,7 +486,17 @@ export function createReactive<T>(target: T, flags: ReactiveFlags = DEEP): T {
     // (`[...items]`) would otherwise chain traps exponentially. A proxy is
     // never a cache key — only raw targets are — so this cannot be reached
     // through a hit above.
-    if (proxySet.has(obj)) return target;
+    //
+    // The exception is `readonly()` of a writable proxy, the usual way to
+    // expose state read-only. Returning the proxy unchanged would hand back
+    // something writable, so build the readonly view over its raw target.
+    // Both proxies track against that same target, so reads stay reactive.
+    if (proxySet.has(obj)) {
+        if (flags.readonly && !isReadonly(obj)) {
+            return createReactive(toRaw(target), flags);
+        }
+        return target;
+    }
 
     if (obj instanceof Map || obj instanceof Set) {
         return createReactiveCollection(
