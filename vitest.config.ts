@@ -18,7 +18,6 @@ export default defineConfig({
                 '**/*.test.{ts,tsx}',
                 '**/*.spec.{ts,tsx}',
                 '**/*.test-d.{ts,tsx}',
-                '**/*.bench.{ts,tsx}',
                 '**/index.ts',
                 // Pure type definition files (no runtime code)
                 'packages/core/src/type/**',
@@ -43,9 +42,6 @@ export default defineConfig({
         },
         typecheck: {
             enabled: false,
-        },
-        benchmark: {
-            include: ['packages/*/src/**/*.bench.{ts,tsx}'],
         },
         alias: {
             '@quantajs/core': path.resolve(__dirname, 'packages/core/src'),
