@@ -2,7 +2,12 @@ import { Dependency } from './dependency';
 import { logger } from '../services/logger-service';
 import { __DEV__ } from '../utils/env';
 import type { EffectFunction } from '../type/store-types';
-import { bubbleTrigger, parentMap, ANY_CHANGE } from '../utils/deep-trigger';
+import {
+    bubbleTrigger,
+    parentMap,
+    ANY_CHANGE,
+    ARRAY_ITERATE,
+} from '../utils/deep-trigger';
 
 export interface EffectOptions {
     /** Custom scheduler invoked instead of the effect when dependencies change. */
@@ -400,11 +405,19 @@ export function trigger(target: object, prop: string | symbol): void {
     const anyDep =
         anyChangeSubscribers > 0 ? depsMap?.get(ANY_CHANGE) : undefined;
 
+    // Any write to an array changes its contents as a whole, which is what
+    // iteration methods subscribe to. Folded into this pass rather than a
+    // second trigger() so the write still bubbles once.
+    const iterateDep =
+        depsMap !== undefined && Array.isArray(target)
+            ? depsMap.get(ARRAY_ITERATE)
+            : undefined;
+
     // Only walk upwards when this object is actually attached to a parent;
     // root-level state has no parents and this check keeps the common case free.
     const bubbles = parentMap.has(target);
 
-    if (anyDep === undefined && !bubbles) {
+    if (anyDep === undefined && iterateDep === undefined && !bubbles) {
         // One dependency: nothing to deduplicate against.
         if (dep !== undefined) notifyDependency(dep, errors);
     } else {
@@ -419,6 +432,7 @@ export function trigger(target: object, prop: string | symbol): void {
             }
         };
         if (dep !== undefined) collect(dep);
+        if (iterateDep !== undefined) collect(iterateDep);
         if (anyDep !== undefined) collect(anyDep);
         if (bubbles) {
             bubbleTrigger(target, targetMap, collect, anyChangeSubscribers > 0);

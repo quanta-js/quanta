@@ -38,6 +38,16 @@ const parentMap = new WeakMap<object, Map<object, Set<string | symbol>>>();
 export const ANY_CHANGE = Symbol('quanta.any');
 
 /**
+ * The contents of an array as a whole.
+ *
+ * Array iteration methods (`map`, `filter`, `reduce`, `for...of`…) subscribe
+ * to this once instead of to every index they visit, and `trigger` publishes
+ * to it on every write to an array. Declared here for the same import-cycle
+ * reason as {@link ANY_CHANGE}.
+ */
+export const ARRAY_ITERATE = Symbol('quanta.arrayIterate');
+
+/**
  * How far the allocation-free linear walk will go before handing over to the
  * full graph walk.
  *
