@@ -10,7 +10,6 @@ import {
     setDefaultContainer,
     destroyAllStores,
     effect,
-    nextTick,
 } from '../index';
 
 /** Whether the ambient container holds a store with this name. */
@@ -463,7 +462,7 @@ describe('async action lifecycle', () => {
 
         const promise = store.load('x');
         await promise;
-        await nextTick();
+        await Promise.resolve();
 
         expect(seen[0]).toBe(false);
         expect(seen).toContain(true);

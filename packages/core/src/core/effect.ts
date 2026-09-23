@@ -372,18 +372,6 @@ function flushBatch(): void {
     settleErrors(errors);
 }
 
-/**
- * Resolve once all currently-queued effects have flushed.
- *
- * Mirrors Vue's `nextTick`, giving callers a way to await the settled state
- * after a mutation without polling.
- */
-export function nextTick(fn?: () => void): Promise<void> {
-    return Promise.resolve().then(() => {
-        fn?.();
-    });
-}
-
 /* ------------------------------------------------------------------ *
  * Trigger / track
  * ------------------------------------------------------------------ */

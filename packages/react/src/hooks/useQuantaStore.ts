@@ -9,7 +9,7 @@ import {
     useSyncExternalStore,
 } from 'react';
 import {
-    reactiveEffect,
+    effect,
     untrack,
     type ActionsTree,
     type EffectRunner,
@@ -202,7 +202,7 @@ export function useQuantaSelector<
             // change; re-invoking the runner recomputes *and* re-tracks, so a
             // selector whose dependencies vary between runs stays correct.
             let changed = false;
-            const runner: EffectRunner = reactiveEffect(
+            const runner: EffectRunner = effect(
                 () => {
                     changed = readIntoRef();
                 },

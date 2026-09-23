@@ -19,7 +19,7 @@ import {
     track,
     type EffectScope,
 } from './effect';
-import { createPersistenceManager } from '../persistence';
+import { createPersistenceManager } from '../persistence/core';
 import type {
     PersistenceManager,
     PersistenceConfig,
