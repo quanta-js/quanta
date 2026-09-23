@@ -4,7 +4,9 @@
   "commit": false,
   "fixed": [
     [
-      "@quantajs/core"
+      "@quantajs/core",
+      "@quantajs/react",
+      "@quantajs/devtools"
     ]
   ],
   "linked": [],
