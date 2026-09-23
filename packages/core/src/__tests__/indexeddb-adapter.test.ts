@@ -66,6 +66,14 @@ describe('IndexedDBAdapter', () => {
         expect(fake.open).toHaveBeenCalledTimes(2);
     });
 
+    it('reads a record that is not a string as empty', async () => {
+        const fake = fakeIndexedDB();
+        vi.stubGlobal('indexedDB', fake.api);
+        fake.records.set('k', { key: 'k', data: { count: 1 } });
+
+        expect(await new IndexedDBAdapter('k').read()).toBeNull();
+    });
+
     it('does nothing where indexedDB does not exist', async () => {
         vi.stubGlobal('indexedDB', undefined);
         const warn = vi.spyOn(logger, 'warn');

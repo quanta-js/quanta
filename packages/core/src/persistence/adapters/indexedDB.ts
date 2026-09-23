@@ -26,7 +26,7 @@ export class IndexedDBAdapter implements PersistenceAdapter {
         return typeof indexedDB !== 'undefined';
     }
 
-    async read() {
+    async read(): Promise<string | null> {
         if (!this.available) return null;
         try {
             const db = await this.openDB();
@@ -34,9 +34,13 @@ export class IndexedDBAdapter implements PersistenceAdapter {
                 .transaction([this.storeName], 'readonly')
                 .objectStore(this.storeName);
 
-            return await new Promise<unknown>((resolve, reject) => {
+            return await new Promise<string | null>((resolve, reject) => {
                 const request = store.get(this.key);
-                request.onsuccess = () => resolve(request.result?.data ?? null);
+                request.onsuccess = () => {
+                    // Anything but the string we wrote is not ours to load.
+                    const data: unknown = request.result?.data;
+                    resolve(typeof data === 'string' ? data : null);
+                };
                 request.onerror = () => reject(request.error);
             });
         } catch (error) {
@@ -49,7 +53,7 @@ export class IndexedDBAdapter implements PersistenceAdapter {
         }
     }
 
-    async write(data: unknown) {
+    async write(data: string): Promise<void> {
         if (!this.available) return;
         const db = await this.openDB();
         const store = db
@@ -67,7 +71,7 @@ export class IndexedDBAdapter implements PersistenceAdapter {
         });
     }
 
-    async remove() {
+    async remove(): Promise<void> {
         if (!this.available) return;
         const db = await this.openDB();
         const store = db

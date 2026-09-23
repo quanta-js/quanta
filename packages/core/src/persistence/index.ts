@@ -4,6 +4,8 @@ export type {
     PersistenceConfig,
     PersistedData,
     PersistenceManager,
+    PersistenceOperation,
+    StoredState,
 } from '../type/persistence-types';
 
 // Adapters
