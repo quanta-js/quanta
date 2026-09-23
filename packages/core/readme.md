@@ -187,3 +187,7 @@ Then mount the panel from [`@quantajs/devtools`](https://www.npmjs.com/package/@
 ## License
 
 MIT
+
+## Cookie persistence
+
+See [CookieAdapter options and limitations](./COOKIE_PERSISTENCE.md) for storing small preferences in cookies.
