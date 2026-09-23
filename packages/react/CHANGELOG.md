@@ -1,5 +1,27 @@
 # @quantajs/react
 
+## 2.1.3
+
+### Patch Changes
+
+- 71f5b96: `useQuantaValue` / `useQuantaSelector` no longer subscribe during render, and pick up a store change made between render and subscription (previously the component kept the stale value until the next change).
+- 3a1472e: `useQuantaStore` now reports a clear error during render when passed something that isn't a store (such as a store definition), instead of failing inside `subscribe`.
+- fa4502a: Rewrite the READMEs for the 2.x API.
+- Updated dependencies [fb7bc42]
+- Updated dependencies [3067328]
+- Updated dependencies [61b8074]
+- Updated dependencies [5df7cab]
+- Updated dependencies [79f0191]
+- Updated dependencies [252d6ec]
+- Updated dependencies [875c444]
+- Updated dependencies [46b67f6]
+- Updated dependencies [fa4502a]
+- Updated dependencies [e6daae2]
+- Updated dependencies [43b1a43]
+- Updated dependencies [979ced0]
+- Updated dependencies [cd406fe]
+    - @quantajs/core@2.3.0
+
 ## 2.1.2
 
 ### Patch Changes

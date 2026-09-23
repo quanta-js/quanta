@@ -1,5 +1,39 @@
 # @quantajs/core
 
+## 2.3.0
+
+### Minor Changes
+
+- 5df7cab: DevTools fixes:
+
+    - Stores created before `enableDevTools()` now appear in the panel and report their changes. `<QuantaDevTools>` enables DevTools from an effect, after the first render has created the stores, so the panel previously showed none of them.
+    - `redact` now applies to the state and getters shown in the panel, and to keys nested inside a changed value. The panel previously rendered the live store, unredacted.
+    - Destroyed stores are removed from the panel, and bursts of state changes cause one panel render per frame.
+
+- 43b1a43: `Object.keys(store)`, `{ ...store }` and `JSON.stringify(store)` no longer include the store's API (`$patch`, `subscribe`, `state`, `getters`, …). Keys and spread give state, getter values and actions; `JSON.stringify(store)` gives the state, via a new `toJSON()`.
+
+### Patch Changes
+
+- fb7bc42: Array iteration methods on reactive arrays (`map`, `filter`, `reduce`, `find`, `some`, `every`, `forEach`, `includes`, `indexOf`, `for…of`, spread and others) now track the array's contents once instead of every index. A computed summing a 1000-item array recomputes about 17× faster. Items passed to callbacks are still reactive.
+- 3067328: A nested write now runs each dependent effect, computed and subscriber once. Previously an effect that read several levels of a nested object ran once per level, so a depth-8 write cost ~29µs; it now costs ~4µs.
+- 61b8074: The DevTools bridge is no longer bundled unless you import `enableDevTools` (or `devtools`). The core reports through a small hook instead, cutting about 1.1–1.3 KB gzip from apps that don't use DevTools.
+- 79f0191: Lower per-run overhead for effects and computed values (about 10–20% on re-run-heavy workloads).
+- 252d6ec: `IndexedDBAdapter` reuses one database connection instead of opening a new one per read and write, closes it when another tab upgrades the database, and does nothing where `indexedDB` is unavailable (such as during SSR).
+- 875c444: Effects, computed values and React selectors re-run 20–45% faster. A re-run no longer unsubscribes from and resubscribes to every dependency it reads; it keeps its subscriptions and releases only the ones it stopped reading.
+- 46b67f6: Persistence no longer loses the last change inside the debounce window: pending writes are flushed when the page is hidden or unloaded, and on `$destroy()` instead of being discarded.
+- fa4502a: Rewrite the READMEs for the 2.x API.
+- e6daae2: Make `readonly()` reliable:
+
+    - `readonly(reactive(x))` returned the writable proxy; it now returns a readonly view that still tracks changes made through the original.
+    - `readonly()` and `shallowReadonly()` (and `reactive()` / `shallowReactive()` on a `Map` or `Set`) no longer share a proxy cache, so the first call can't decide the depth of the second.
+    - Frozen or sealed objects are returned as-is instead of being proxied, which previously threw on nested reads. `markRaw()` accepts them too.
+
+- 979ced0: `store.subscribe()` callbacks now always receive the store's state. Previously they got `undefined` for ordinary state changes and the state only from `notifyAll()`.
+
+    A subscriber that throws no longer fails silently: every subscriber still runs, then the first error is rethrown to the code that made the change, as with effects.
+
+- cd406fe: Type declarations are now emitted per module by `tsc`. `@quantajs/devtools` no longer bundles its own `package.json`.
+
 ## 2.2.0
 
 ### Minor Changes

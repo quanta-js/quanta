@@ -1,5 +1,20 @@
 # @quantajs/devtools
 
+## 2.1.1
+
+### Patch Changes
+
+- b9a8ea4: Fix `require('@quantajs/devtools')` returning an empty object. The package now ships ES and CommonJS builds (`index.mjs` / `index.cjs`) instead of a UMD bundle, and no longer includes test declaration files.
+- a3371ca: Update `preact` to 10.29.8.
+- 5df7cab: DevTools fixes:
+
+    - Stores created before `enableDevTools()` now appear in the panel and report their changes. `<QuantaDevTools>` enables DevTools from an effect, after the first render has created the stores, so the panel previously showed none of them.
+    - `redact` now applies to the state and getters shown in the panel, and to keys nested inside a changed value. The panel previously rendered the live store, unredacted.
+    - Destroyed stores are removed from the panel, and bursts of state changes cause one panel render per frame.
+
+- fa4502a: Rewrite the READMEs for the 2.x API.
+- cd406fe: Type declarations are now emitted per module by `tsc`. `@quantajs/devtools` no longer bundles its own `package.json`.
+
 ## 2.1.0
 
 ### Minor Changes
