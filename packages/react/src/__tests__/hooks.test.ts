@@ -293,11 +293,13 @@ describe('useLocalStore', () => {
         b.unmount();
     });
 
-    it('disposes its container on unmount', () => {
+    it('disposes its container on unmount', async () => {
         const def = definition();
         const { result, unmount } = renderHook(() => useLocalStore(def));
         const store = result.current;
         unmount();
+        // Disposal waits a tick so StrictMode's remount can cancel it.
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         // The store is destroyed, so its subscribers are gone.
         let notified = 0;

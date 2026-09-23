@@ -63,7 +63,7 @@ describe('QuantaProvider', () => {
         expect(result.current.container.active).toBe(true);
     });
 
-    it('disposes a container it created, but not one it was given', () => {
+    it('disposes a container it created, but not one it was given', async () => {
         const supplied = createContainer('kept');
         const suppliedRun = renderHook(() => useQuantaContext(), {
             wrapper: ({ children }) => (
@@ -82,6 +82,8 @@ describe('QuantaProvider', () => {
         });
         const owned = ownedRun.result.current.container;
         ownedRun.unmount();
+        // Disposal waits a tick so StrictMode's remount can cancel it.
+        await new Promise((resolve) => setTimeout(resolve, 0));
         expect(owned.active).toBe(false);
     });
 
