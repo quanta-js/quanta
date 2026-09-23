@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import { createContainer, type StoreContainer } from '@quantajs/core';
 import { useDisposeOnUnmount } from './useDisposeOnUnmount';
+import { useQuantaStore } from './useQuantaStore';
 import type {
     ActionsTree,
     GettersTree,
@@ -40,5 +41,6 @@ export function useLocalStore<
 
     useDisposeOnUnmount(container);
 
-    return definition(container);
+    // Subscribed like useQuanta: the component re-renders on any change.
+    return useQuantaStore(definition(container));
 }
