@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createStore, useStore } from '../index';
+import { createStore, getDefaultContainer } from '../index';
 
 // Helper: unique names to avoid registry collisions
 let storeId = 0;
@@ -198,7 +198,7 @@ describe('createStore', () => {
 
             store.$destroy!();
 
-            expect(() => useStore(name)).toThrow(/does not exist/);
+            expect(getDefaultContainer().has(name)).toBe(false);
         });
 
         it('should stop deep watcher after destroy', () => {
@@ -313,23 +313,5 @@ describe('createStore', () => {
             const result = store.incrementAndGetDoubled();
             expect(result).toBe(2);
         });
-    });
-});
-
-describe('useStore', () => {
-    it('should retrieve a registered store by name', () => {
-        const name = uniqueName();
-        const store = createStore(name, {
-            state: () => ({ x: 1 }),
-        });
-
-        const retrieved = useStore(name);
-        expect(retrieved).toBe(store);
-    });
-
-    it('should throw for non-existent store', () => {
-        expect(() => useStore('nonexistent_store_xyz')).toThrow(
-            /does not exist/,
-        );
     });
 });

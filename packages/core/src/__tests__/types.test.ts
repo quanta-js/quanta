@@ -1,8 +1,8 @@
 import { describe, it, expectTypeOf } from 'vitest';
 import type {
     StateDefinition,
-    RawActions,
-    StoreInstance,
+    ActionsTree,
+    Store,
     StoreSubscriber,
 } from '../type/store-types';
 import type {
@@ -28,9 +28,9 @@ describe('type-level tests', () => {
         });
     });
 
-    describe('RawActions', () => {
+    describe('ActionsTree', () => {
         it('should be a record of functions', () => {
-            expectTypeOf<RawActions>().toEqualTypeOf<
+            expectTypeOf<ActionsTree>().toEqualTypeOf<
                 Record<string, (...args: any[]) => any>
             >();
         });
@@ -92,9 +92,9 @@ describe('type-level tests', () => {
         });
     });
 
-    describe('StoreInstance type', () => {
+    describe('Store type', () => {
         it('should expose state, getters, actions, subscribe, $reset', () => {
-            type Instance = StoreInstance<
+            type Instance = Store<
                 { count: number },
                 { doubled: (s: { count: number }) => number },
                 { increment: () => void }

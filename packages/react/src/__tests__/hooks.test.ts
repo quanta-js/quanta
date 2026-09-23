@@ -309,7 +309,7 @@ describe('useLocalStore', () => {
     it('does not leak into the ambient container', () => {
         const def = definition();
         const { unmount } = renderHook(() => useLocalStore(def));
-        expect(core.hasStore(def.$id)).toBe(false);
+        expect(core.getDefaultContainer().has(def.$id)).toBe(false);
         unmount();
     });
 });

@@ -40,8 +40,6 @@ export type { EffectRunner, EffectOptions, EffectScope } from './core/effect';
 export {
     defineStore,
     createStore,
-    useStore,
-    hasStore,
     destroyAllStores,
     createContainer,
     getDefaultContainer,
@@ -87,7 +85,6 @@ export {
  * Types
  * ------------------------------------------------------------------ */
 export type {
-    // Current
     StateTree,
     StateDefinition,
     GettersTree,
@@ -101,11 +98,4 @@ export type {
     StoreApi,
     StoreDefinitionOptions,
     StoreSubscriber,
-    // Deprecated aliases, kept so existing imports keep resolving
-    RawActions,
-    GetterDefinitions,
-    ActionDefinition,
-    InferActions,
-    StoreInstance,
-    StoreOptions,
 } from './type/store-types';

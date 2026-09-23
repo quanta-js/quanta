@@ -1,6 +1,5 @@
 import type {
     ActionsTree,
-    AnyStore,
     GettersTree,
     StateTree,
     Store,
@@ -120,30 +119,6 @@ export function createStore<
     container?: StoreContainer,
 ): Store<S, G, A> {
     return (container ?? getDefaultContainer()).resolve(name, options);
-}
-
-/**
- * Retrieve a store that has already been created.
- *
- * Prefer calling a {@link StoreDefinition} — this returns a loosely-typed
- * store because a name alone carries no type information, which is exactly the
- * problem `defineStore` exists to solve.
- */
-export function useStore(name: string, container?: StoreContainer): AnyStore {
-    const target = container ?? getDefaultContainer();
-    const store = target.get(name);
-    if (!store) {
-        throw new Error(
-            `Store "${name}" does not exist in container "${target.id}". ` +
-                `Existing stores: ${target.keys().join(', ') || '(none)'}.`,
-        );
-    }
-    return store;
-}
-
-/** Whether a store with this name exists in the given (or ambient) container. */
-export function hasStore(name: string, container?: StoreContainer): boolean {
-    return (container ?? getDefaultContainer()).has(name);
 }
 
 /**

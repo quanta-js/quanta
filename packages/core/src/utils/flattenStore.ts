@@ -1,8 +1,4 @@
-import {
-    RawActions,
-    StoreInstance,
-    StoreSubscriber,
-} from '../type/store-types';
+import type { ActionsTree, StoreSubscriber } from '../type/store-types';
 import { logger } from '../services/logger-service';
 import { __DEV__ } from '../utils/env';
 
@@ -12,7 +8,7 @@ import { __DEV__ } from '../utils/env';
 interface StoreCore<
     S extends object,
     GDefs extends Record<string, (state: S) => unknown>,
-    A extends RawActions,
+    A extends ActionsTree,
 > {
     state: S;
     getters: { [K in keyof GDefs]: { value: ReturnType<GDefs[K]> } };
@@ -46,14 +42,14 @@ export const flattenStore = <
         string,
         (state: S) => unknown
     >,
-    A extends RawActions = RawActions,
+    A extends ActionsTree = ActionsTree,
 >(
     store: StoreCore<S, GDefs, A>,
-): StoreInstance<S, GDefs, A> => {
+): object => {
     // Declared ahead of the Proxy so the traps can reference the flat store
     // itself (getters bind to it). Without the explicit annotation TypeScript
     // cannot infer a type for a const referenced inside its own initializer.
-    const flattened: StoreInstance<S, GDefs, A> = new Proxy(store, {
+    const flattened: object = new Proxy(store, {
         get(target, prop: string | symbol, receiver) {
             // Own members of the core object (state, getters, actions,
             // subscribe, $reset, $destroy, $persist, $hydrated…) win first so
@@ -165,7 +161,7 @@ export const flattenStore = <
             }
             return undefined;
         },
-    }) as unknown as StoreInstance<S, GDefs, A>;
+    });
 
     return flattened;
 };
