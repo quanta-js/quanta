@@ -273,5 +273,53 @@ describe('persistence', () => {
             await vi.runAllTimersAsync();
             expect(() => manager.destroy()).not.toThrow();
         });
+
+        it('validates the slice before transform.out on save', async () => {
+            const adapter = createMockAdapter();
+            const validator = vi.fn(
+                (data: Record<string, unknown>) =>
+                    typeof data.count === 'number',
+            );
+            const manager = createPersistenceManager(
+                () => ({ count: 2 }),
+                vi.fn(),
+                vi.fn(),
+                {
+                    adapter,
+                    validator,
+                    transform: { out: (s) => ({ count: String(s.count) }) },
+                },
+            );
+
+            await vi.runAllTimersAsync();
+            await manager.save();
+
+            expect(validator).toHaveBeenCalledWith({ count: 2 });
+            expect(JSON.parse(adapter.storage.get('test-key')).data).toEqual({
+                count: '2',
+            });
+        });
+
+        it('passes the envelope to serialize', async () => {
+            const adapter = createMockAdapter();
+            const serialize = vi.fn(JSON.stringify);
+            const manager = createPersistenceManager(
+                () => ({ count: 3 }),
+                vi.fn(),
+                vi.fn(),
+                { adapter, serialize, version: 4 },
+                'envelope-store',
+            );
+
+            await vi.runAllTimersAsync();
+            await manager.save();
+
+            expect(serialize).toHaveBeenCalledWith({
+                data: { count: 3 },
+                version: 4,
+                timestamp: expect.any(Number),
+                storeName: 'envelope-store',
+            });
+        });
     });
 });

@@ -7,8 +7,10 @@ import type {
 } from '../type/store-types';
 import type {
     PersistenceAdapter,
+    PersistenceConfig,
     PersistedData,
     PersistenceManager,
+    StoredState,
 } from '../type/persistence-types';
 import { reactive, computed } from '../state';
 import { LogLevel } from '../services/logger-service';
@@ -61,6 +63,48 @@ describe('type-level tests', () => {
             expectTypeOf<PersistedData>().toHaveProperty('data');
             expectTypeOf<PersistedData>().toHaveProperty('version');
             expectTypeOf<PersistedData>().toHaveProperty('timestamp');
+        });
+    });
+
+    describe('PersistenceConfig', () => {
+        type State = { theme: string; token: string; opened: Date };
+        type Config = PersistenceConfig<State>;
+        const adapter = {} as PersistenceAdapter;
+
+        it('limits include and exclude to state keys', () => {
+            const config: Config = { adapter, include: ['theme'] };
+            expectTypeOf(config).toMatchTypeOf<Config>();
+            // @ts-expect-error not a key of the state
+            const wrong: Config = { adapter, include: ['nope'] };
+            expectTypeOf(wrong).toMatchTypeOf<Config>();
+        });
+
+        it('passes the envelope to serialize', () => {
+            expectTypeOf<
+                Parameters<NonNullable<Config['serialize']>>[0]
+            >().toEqualTypeOf<PersistedData>();
+        });
+
+        it('types transform.out by the state and the rest as stored data', () => {
+            type Transform = NonNullable<Config['transform']>;
+            expectTypeOf<
+                Parameters<NonNullable<Transform['out']>>[0]
+            >().toEqualTypeOf<Partial<State>>();
+            expectTypeOf<
+                Parameters<NonNullable<Transform['in']>>[0]
+            >().toEqualTypeOf<StoredState>();
+            expectTypeOf<
+                Parameters<NonNullable<Config['validator']>>[0]
+            >().toEqualTypeOf<StoredState>();
+        });
+
+        it('has adapters exchange strings', () => {
+            expectTypeOf<
+                ReturnType<PersistenceAdapter['read']>
+            >().toEqualTypeOf<string | null | Promise<string | null>>();
+            expectTypeOf<
+                Parameters<PersistenceAdapter['write']>[0]
+            >().toEqualTypeOf<string>();
         });
     });
 
