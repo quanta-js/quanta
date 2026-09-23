@@ -223,7 +223,9 @@ describe('persistence', () => {
         it('should call onError when cross-tab payload is malformed', async () => {
             const adapter = createMockAdapter();
             const onError = vi.fn();
-            let subscriptionCallback: ((data: any) => void) | null = null;
+            // Asserted rather than annotated, so the callback assigned inside
+            // the mock is not narrowed away to null.
+            let subscriptionCallback = null as ((data: any) => void) | null;
 
             adapter.subscribe = vi.fn((cb: (data: any) => void) => {
                 subscriptionCallback = cb;

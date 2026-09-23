@@ -30,7 +30,9 @@ describe('array iteration methods stay reactive', () => {
         [
             'reduce (no initial value)',
             (items) =>
-                items.map((t) => (t.done ? 1 : 0)).reduce((a, b) => a + b),
+                items
+                    .map((t): number => (t.done ? 1 : 0))
+                    .reduce((a, b) => a + b),
         ],
         ['find', (items) => items.find((t) => t.done)?.id],
         ['findIndex', (items) => items.findIndex((t) => t.done)],
