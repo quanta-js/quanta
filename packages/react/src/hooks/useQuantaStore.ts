@@ -300,6 +300,17 @@ export function useQuantaStore<
     G extends GettersTree<S>,
     A extends ActionsTree,
 >(store: Store<S, G, A>): Store<S, G, A> {
+    // Checked during render so the error reaches an error boundary; thrown
+    // from subscribe, it lands in the commit phase instead.
+    if (
+        typeof (store as { subscribe?: unknown } | null)?.subscribe !==
+        'function'
+    ) {
+        throw new Error(
+            'useQuantaStore: expected a store with subscribe(). To pass a store ' +
+                'definition from defineStore(), use useQuanta(definition) instead.',
+        );
+    }
     const versionRef = useRef(0);
 
     const subscribe = useCallback(

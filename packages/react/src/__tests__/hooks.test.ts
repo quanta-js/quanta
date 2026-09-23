@@ -1,7 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { createStore } from '@quantajs/core';
@@ -122,10 +122,37 @@ describe('useQuantaStore', () => {
 
     it('should throw for store without subscribe', () => {
         const fakeStore = { state: {} } as any;
+        let caught: unknown = null;
 
-        expect(() => {
-            renderHook(() => useQuantaStore(fakeStore));
-        }).toThrow(/subscribe/);
+        // Caught by a boundary rather than escaping render: on React 18 an
+        // uncaught commit-phase error leaves the root unusable and fails
+        // every later test in the file.
+        class Boundary extends React.Component<
+            { children: React.ReactNode },
+            { failed: boolean }
+        > {
+            state = { failed: false };
+            static getDerivedStateFromError() {
+                return { failed: true };
+            }
+            componentDidCatch(error: unknown) {
+                caught = error;
+            }
+            render() {
+                return this.state.failed ? null : this.props.children;
+            }
+        }
+
+        const consoleError = vi
+            .spyOn(console, 'error')
+            .mockImplementation(() => {});
+        renderHook(() => useQuantaStore(fakeStore), {
+            wrapper: ({ children }) =>
+                React.createElement(Boundary, null, children),
+        });
+        consoleError.mockRestore();
+
+        expect(String(caught)).toMatch(/subscribe/);
     });
 });
 
