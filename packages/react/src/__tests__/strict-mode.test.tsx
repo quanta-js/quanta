@@ -77,6 +77,26 @@ describe('QuantaProvider without a container, under StrictMode', () => {
 });
 
 describe('useLocalStore under StrictMode', () => {
+    it('keeps working after the double mount', () => {
+        const def = counter();
+        const Counter = () => {
+            const store = useLocalStore(def);
+            return (
+                <button onClick={() => store.increment()}>{store.count}</button>
+            );
+        };
+        render(
+            <StrictMode>
+                <Counter />
+            </StrictMode>,
+        );
+
+        act(() => screen.getByRole('button').click());
+        act(() => screen.getByRole('button').click());
+
+        expect(screen.getByRole('button').textContent).toBe('2');
+    });
+
     it('disposes its store after a real unmount', async () => {
         vi.useFakeTimers();
         const def = counter();

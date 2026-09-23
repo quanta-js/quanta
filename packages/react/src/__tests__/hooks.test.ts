@@ -293,6 +293,17 @@ describe('useLocalStore', () => {
         b.unmount();
     });
 
+    it('re-renders when its store changes', () => {
+        const def = definition();
+        const { result } = renderHook(() => useLocalStore(def));
+
+        act(() => {
+            result.current.count = 3;
+        });
+
+        expect(result.current.count).toBe(3);
+    });
+
     it('disposes its container on unmount', async () => {
         const def = definition();
         const { result, unmount } = renderHook(() => useLocalStore(def));
