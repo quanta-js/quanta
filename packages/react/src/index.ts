@@ -50,7 +50,6 @@ export {
     effectScope,
     batchEffects,
     untrack,
-    nextTick,
     toRaw,
     markRaw,
     isReactive,

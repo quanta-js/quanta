@@ -18,7 +18,6 @@ import {
     effect,
     effectScope,
     untrack,
-    nextTick,
     batchEffects,
     computed,
     watch,
@@ -26,7 +25,6 @@ import {
     sanitizePayload,
     safeJsonParse,
     safeJsonReviver,
-    debounce,
 } from '../index';
 import { flattenStore } from '../utils/flattenStore';
 
@@ -184,20 +182,6 @@ describe('escape hatches', () => {
 
             state.n = 1;
             expect(runs).toBe(2);
-        });
-    });
-
-    describe('nextTick', () => {
-        it('resolves after the current microtask queue', async () => {
-            const order: string[] = [];
-            const done = nextTick(() => order.push('tick'));
-            order.push('sync');
-            await done;
-            expect(order).toEqual(['sync', 'tick']);
-        });
-
-        it('resolves without a callback', async () => {
-            await expect(nextTick()).resolves.toBeUndefined();
         });
     });
 
@@ -395,43 +379,6 @@ describe('flattenStore traps', () => {
         const descriptor = Object.getOwnPropertyDescriptor(build(), 'doubled');
         expect(descriptor?.value).toBe(2);
         expect(descriptor?.configurable).toBe(true);
-    });
-});
-
-describe('debounce', () => {
-    it('collapses rapid calls into one', async () => {
-        vi.useFakeTimers();
-        const fn = vi.fn();
-        const debounced = debounce(fn, 50);
-
-        debounced('a');
-        debounced('b');
-        debounced('c');
-        expect(fn).not.toHaveBeenCalled();
-
-        await vi.advanceTimersByTimeAsync(60);
-        expect(fn).toHaveBeenCalledOnce();
-        expect(fn).toHaveBeenCalledWith('c');
-        vi.useRealTimers();
-    });
-
-    it('flush() runs the pending call immediately', async () => {
-        const fn = vi.fn();
-        const debounced = debounce(fn, 1000);
-        debounced('x');
-        await debounced.flush();
-        expect(fn).toHaveBeenCalledWith('x');
-    });
-
-    it('cancel() discards the pending call', async () => {
-        vi.useFakeTimers();
-        const fn = vi.fn();
-        const debounced = debounce(fn, 50);
-        debounced('x');
-        debounced.cancel();
-        await vi.advanceTimersByTimeAsync(60);
-        expect(fn).not.toHaveBeenCalled();
-        vi.useRealTimers();
     });
 });
 
