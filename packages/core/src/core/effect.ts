@@ -82,8 +82,16 @@ let activeEffect: EffectFunction | null = null;
 interface EffectState {
     deps: Map<Dependency, number>;
     run: number;
+    /** Dependencies stamped so far in the current run. */
+    read: number;
 }
-const effectDeps = new WeakMap<EffectFunction, EffectState>();
+
+/**
+ * Where a runner keeps its EffectState. A property on the runner rather than
+ * a WeakMap entry: `track` looks it up on every reactive read.
+ */
+const STATE = Symbol('quanta.effectState');
+type WithState = EffectFunction & { [STATE]?: EffectState };
 
 /**
  * Whether `effect` is mid-run and has not read `dep` yet in this run.
@@ -95,7 +103,7 @@ const effectDeps = new WeakMap<EffectFunction, EffectState>();
  */
 function isStaleWhileRunning(effect: EffectFunction, dep: Dependency): boolean {
     if ((effect as EffectRunner).running !== true) return false;
-    const state = effectDeps.get(effect);
+    const state = (effect as WithState)[STATE];
     return state !== undefined && state.deps.get(dep) !== state.run;
 }
 
@@ -456,7 +464,7 @@ export function trigger(target: object, prop: string | symbol): void {
  */
 export function track(target: object, prop: string | symbol): void {
     if (activeEffect === null) return;
-    const state = effectDeps.get(activeEffect);
+    const state = (activeEffect as WithState)[STATE];
     if (state === undefined) return; // a stopped effect
 
     let depsMap = targetMap.get(target);
@@ -481,6 +489,7 @@ export function track(target: object, prop: string | symbol): void {
         dep.depend(activeEffect);
     }
     state.deps.set(dep, state.run);
+    state.read++;
 }
 
 /* ------------------------------------------------------------------ *
@@ -506,7 +515,7 @@ export function reactiveEffect(
     effectFn: EffectFunction,
     options?: EffectOptions,
 ): EffectRunner {
-    const state: EffectState = { deps: new Map(), run: 0 };
+    const state: EffectState = { deps: new Map(), run: 0, read: 0 };
 
     const wrappedEffect = (() => {
         if (!wrappedEffect.active) return;
@@ -522,6 +531,7 @@ export function reactiveEffect(
         }
 
         const run = ++state.run;
+        state.read = 0;
         effectStack.push(wrappedEffect);
         wrappedEffect.running = true;
         const previousActive = activeEffect;
@@ -534,10 +544,13 @@ export function reactiveEffect(
             activeEffect = previousActive;
             // Release what this run did not read. Without this an effect
             // whose dependencies change over time accumulates them forever.
-            for (const [dep, seen] of state.deps) {
-                if (seen !== run) {
-                    releaseDep(dep, wrappedEffect);
-                    state.deps.delete(dep);
+            // Skipped when every dependency was read again, the usual case.
+            if (state.read !== state.deps.size) {
+                for (const [dep, seen] of state.deps) {
+                    if (seen !== run) {
+                        releaseDep(dep, wrappedEffect);
+                        state.deps.delete(dep);
+                    }
                 }
             }
         }
@@ -554,7 +567,7 @@ export function reactiveEffect(
         wrappedEffect.active = false;
         for (const dep of state.deps.keys()) releaseDep(dep, wrappedEffect);
         state.deps.clear();
-        effectDeps.delete(wrappedEffect);
+        (wrappedEffect as WithState)[STATE] = undefined;
         effectQueue.delete(wrappedEffect);
         options?.onStop?.();
     };
@@ -566,7 +579,7 @@ export function reactiveEffect(
         wrappedEffect.eager = true;
     }
 
-    effectDeps.set(wrappedEffect, state);
+    (wrappedEffect as WithState)[STATE] = state;
 
     // Register with the enclosing scope, if any, so the scope can dispose it.
     activeScope?.add(wrappedEffect);
