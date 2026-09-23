@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { createContainer, type StoreContainer } from '@quantajs/core';
+import { useDisposeOnUnmount } from './useDisposeOnUnmount';
 import type {
     ActionsTree,
     GettersTree,
@@ -18,8 +19,8 @@ import type {
  * is disposed on unmount, which releases every effect, watcher and persistence
  * subscription the store owns.
  *
- * StrictMode-safe: the double mount/unmount/remount cycle rebuilds the
- * container rather than handing back a disposed store.
+ * StrictMode-safe: the simulated unmount in development does not dispose the
+ * container the component is still using.
  *
  * @example
  * ```tsx
@@ -32,24 +33,12 @@ export function useLocalStore<
     A extends ActionsTree,
 >(definition: StoreDefinition<S, G, A>): Store<S, G, A> {
     const containerRef = useRef<StoreContainer | null>(null);
-
     if (containerRef.current === null || !containerRef.current.active) {
         containerRef.current = createContainer(`local_${definition.$id}`);
     }
+    const container = containerRef.current;
 
-    useEffect(() => {
-        const owned = containerRef.current;
-        return () => {
-            owned?.dispose();
-            // Cleared so a StrictMode remount builds a fresh one instead of
-            // reusing the disposed container.
-            containerRef.current = null;
-        };
-    }, [definition]);
+    useDisposeOnUnmount(container);
 
-    if (containerRef.current === null || !containerRef.current.active) {
-        containerRef.current = createContainer(`local_${definition.$id}`);
-    }
-
-    return definition(containerRef.current);
+    return definition(container);
 }
