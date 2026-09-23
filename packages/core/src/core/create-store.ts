@@ -223,10 +223,6 @@ export function instantiateStore<
             };
         },
 
-        notifyAll(): void {
-            notifySubscribers();
-        },
-
         /**
          * Apply several changes as one notification.
          *

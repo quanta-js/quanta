@@ -17,9 +17,6 @@ export type GettersTree<S> = Record<string, (state: S) => unknown>;
 
 export type ActionsTree = Record<string, (...args: any[]) => any>;
 
-/** Legacy alias kept because it reads better at some call sites. */
-export type RawActions = ActionsTree;
-
 /** Internal effect callback — no arguments. */
 export type EffectFunction = () => void;
 
@@ -91,8 +88,6 @@ export interface StoreApi<S, G extends GettersTree<S>, A extends ActionsTree> {
 
     /** Subscribe to any change in this store. Returns an unsubscribe. */
     subscribe(callback: StoreSubscriber<S>): () => void;
-    /** Notify subscribers manually. */
-    notifyAll(): void;
 
     /** Apply several mutations as one notification. */
     $patch(partial: Partial<S>): void;
@@ -163,50 +158,3 @@ export interface StoreDefinitionOptions<
     /** Persist this store's state through a storage adapter. */
     persist?: PersistenceConfig<S>;
 }
-
-/* ------------------------------------------------------------------ *
- * Back-compat aliases
- * ------------------------------------------------------------------ */
-
-/** @deprecated Use {@link GettersTree}. */
-export type GetterDefinitions<
-    S extends object,
-    GDefs extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-> = GDefs;
-
-/** @deprecated Use {@link ActionsTree}. */
-export type ActionDefinition<
-    S extends object,
-    G extends Record<string, (state: S) => unknown>,
-    A extends ActionsTree,
-> = A;
-
-/** @deprecated Use {@link BoundActions}. */
-export type InferActions<
-    S extends object,
-    G extends Record<string, (state: S) => unknown>,
-    A extends ActionsTree,
-> = BoundActions<A>;
-
-/** @deprecated Use {@link Store}. */
-export type StoreInstance<
-    S extends object,
-    G extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends ActionsTree = ActionsTree,
-> = Store<S & StateTree, G & GettersTree<S & StateTree>, A>;
-
-/** @deprecated Use {@link StoreDefinitionOptions}. */
-export type StoreOptions<
-    S extends object,
-    G extends Record<string, (state: S) => unknown> = Record<
-        string,
-        (state: S) => unknown
-    >,
-    A extends ActionsTree = ActionsTree,
-> = StoreDefinitionOptions<S & StateTree, G & GettersTree<S & StateTree>, A>;

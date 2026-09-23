@@ -29,9 +29,8 @@ describe('store.subscribe()', () => {
         store.user.name = 'grace';
         store.$patch({ count: 2 });
         store.increment();
-        store.notifyAll();
 
-        expect(received).toHaveLength(5);
+        expect(received).toHaveLength(4);
         for (const state of received) expect(state).toBe(store.state);
     });
 
@@ -98,14 +97,5 @@ describe('store.subscribe()', () => {
 
         expect(() => store.increment()).toThrow('boom');
         expect(store.count).toBe(1);
-    });
-
-    it('surfaces subscriber errors from notifyAll()', () => {
-        const store = counter()(createContainer());
-        store.subscribe(() => {
-            throw new Error('boom');
-        });
-
-        expect(() => store.notifyAll()).toThrow('boom');
     });
 });

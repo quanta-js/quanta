@@ -14,7 +14,6 @@ function makeStore(
         getters: getters,
         actions: actions,
         subscribe: vi.fn(() => vi.fn()),
-        notifyAll: vi.fn(),
         $reset: vi.fn(),
         $destroy: vi.fn(),
     };
@@ -47,7 +46,6 @@ describe('flattenStore', () => {
             },
             actions: {},
             subscribe: vi.fn(() => vi.fn()),
-            notifyAll: vi.fn(),
             $reset: vi.fn(),
             $destroy: vi.fn(),
         };
