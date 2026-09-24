@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import path from 'path';
 
 export default defineConfig({
@@ -9,8 +10,31 @@ export default defineConfig({
     test: {
         globals: true,
         environment: 'node',
-        include: ['packages/*/src/**/*.{test,spec}.{ts,tsx}'],
-        exclude: ['**/node_modules/**', '**/dist/**'],
+        projects: [
+            {
+                extends: true,
+                test: {
+                    name: 'packages',
+                    include: ['packages/*/src/**/*.{test,spec}.{ts,tsx}'],
+                    exclude: [
+                        '**/node_modules/**',
+                        '**/dist/**',
+                        'packages/svelte/**',
+                    ],
+                },
+            },
+            {
+                // Svelte components are compiled for the browser; without the
+                // condition, `svelte` resolves to its server build.
+                extends: true,
+                plugins: [svelte()],
+                resolve: { conditions: ['browser'] },
+                test: {
+                    name: 'svelte',
+                    include: ['packages/svelte/src/**/*.test.ts'],
+                },
+            },
+        ],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'text-summary', 'lcov', 'json-summary'],
@@ -51,6 +75,7 @@ export default defineConfig({
             '@quantajs/core': path.resolve(__dirname, 'packages/core/src'),
             '@quantajs/react': path.resolve(__dirname, 'packages/react/src'),
             '@quantajs/vue': path.resolve(__dirname, 'packages/vue/src'),
+            '@quantajs/svelte': path.resolve(__dirname, 'packages/svelte/src'),
             '@quantajs/devtools': path.resolve(
                 __dirname,
                 'packages/devtools/src',

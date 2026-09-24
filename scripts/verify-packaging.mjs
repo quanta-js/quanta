@@ -47,7 +47,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
-const PACKAGES = ['core', 'react', 'devtools', 'vue'];
+const PACKAGES = ['core', 'react', 'devtools', 'vue', 'svelte'];
 
 const run = (cmd, args, cwd) =>
     execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe' });
@@ -418,6 +418,78 @@ export function setup(): Readonly<Ref<number>> {
     );
     run('npx', ['tsc', '-p', 'tsconfig.json'], vueApp);
     log('vue type declarations: ok');
+
+    /* ---------------------------------------------------------------- *
+     * 9. @quantajs/svelte must load under both require() and import, with
+     *    declarations that type a selector's store
+     * ---------------------------------------------------------------- */
+    const svelteApp = join(workdir, 'svelte-app');
+    mkdirSync(svelteApp);
+    writeFileSync(
+        join(svelteApp, 'package.json'),
+        JSON.stringify({
+            name: 'packaging-fixture-svelte',
+            private: true,
+            version: '0.0.0',
+            dependencies: {
+                '@quantajs/core': `file:${tarballs.core}`,
+                '@quantajs/svelte': `file:${tarballs.svelte}`,
+                svelte: '^5.0.0',
+            },
+            devDependencies: { typescript: '^5.0.0' },
+        }),
+    );
+    run('npm', ['install', '--no-audit', '--no-fund'], svelteApp);
+    writeFileSync(
+        join(svelteApp, 'check.cjs'),
+        `const cjs = require('@quantajs/svelte');
+if (typeof cjs.useQuantaValue !== 'function') {
+    throw new Error('require("@quantajs/svelte") has no useQuantaValue');
+}
+import('@quantajs/svelte').then((esm) => {
+    if (typeof esm.setQuantaContainer !== 'function') {
+        throw new Error('import("@quantajs/svelte") has no setQuantaContainer');
+    }
+    console.log('svelte require + import: ok');
+});
+`,
+    );
+    log(run('node', ['check.cjs'], svelteApp).trim());
+    writeFileSync(
+        join(svelteApp, 'types-check.ts'),
+        `import type { Readable } from 'svelte/store';
+import { defineStore } from '@quantajs/core';
+import { useQuantaValue } from '@quantajs/svelte';
+
+const useCounter = defineStore('counter', {
+    state: () => ({ count: 0 }),
+    getters: { doubled: (s) => s.count * 2 },
+});
+
+// Fails to compile if the declarations are empty or the inference is broken.
+export const doubled: Readable<number> = useQuantaValue(
+    useCounter,
+    (s) => s.doubled,
+);
+`,
+    );
+    writeFileSync(
+        join(svelteApp, 'tsconfig.json'),
+        JSON.stringify({
+            compilerOptions: {
+                strict: true,
+                noEmit: true,
+                module: 'esnext',
+                target: 'es2022',
+                moduleResolution: 'bundler',
+                lib: ['es2022', 'dom'],
+                skipLibCheck: true,
+            },
+            include: ['types-check.ts'],
+        }),
+    );
+    run('npx', ['tsc', '-p', 'tsconfig.json'], svelteApp);
+    log('svelte type declarations: ok');
 
     log('\npackaging verification passed');
 } catch (error) {

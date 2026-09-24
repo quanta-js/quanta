@@ -65,8 +65,9 @@ jobs:
             fi
           }
 
-          # Publish in dependency order: core → devtools → react → vue
+          # Publish in dependency order: core → devtools → bindings
           publish_pkg packages/core
           publish_pkg packages/devtools
           publish_pkg packages/react
           publish_pkg packages/vue
+          publish_pkg packages/svelte
