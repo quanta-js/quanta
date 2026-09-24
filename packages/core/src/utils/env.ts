@@ -1,52 +1,26 @@
 /**
- * Build-time environment detection.
+ * Whether to emit development diagnostics.
  *
- * `__DEV__` gates every diagnostic in the library's hot paths. Bundlers that
- * perform dead-code elimination (Vite, webpack, Rollup, esbuild) statically
- * replace `process.env.NODE_ENV`, so the entire branch — including the
- * template literals used to build the messages — is removed from production
- * builds. That matters: the previous implementation built error strings inside
- * `try/catch` blocks in the proxy traps, which ran on every property access.
+ * `process.env.NODE_ENV` is written out in full so the app's bundler can
+ * replace it with a string literal, as webpack, Vite, Next.js, Parcel and the
+ * esbuild-based tools do. A production build then runs the quiet path. The
+ * previous version read `import.meta` through a variable and guarded `process`
+ * with `typeof`, which no bundler can resolve: in a production browser bundle
+ * both checks failed and it fell back to development, printing diagnostics.
  *
- * The lookup is resolved once at module load rather than per call so that a
- * non-replaced `process` reference costs a single `typeof` check overall.
+ * Without a bundler, a browser has no `process`; reading it throws, and
+ * diagnostics stay on, which is what someone using a plain
+ * `<script type="module">` wants.
  */
 function detectDev(): boolean {
-    // Vite / modern bundlers: import.meta.env.DEV
     try {
-        const meta = import.meta as unknown as
-            { env?: { DEV?: boolean; MODE?: string } } | undefined;
-        if (meta && meta.env) {
-            if (typeof meta.env.DEV === 'boolean') return meta.env.DEV;
-            if (typeof meta.env.MODE === 'string') {
-                return meta.env.MODE !== 'production';
-            }
-        }
+        return process.env.NODE_ENV !== 'production';
     } catch {
-        /* import.meta is unavailable in CJS output — fall through */
+        return true;
     }
-
-    // Node / webpack / Jest
-    try {
-        if (
-            typeof process !== 'undefined' &&
-            process.env &&
-            typeof process.env.NODE_ENV === 'string'
-        ) {
-            return process.env.NODE_ENV !== 'production';
-        }
-    } catch {
-        /* `process` may be shadowed or throw in exotic sandboxes */
-    }
-
-    // No signal either way. Default to development so that diagnostics are
-    // available in plain <script type="module"> usage, where a developer has
-    // no bundler to tell us otherwise. Production users get the quiet path via
-    // their bundler's NODE_ENV replacement.
-    return true;
 }
 
-/** True when diagnostics should be emitted. Tree-shaken away in prod builds. */
+/** True when diagnostics should be emitted. */
 export const __DEV__: boolean = detectDev();
 
 /** True when running inside a browser-like environment with a DOM. */

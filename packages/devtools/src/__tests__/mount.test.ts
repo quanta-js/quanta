@@ -1,7 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mountDevTools } from '../mount';
 
 function mockBridge() {
@@ -16,6 +16,10 @@ describe('mountDevTools', () => {
         mockBridge();
     });
 
+    afterEach(() => {
+        vi.unstubAllEnvs();
+    });
+
     it('returns no-op cleanup when visible is false', () => {
         const cleanup = mountDevTools({ visible: false });
         expect(typeof cleanup).toBe('function');
@@ -25,9 +29,21 @@ describe('mountDevTools', () => {
         cleanup();
     });
 
-    it('uses environment-based visibility when visible is omitted', () => {
+    it('mounts by default in a development build', () => {
+        vi.stubEnv('NODE_ENV', 'development');
         const cleanup = mountDevTools();
-        expect(typeof cleanup).toBe('function');
+        expect(
+            document.querySelector('#quanta-devtools-shadow-host'),
+        ).not.toBeNull();
+        cleanup();
+    });
+
+    it('stays hidden by default outside a development build', () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        const cleanup = mountDevTools();
+        expect(
+            document.querySelector('#quanta-devtools-shadow-host'),
+        ).toBeNull();
         cleanup();
     });
 

@@ -43,6 +43,7 @@ import {
     readdirSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
+import vm from 'node:vm';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -230,6 +231,67 @@ export { useQuanta, useQuantaValue };
         throw new Error(`bundler build failed:\n${output}`);
     }
     log('bundler build without the optional peer: ok');
+
+    /* ---------------------------------------------------------------- *
+     * 5b. A production app build must turn development diagnostics off
+     *
+     * The dev check reads `process.env.NODE_ENV` so that an app's bundler
+     * replaces it. When it read `import.meta` through a variable instead,
+     * production browser bundles fell back to development and printed
+     * warnings. Build an app that triggers a dev-only warning and run it with
+     * no `process`, as a browser would.
+     * ---------------------------------------------------------------- */
+    const prod = join(app, 'prod');
+    mkdirSync(prod);
+    writeFileSync(
+        join(prod, 'index.html'),
+        '<script type="module" src="./main.ts"></script>\n',
+    );
+    writeFileSync(
+        join(prod, 'main.ts'),
+        `import { createStore } from '@quantajs/core';
+
+// A getter named like a state key: warned about only in development.
+createStore('shadow', { state: () => ({ a: 1 }), getters: { a: (s) => s.a } });
+`,
+    );
+    writeFileSync(
+        join(prod, 'vite.config.js'),
+        // A classic script, so it runs in a plain vm context below.
+        "export default { build: { modulePreload: false, rollupOptions: { output: { format: 'iife' } } } };\n",
+    );
+    run('npx', ['vite', 'build', 'prod'], app);
+    const assets = join(prod, 'dist', 'assets');
+    const bundle = readFileSync(
+        join(assets, readdirSync(assets).find((f) => f.endsWith('.js'))),
+        'utf8',
+    );
+    if (bundle.includes('process.env.NODE_ENV')) {
+        throw new Error(
+            'REGRESSION: the app bundler left process.env.NODE_ENV in place, so ' +
+                'the dev check cannot be resolved at build time',
+        );
+    }
+    const warnings = [];
+    const silent = () => {};
+    vm.runInNewContext(bundle, {
+        console: {
+            warn: (...args) => warnings.push(args.join(' ')),
+            error: (...args) => warnings.push(args.join(' ')),
+            log: silent,
+            info: silent,
+            debug: silent,
+        },
+        window: {},
+        document: {},
+    });
+    if (warnings.length > 0) {
+        throw new Error(
+            'REGRESSION: a production build prints development warnings:\n' +
+                warnings.join('\n'),
+        );
+    }
+    log('production build is quiet: ok');
 
     /* ---------------------------------------------------------------- *
      * 6. The main entry must not reference an optional peer at all
