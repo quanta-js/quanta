@@ -149,6 +149,8 @@ See [`examples/nextjs-app`](./examples/nextjs-app) for the complete App Router s
 - [`examples/vanilla`](./examples/vanilla) — no framework, with persistence
 - [`examples/react-vite`](./examples/react-vite) — every React hook, async actions, DevTools
 - [`examples/nextjs-app`](./examples/nextjs-app) — per-request containers and hydration
+- [`examples/vue-vite`](./examples/vue-vite) — every Vue composable, with a concurrent server-render check
+- [`examples/svelte-vite`](./examples/svelte-vite) — every Svelte function, with a concurrent server-render check
 
 Each is built and verified in CI.
 
