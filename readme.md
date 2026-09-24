@@ -20,13 +20,16 @@ State management with request isolation, async action state and versioned persis
 | ------------------------------------------- | ------------------------------------------- |
 | [`@quantajs/core`](./packages/core)         | Reactivity, stores, containers, persistence |
 | [`@quantajs/react`](./packages/react)       | React hooks and provider                    |
+| [`@quantajs/vue`](./packages/vue)           | Vue composables and plugin                  |
 | [`@quantajs/devtools`](./packages/devtools) | In-page state inspector (optional)          |
 
 ## Install
 
 ```sh
-npm install @quantajs/core @quantajs/react
+npm install @quantajs/core
 ```
+
+`@quantajs/core` works in any JavaScript environment. Add the bindings for your framework: `@quantajs/react` or `@quantajs/vue`.
 
 ## Quick start
 
