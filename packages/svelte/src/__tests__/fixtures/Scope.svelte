@@ -2,10 +2,12 @@
     import { setQuantaContainer } from '../../index';
     import Counter from './Counter.svelte';
 
-    let { definition, container, snapshot, onContainer } = $props();
-    // svelte-ignore state_referenced_locally
+    export let definition;
+    export let container = undefined;
+    export let snapshot = undefined;
+    export let onContainer = undefined;
+
     const active = setQuantaContainer(container, { snapshot });
-    // svelte-ignore state_referenced_locally
     onContainer?.(active);
 </script>
 

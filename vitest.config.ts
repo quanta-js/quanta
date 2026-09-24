@@ -1,6 +1,26 @@
-import { defineConfig } from 'vitest/config';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { defineConfig, type Plugin } from 'vitest/config';
+import { compile, VERSION } from 'svelte/compiler';
 import path from 'path';
+
+/**
+ * Compile `.svelte` test fixtures with whichever Svelte is installed, 4 or 5,
+ * so CI can run the same tests against both. The official Vite plugin supports
+ * only Svelte 5 with this Vite.
+ */
+function svelteFixtures(): Plugin {
+    const legacy = Number(VERSION.split('.')[0]) < 5;
+    return {
+        name: 'quanta:svelte-fixtures',
+        transform(code, id) {
+            if (!id.endsWith('.svelte')) return null;
+            const { js } = compile(code, {
+                filename: id,
+                generate: (legacy ? 'dom' : 'client') as never,
+            });
+            return { code: js.code, map: js.map };
+        },
+    };
+}
 
 export default defineConfig({
     define: {
@@ -27,7 +47,7 @@ export default defineConfig({
                 // Svelte components are compiled for the browser; without the
                 // condition, `svelte` resolves to its server build.
                 extends: true,
-                plugins: [svelte()],
+                plugins: [svelteFixtures()],
                 resolve: { conditions: ['browser'] },
                 test: {
                     name: 'svelte',

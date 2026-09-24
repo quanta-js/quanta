@@ -12,6 +12,7 @@ import {
     nextTick,
     onUpdated,
     reactive,
+    type App,
     type Component,
 } from 'vue';
 import { renderToString } from 'vue/server-renderer';
@@ -255,6 +256,24 @@ describe('createQuanta', () => {
 
         expect(owned.container.active).toBe(false);
         expect(supplied.container.active).toBe(true);
+    });
+
+    it('disposes its container on unmount before Vue 3.5', () => {
+        const quanta = createQuanta();
+        let unmounted = false;
+        // An app as Vue 3.3 and 3.4 shape it: no onUnmount hook.
+        const app = {
+            provide: vi.fn(),
+            unmount: () => {
+                unmounted = true;
+            },
+        } as unknown as App;
+
+        quanta.install(app);
+        app.unmount();
+
+        expect(unmounted).toBe(true);
+        expect(quanta.container.active).toBe(false);
     });
 
     it('renders on the server against the request container', async () => {

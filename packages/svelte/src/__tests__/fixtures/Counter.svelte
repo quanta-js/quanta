@@ -1,8 +1,7 @@
 <script>
     import { useQuanta } from '../../index';
 
-    let { definition } = $props();
-    // svelte-ignore state_referenced_locally
+    export let definition;
     const store = useQuanta(definition);
 </script>
 
