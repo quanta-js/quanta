@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import watch from '../state/watch';
 import { createReactive } from '../core/create-reactive';
+import { shallow } from '../utils/shallow';
 
 describe('watch', () => {
     describe('basic watching', () => {
@@ -125,6 +126,51 @@ describe('watch', () => {
 
             state.a = 10;
             expect(callback).toHaveBeenCalledWith(12, 3);
+        });
+    });
+
+    describe('equals', () => {
+        it('skips the callback while equals reports the same value', () => {
+            const state = createReactive({ n: 0 });
+            const callback = vi.fn();
+            watch(() => ({ even: state.n % 2 === 0 }), callback, {
+                equals: shallow,
+            });
+
+            state.n = 2;
+            expect(callback).not.toHaveBeenCalled();
+
+            state.n = 3;
+            expect(callback).toHaveBeenCalledTimes(1);
+            expect(callback).toHaveBeenCalledWith(
+                { even: false },
+                { even: true },
+            );
+        });
+
+        it('lets an in-place mutation through when equals says unequal', () => {
+            const state = createReactive({ list: [1] });
+            const byIdentity = vi.fn();
+            const always = vi.fn();
+            watch(() => state.list, byIdentity);
+            watch(() => state.list, always, { equals: () => false });
+
+            state.list.push(2);
+
+            expect(byIdentity).not.toHaveBeenCalled();
+            expect(always).toHaveBeenCalledTimes(1);
+        });
+
+        it('is not consulted with deep', () => {
+            const state = createReactive({ nested: { n: 0 } });
+            const equals = vi.fn(() => true);
+            const callback = vi.fn();
+            watch(() => state.nested, callback, { deep: true, equals });
+
+            state.nested.n = 1;
+
+            expect(callback).toHaveBeenCalledTimes(1);
+            expect(equals).not.toHaveBeenCalled();
         });
     });
 

@@ -1,7 +1,7 @@
 import { reactiveEffect, pauseTracking, resumeTracking } from '../core/effect';
 import { toRaw } from '../core/create-reactive';
 
-export interface WatchOptions {
+export interface WatchOptions<T = unknown> {
     /**
      * Recursively touch every nested property of the source value so that any
      * change beneath it fires the callback.
@@ -12,6 +12,14 @@ export interface WatchOptions {
     deep?: boolean;
     /** Invoke the callback once immediately, before the first change. */
     immediate?: boolean;
+    /**
+     * Whether a re-run produced the same value as before; the callback fires
+     * only when it returns false. Defaults to `Object.is`. Not consulted with
+     * `deep`, where every tracked change fires.
+     *
+     * Pass `shallow` for a source that builds a new object or array each run.
+     */
+    equals?: (value: T, oldValue: T) => boolean;
 }
 
 /** Call to stop a watcher. Idempotent. */
@@ -60,8 +68,9 @@ function deepAccess(value: unknown, visited: WeakSet<object>): void {
  * Run `callback` whenever the value produced by `source` changes.
  *
  * The source function is tracked: it re-runs when any reactive value it read
- * changes, and the callback fires only if the produced value actually differs
- * (by `Object.is`), or on every tracked change when `deep` is set.
+ * changes, and the callback fires only if the produced value differs (by
+ * `options.equals`, `Object.is` by default), or on every tracked change when
+ * `deep` is set.
  *
  * @param source   - Reads the value to observe.
  * @param callback - Receives `(newValue, oldValue)`.
@@ -80,9 +89,9 @@ function deepAccess(value: unknown, visited: WeakSet<object>): void {
 const watch = <T>(
     source: () => T,
     callback: (value: T, oldValue: T | undefined) => void,
-    options: WatchOptions = {},
+    options: WatchOptions<T> = {},
 ): WatchStopHandle => {
-    const { deep = false, immediate = false } = options;
+    const { deep = false, immediate = false, equals = Object.is } = options;
     let oldValue: T | typeof UNSET = UNSET;
 
     const runner = reactiveEffect(() => {
@@ -105,9 +114,9 @@ const watch = <T>(
 
             // In deep mode the effect only re-runs because a tracked nested
             // dependency genuinely changed. Comparing is pointless — the proxy
-            // identity is unchanged, so Object.is would always say "equal" and
-            // the callback would never fire.
-            if (deep || !Object.is(value, oldValue)) {
+            // identity is unchanged, so an identity check would always say
+            // "equal" and the callback would never fire.
+            if (deep || !equals(value, oldValue as T)) {
                 const previousValue = oldValue as T;
                 oldValue = value;
                 callback(value, previousValue);
