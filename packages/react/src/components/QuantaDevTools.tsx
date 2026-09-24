@@ -7,15 +7,13 @@ import type { QuantaDevToolsProps } from './devtools-types';
 export type { QuantaDevToolsProps };
 
 function isDevBuild(): boolean {
+    // Written out in full so the app's bundler replaces it with a literal;
+    // `import.meta.env` would be baked in by this package's own build.
     try {
-        const meta = import.meta as unknown as { env?: { DEV?: boolean } };
-        if (meta?.env && typeof meta.env.DEV === 'boolean') return meta.env.DEV;
+        return process.env.NODE_ENV === 'development';
     } catch {
-        /* not available in CJS output */
+        return false;
     }
-    return (
-        typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production'
-    );
 }
 
 /**

@@ -20,26 +20,19 @@ export interface DevToolsOptions {
     onError?: (error: Error) => void;
 }
 
+/**
+ * Whether the app is a development build. `process.env.NODE_ENV` is written out
+ * in full so the app's bundler replaces it with a literal; `import.meta.env`
+ * cannot be used here, because this package's own build would bake in its
+ * value. With no bundler, `process` is missing and the panel stays hidden
+ * unless `visible` is passed.
+ */
 function isDev(): boolean {
-    // Check for Vite
-    // @ts-ignore
-    if (
-        typeof import.meta !== 'undefined' &&
-        import.meta.env &&
-        import.meta.env.DEV
-    ) {
-        return true;
+    try {
+        return process.env.NODE_ENV === 'development';
+    } catch {
+        return false;
     }
-    // Check for Node/Webpack
-    // @ts-ignore
-    if (
-        typeof process !== 'undefined' &&
-        process.env &&
-        process.env.NODE_ENV === 'development'
-    ) {
-        return true;
-    }
-    return false;
 }
 
 export function mountDevTools(options: DevToolsOptions = {}) {
