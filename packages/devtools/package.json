@@ -44,7 +44,7 @@
         "build:types": "tsc -p tsconfig.build.json"
     },
     "peerDependencies": {
-        "@quantajs/core": ">=2.0.0"
+        "@quantajs/core": "workspace:*"
     },
     "dependencies": {
         "preact": "^10.29.8"

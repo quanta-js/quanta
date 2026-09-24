@@ -22,11 +22,15 @@ import {
     computed,
     watch,
     createStore,
+} from '../index';
+import { flattenStore } from '../utils/flattenStore';
+// Internal since 3.0; still the guard every persisted and hydrated payload
+// passes through, so it keeps its tests here.
+import {
     sanitizePayload,
     safeJsonParse,
     safeJsonReviver,
-} from '../index';
-import { flattenStore } from '../utils/flattenStore';
+} from '../utils/sanitize';
 
 let uid = 0;
 const name = (p: string) => `api_${p}_${++uid}_${Date.now()}`;
