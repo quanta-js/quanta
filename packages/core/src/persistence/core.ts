@@ -140,6 +140,27 @@ export function createPersistenceManager<S extends object>(
         return slice;
     };
 
+    /**
+     * Keep only the keys this store persists. Stored data can hold others:
+     * written before a key was removed from `include`, or put there by
+     * another script. Without this, taking `token` out of `include` would
+     * still load the old token into state on every visit.
+     */
+    const pickPersisted = (data: StoredState): StoredState => {
+        const allowed: readonly string[] | undefined =
+            include && include.length > 0 ? include : undefined;
+        const excluded = new Set<string>(exclude);
+        if (allowed === undefined && excluded.size === 0) return data;
+
+        const picked: StoredState = {};
+        for (const key of Object.keys(data)) {
+            if (allowed !== undefined && !allowed.includes(key)) continue;
+            if (excluded.has(key)) continue;
+            picked[key] = data[key];
+        }
+        return picked;
+    };
+
     /* -------------------------------------------------------------- *
      * Write
      * -------------------------------------------------------------- */
@@ -240,6 +261,8 @@ export function createPersistenceManager<S extends object>(
         }
 
         if (transform?.in) data = sanitizePayload(transform.in(data));
+
+        data = pickPersisted(data);
 
         if (validator && !validator(data)) {
             fail(new Error('Loaded data failed validation'), phase);

@@ -321,5 +321,52 @@ describe('persistence', () => {
                 storeName: 'envelope-store',
             });
         });
+
+        it('loads only keys in include', async () => {
+            const adapter = createMockAdapter();
+            const setState = vi.fn();
+            // Written back when `token` was still persisted.
+            adapter.storage.set(
+                'test-key',
+                JSON.stringify({
+                    data: { theme: 'dark', token: 'old-token' },
+                    version: 1,
+                    timestamp: Date.now(),
+                }),
+            );
+
+            createPersistenceManager(
+                () => ({ theme: 'light', token: '' }),
+                setState,
+                vi.fn(),
+                { adapter, include: ['theme'] },
+            );
+            await vi.runAllTimersAsync();
+
+            expect(setState).toHaveBeenCalledWith({ theme: 'dark' });
+        });
+
+        it('does not load keys in exclude', async () => {
+            const adapter = createMockAdapter();
+            const setState = vi.fn();
+            adapter.storage.set(
+                'test-key',
+                JSON.stringify({
+                    data: { count: 1, secret: 'x' },
+                    version: 1,
+                    timestamp: Date.now(),
+                }),
+            );
+
+            createPersistenceManager(
+                () => ({ count: 0, secret: '' }),
+                setState,
+                vi.fn(),
+                { adapter, exclude: ['secret'] },
+            );
+            await vi.runAllTimersAsync();
+
+            expect(setState).toHaveBeenCalledWith({ count: 1 });
+        });
     });
 });
