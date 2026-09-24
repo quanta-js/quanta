@@ -1,0 +1,21 @@
+{
+    "name": "example-lit-vite",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "description": "Lit + Vite: every @quantajs/lit controller in real web components, a provided container, and type-checked controller inference.",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc --noEmit && vite build",
+        "verify": "node verify.mjs"
+    },
+    "dependencies": {
+        "@quantajs/core": "workspace:*",
+        "@quantajs/lit": "workspace:*",
+        "lit": "^3.3.3"
+    },
+    "devDependencies": {
+        "typescript": "^6.0.2",
+        "vite": "^8.3.0"
+    }
+}

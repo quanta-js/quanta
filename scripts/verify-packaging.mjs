@@ -48,7 +48,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
-const PACKAGES = ['core', 'react', 'devtools', 'vue', 'svelte'];
+const PACKAGES = ['core', 'react', 'devtools', 'vue', 'svelte', 'lit'];
 
 const run = (cmd, args, cwd) =>
     execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe' });
@@ -552,6 +552,81 @@ export const doubled: Readable<number> = useQuantaValue(
     );
     run('npx', ['tsc', '-p', 'tsconfig.json'], svelteApp);
     log('svelte type declarations: ok');
+
+    /* ---------------------------------------------------------------- *
+     * 10. @quantajs/lit must load under both require() and import, with
+     *     declarations that type a controller's value
+     * ---------------------------------------------------------------- */
+    const litApp = join(workdir, 'lit-app');
+    mkdirSync(litApp);
+    writeFileSync(
+        join(litApp, 'package.json'),
+        JSON.stringify({
+            name: 'packaging-fixture-lit',
+            private: true,
+            version: '0.0.0',
+            dependencies: {
+                '@quantajs/core': `file:${tarballs.core}`,
+                '@quantajs/lit': `file:${tarballs.lit}`,
+                lit: '^3.0.0',
+            },
+            devDependencies: { typescript: '^5.0.0' },
+        }),
+    );
+    run('npm', ['install', '--no-audit', '--no-fund'], litApp);
+    writeFileSync(
+        join(litApp, 'check.cjs'),
+        `const cjs = require('@quantajs/lit');
+if (typeof cjs.QuantaValueController !== 'function') {
+    throw new Error('require("@quantajs/lit") has no QuantaValueController');
+}
+import('@quantajs/lit').then((esm) => {
+    if (typeof esm.provideQuantaContainer !== 'function') {
+        throw new Error('import("@quantajs/lit") has no provideQuantaContainer');
+    }
+    console.log('lit require + import: ok');
+});
+`,
+    );
+    log(run('node', ['check.cjs'], litApp).trim());
+    writeFileSync(
+        join(litApp, 'types-check.ts'),
+        `import { LitElement } from 'lit';
+import { defineStore } from '@quantajs/core';
+import { QuantaValueController } from '@quantajs/lit';
+
+const useCounter = defineStore('counter', {
+    state: () => ({ count: 0 }),
+    getters: { doubled: (s) => s.count * 2 },
+});
+
+// Fails to compile if the declarations are empty or the inference is broken.
+export class Doubled extends LitElement {
+    doubled = new QuantaValueController(this, useCounter, (s) => s.doubled);
+    get value(): number {
+        return this.doubled.value;
+    }
+}
+`,
+    );
+    writeFileSync(
+        join(litApp, 'tsconfig.json'),
+        JSON.stringify({
+            compilerOptions: {
+                strict: true,
+                noEmit: true,
+                module: 'esnext',
+                target: 'es2022',
+                moduleResolution: 'bundler',
+                lib: ['es2022', 'dom'],
+                skipLibCheck: true,
+                useDefineForClassFields: false,
+            },
+            include: ['types-check.ts'],
+        }),
+    );
+    run('npx', ['tsc', '-p', 'tsconfig.json'], litApp);
+    log('lit type declarations: ok');
 
     log('\npackaging verification passed');
 } catch (error) {

@@ -27,6 +27,7 @@ const ALIASES = {
     '@quantajs/react': dist('react', 'index.js'),
     '@quantajs/vue': dist('vue', 'index.js'),
     '@quantajs/svelte': dist('svelte', 'index.js'),
+    '@quantajs/lit': dist('lit', 'index.js'),
 };
 
 /** Gzip bytes. Each entry keeps its imports alive by assigning them. */
@@ -64,6 +65,13 @@ globalThis.keep = [defineStore, useQuanta, useQuantaValue];`,
 import { useQuanta, useQuantaValue } from '@quantajs/svelte';
 globalThis.keep = [defineStore, useQuanta, useQuantaValue];`,
     },
+    {
+        name: 'Lit: defineStore + QuantaController + QuantaValueController',
+        budget: 9_450,
+        code: `import { defineStore } from '@quantajs/core';
+import { QuantaController, QuantaValueController } from '@quantajs/lit';
+globalThis.keep = [defineStore, QuantaController, QuantaValueController];`,
+    },
 ];
 
 const LICENCE = /\/\*![\s\S]*?\*\//g;
@@ -88,6 +96,8 @@ async function measure(dir, scenario, index) {
                     /^react-dom/,
                     /^vue(\/|$)/,
                     /^svelte(\/|$)/,
+                    /^lit(\/|$)/,
+                    /^@lit\//,
                 ],
             },
         },

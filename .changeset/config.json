@@ -8,7 +8,8 @@
       "@quantajs/react",
       "@quantajs/devtools",
       "@quantajs/vue",
-      "@quantajs/svelte"
+      "@quantajs/svelte",
+      "@quantajs/lit"
     ]
   ],
   "linked": [],
