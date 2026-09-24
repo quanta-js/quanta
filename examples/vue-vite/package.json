@@ -1,0 +1,22 @@
+{
+    "name": "example-vue-vite",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "description": "Vue + Vite: every @quantajs/vue composable, an async action's pending state, and a server render check that two concurrent requests keep their state apart.",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build && vite build --ssr src/entry-server.ts --outDir dist-server",
+        "verify": "node verify.mjs"
+    },
+    "dependencies": {
+        "@quantajs/core": "workspace:*",
+        "@quantajs/vue": "workspace:*",
+        "vue": "^3.5.0"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-vue": "^6.0.9",
+        "typescript": "^6.0.2",
+        "vite": "^8.3.0"
+    }
+}

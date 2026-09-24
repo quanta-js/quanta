@@ -132,12 +132,56 @@ importers:
         specifier: ^8.3.0
         version: 8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)
 
+  examples/svelte-vite:
+    dependencies:
+      '@quantajs/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@quantajs/svelte':
+        specifier: workspace:*
+        version: link:../../packages/svelte
+      svelte:
+        specifier: ^5.46.4
+        version: 5.57.1(@typescript-eslint/types@8.70.1)
+    devDependencies:
+      '@sveltejs/vite-plugin-svelte':
+        specifier: ^7.3.1
+        version: 7.3.1(svelte@5.57.1(@typescript-eslint/types@8.70.1))(vite@8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vite:
+        specifier: ^8.3.0
+        version: 8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)
+
   examples/vanilla:
     dependencies:
       '@quantajs/core':
         specifier: workspace:*
         version: link:../../packages/core
     devDependencies:
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vite:
+        specifier: ^8.3.0
+        version: 8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)
+
+  examples/vue-vite:
+    dependencies:
+      '@quantajs/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@quantajs/vue':
+        specifier: workspace:*
+        version: link:../../packages/vue
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.43(typescript@6.0.2)
+    devDependencies:
+      '@vitejs/plugin-vue':
+        specifier: ^6.0.9
+        version: 6.0.9(vite@8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1))(vue@3.5.43(typescript@6.0.2))
       typescript:
         specifier: ^6.0.2
         version: 6.0.2
@@ -1144,6 +1188,13 @@ packages:
     peerDependencies:
       acorn: ^8.9.0
 
+  '@sveltejs/vite-plugin-svelte@7.3.1':
+    resolution: {integrity: sha512-ZPsLN8B1e/En+Ak5s4V7srFDT532oS0qieLsQwu63NGKsS+iAjoO2Js1BochlHlglcU+Pt7WAO3C5Ee+4f6gVA==}
+    engines: {node: ^20.19 || ^22.12 || >=24}
+    peerDependencies:
+      svelte: ^5.46.4
+      vite: ^8.0.0-beta.7 || ^8.0.0
+
   '@swc/helpers@0.5.23':
     resolution: {integrity: sha512-5lSsMOTXURePglDfvuAQUqkGek9Hg2kksOYay2m0+XR++b2NWYL/4sWyuvVBIs8oKnJaxkdi9whaL/sqN13afw==}
 
@@ -1281,6 +1332,13 @@ packages:
         optional: true
       babel-plugin-react-compiler:
         optional: true
+
+  '@vitejs/plugin-vue@6.0.9':
+    resolution: {integrity: sha512-rD/MORlhaZMlXWW0rEn4FB4wMinWC0z/D7Ye160S5+Rs1mC8ZDAdcDp4SjKfUhG5t8q1ktcPVw4xuTkPRlzrSA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    peerDependencies:
+      vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
+      vue: ^3.2.25
 
   '@vitest/coverage-v8@4.1.11':
     resolution: {integrity: sha512-8MVGEFnJIcdGjcbfKmeq8z0pZHH0JlVtoVZH9Q/qwUp6wyFnEJUBMrw9DCaj+ra3vShGmhavjalMIhPNxZAUcw==}
@@ -1492,6 +1550,10 @@ packages:
 
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
+
+  deepmerge@4.3.1:
+    resolution: {integrity: sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==}
+    engines: {node: '>=0.10.0'}
 
   dequal@2.0.3:
     resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
@@ -1976,6 +2038,9 @@ packages:
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
+  magic-string@1.4.2:
+    resolution: {integrity: sha512-vG+rjFRj1PqdIBozIxAGMjPlOhaVe+GXpbttY/iSK7rGcJRMlwNJO7dcUwmUqkymsFLJiNGI06t4D7Fr7yRC9g==}
+
   magicast@0.5.5:
     resolution: {integrity: sha512-UicdXN8zQ3JHlxVq+28afMXPr1z7WNY6+7EJnzTdQWkTAlMLF5fNCCKxJHBQwGaNGR11581EiQmQzx73+MvszA==}
 
@@ -2443,6 +2508,14 @@ packages:
       tsx:
         optional: true
       yaml:
+        optional: true
+
+  vitefu@1.1.3:
+    resolution: {integrity: sha512-ub4okH7Z5KLjb6hDyjqrGXqWtWvoYdU3IGm/NorpgHncKoLTCfRIbvlhBm7r0YstIaQRYlp4yEbFqDcKSzXSSg==}
+    peerDependencies:
+      vite: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
+    peerDependenciesMeta:
+      vite:
         optional: true
 
   vitest@4.1.11:
@@ -3344,6 +3417,15 @@ snapshots:
     dependencies:
       acorn: 8.18.0
 
+  '@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.1(@typescript-eslint/types@8.70.1))(vite@8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1))':
+    dependencies:
+      deepmerge: 4.3.1
+      magic-string: 1.4.2
+      obug: 2.2.1
+      svelte: 5.57.1(@typescript-eslint/types@8.70.1)
+      vite: 8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)
+      vitefu: 1.1.3(vite@8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1))
+
   '@swc/helpers@0.5.23':
     dependencies:
       tslib: 2.8.1
@@ -3508,6 +3590,12 @@ snapshots:
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)
+
+  '@vitejs/plugin-vue@6.0.9(vite@8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1))(vue@3.5.43(typescript@6.0.2))':
+    dependencies:
+      '@rolldown/pluginutils': 1.0.1
+      vite: 8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)
+      vue: 3.5.43(typescript@6.0.2)
 
   '@vitest/coverage-v8@4.1.11(vitest@4.1.11)':
     dependencies:
@@ -3744,6 +3832,8 @@ snapshots:
       ms: 2.1.3
 
   deep-is@0.1.4: {}
+
+  deepmerge@4.3.1: {}
 
   dequal@2.0.3: {}
 
@@ -4206,6 +4296,10 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  magic-string@1.4.2:
+    dependencies:
+      '@jridgewell/sourcemap-codec': 1.6.0
+
   magicast@0.5.5:
     dependencies:
       '@babel/parser': 7.29.9
@@ -4662,6 +4756,10 @@ snapshots:
       fsevents: 2.3.3
       jiti: 2.6.1
       terser: 5.46.1
+
+  vitefu@1.1.3(vite@8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)):
+    optionalDependencies:
+      vite: 8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)
 
   vitest@4.1.11(@types/node@25.5.0)(@vitest/coverage-v8@4.1.11)(happy-dom@20.14.5)(vite@8.3.0(@types/node@25.5.0)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)):
     dependencies:
