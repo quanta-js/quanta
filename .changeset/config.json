@@ -6,7 +6,8 @@
     [
       "@quantajs/core",
       "@quantajs/react",
-      "@quantajs/devtools"
+      "@quantajs/devtools",
+      "@quantajs/vue"
     ]
   ],
   "linked": [],

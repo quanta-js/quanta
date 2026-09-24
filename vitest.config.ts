@@ -50,6 +50,7 @@ export default defineConfig({
         alias: {
             '@quantajs/core': path.resolve(__dirname, 'packages/core/src'),
             '@quantajs/react': path.resolve(__dirname, 'packages/react/src'),
+            '@quantajs/vue': path.resolve(__dirname, 'packages/vue/src'),
             '@quantajs/devtools': path.resolve(
                 __dirname,
                 'packages/devtools/src',
