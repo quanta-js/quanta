@@ -219,3 +219,6 @@ jobs:
 
       - name: 📝 Type-check README examples
         run: pnpm verify:readme
+
+      - name: 📏 Check bundle size budgets
+        run: pnpm check:size

@@ -36,6 +36,7 @@ pnpm lint
 pnpm test:types
 pnpm test:coverage
 pnpm verify:packaging
+pnpm check:size
 ```
 
 - Branch from `master`.
