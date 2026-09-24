@@ -97,6 +97,7 @@ export default defineConfig({
             '@quantajs/vue': path.resolve(__dirname, 'packages/vue/src'),
             '@quantajs/svelte': path.resolve(__dirname, 'packages/svelte/src'),
             '@quantajs/lit': path.resolve(__dirname, 'packages/lit/src'),
+            '@quantajs/astro': path.resolve(__dirname, 'packages/astro/src'),
             '@quantajs/devtools': path.resolve(
                 __dirname,
                 'packages/devtools/src',

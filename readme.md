@@ -23,6 +23,7 @@ State management with request isolation, async action state and versioned persis
 | [`@quantajs/vue`](./packages/vue)           | Vue composables and plugin                  |
 | [`@quantajs/svelte`](./packages/svelte)     | Svelte stores and context                   |
 | [`@quantajs/lit`](./packages/lit)           | Lit reactive controllers for web components |
+| [`@quantajs/astro`](./packages/astro)       | One store across Astro islands, per request |
 | [`@quantajs/devtools`](./packages/devtools) | In-page state inspector (optional)          |
 
 ## Install
@@ -31,7 +32,7 @@ State management with request isolation, async action state and versioned persis
 npm install @quantajs/core
 ```
 
-`@quantajs/core` works in any JavaScript environment. Add the bindings for your framework: `@quantajs/react`, `@quantajs/vue`, `@quantajs/svelte` or `@quantajs/lit`.
+`@quantajs/core` works in any JavaScript environment. Add the bindings for your framework: `@quantajs/react`, `@quantajs/vue`, `@quantajs/svelte` or `@quantajs/lit`. For Astro, add `@quantajs/astro` to share one store across islands.
 
 ## Quick start
 
@@ -153,6 +154,7 @@ See [`examples/nextjs-app`](./examples/nextjs-app) for the complete App Router s
 - [`examples/vue-vite`](./examples/vue-vite) — every Vue composable, with a concurrent server-render check
 - [`examples/svelte-vite`](./examples/svelte-vite) — every Svelte function, with a concurrent server-render check
 - [`examples/lit-vite`](./examples/lit-vite) — every Lit controller in web components, with a provided container
+- [`examples/astro`](./examples/astro) — React, Vue and Svelte islands sharing one store, with a concurrent-request check
 
 Each is built and verified in CI.
 

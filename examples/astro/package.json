@@ -1,0 +1,33 @@
+{
+    "name": "example-astro",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "description": "Astro with React, Vue and Svelte islands sharing one QuantaJS store: state loaded in the page's frontmatter reaches every island, each request has its own container, and a check that concurrent requests keep their state apart.",
+    "scripts": {
+        "dev": "astro dev",
+        "build": "astro build",
+        "verify": "node verify.mjs"
+    },
+    "dependencies": {
+        "@astrojs/node": "^11.1.6",
+        "@astrojs/react": "^7.0.0",
+        "@astrojs/svelte": "^9.0.1",
+        "@astrojs/vue": "^7.0.3",
+        "@quantajs/astro": "workspace:*",
+        "@quantajs/core": "workspace:*",
+        "@quantajs/react": "workspace:*",
+        "@quantajs/svelte": "workspace:*",
+        "@quantajs/vue": "workspace:*",
+        "astro": "^7.3.5",
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4",
+        "svelte": "^5.46.4",
+        "vue": "^3.5.24"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.4",
+        "typescript": "^6.0.2"
+    }
+}
