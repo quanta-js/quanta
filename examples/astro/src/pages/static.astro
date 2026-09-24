@@ -1,0 +1,14 @@
+---
+import Page from '../layouts/Page.astro';
+import Islands from '../components/Islands.astro';
+import { useCart } from '../stores';
+
+// Rendered once, at build time.
+export const prerender = true;
+await useCart().load('static');
+---
+
+<Page title="Static cart">
+    <h1>A prerendered cart</h1>
+    <Islands />
+</Page>

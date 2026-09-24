@@ -1,0 +1,17 @@
+---
+import Page from '../layouts/Page.astro';
+import Islands from '../components/Islands.astro';
+import { useCart } from '../stores';
+
+// Rendered per request. The store resolves against this request's
+// container, also available as Astro.locals.quanta.
+const user = Astro.url.searchParams.get('user') ?? 'guest';
+const delay = Number(Astro.url.searchParams.get('delay') ?? 0);
+await useCart().load(user, delay);
+Astro.cookies.set('seen', user);
+---
+
+<Page title={`Cart for ${user}`}>
+    <h1>{user}'s cart</h1>
+    <Islands />
+</Page>
