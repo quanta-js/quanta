@@ -257,6 +257,7 @@ const definitionOf = new WeakMap<object, unknown>();
  * ------------------------------------------------------------------ */
 
 let defaultContainer: StoreContainer | null = null;
+let resolveCurrent: (() => StoreContainer | undefined) | null = null;
 
 /**
  * The ambient container used when no explicit one is supplied.
@@ -264,13 +265,42 @@ let defaultContainer: StoreContainer | null = null;
  * Created lazily so that merely importing the library allocates nothing. In a
  * browser this is the whole application; **on a server it is shared across
  * every request**, so server code must pass an explicit per-request container
- * rather than relying on this one.
+ * or install a resolver with {@link setDefaultContainerResolver}.
  */
 export function getDefaultContainer(): StoreContainer {
+    const current = resolveCurrent?.();
+    // A disposed request container is returned as is: resolving against it
+    // throws, which beats silently falling back to the shared container.
+    if (current !== undefined) return current;
     if (defaultContainer === null || !defaultContainer.active) {
         defaultContainer = createContainer('default');
     }
     return defaultContainer;
+}
+
+/**
+ * Decide which container is the default for the code running now.
+ *
+ * A server that handles requests concurrently shares one default container
+ * between all of them. A resolver returns the current request's container,
+ * typically from `AsyncLocalStorage`, so a store resolved without an explicit
+ * container, including by a React, Vue or Svelte component rendered on the
+ * server, uses that request's. Return `undefined` outside a request to fall
+ * back to the usual default; pass `null` to remove the resolver.
+ *
+ * @example
+ * ```ts
+ * const requests = new AsyncLocalStorage<StoreContainer>();
+ * setDefaultContainerResolver(() => requests.getStore());
+ *
+ * // per request:
+ * requests.run(createContainer(), () => render());
+ * ```
+ */
+export function setDefaultContainerResolver(
+    resolve: (() => StoreContainer | undefined) | null,
+): void {
+    resolveCurrent = resolve;
 }
 
 /**

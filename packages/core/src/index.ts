@@ -37,6 +37,7 @@ export {
     createContainer,
     getDefaultContainer,
     setDefaultContainer,
+    setDefaultContainerResolver,
     resetDefaultContainer,
 } from './core';
 
