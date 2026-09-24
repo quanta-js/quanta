@@ -1,8 +1,13 @@
 /**
  * @vitest-environment happy-dom
+ *
+ * Runs against Svelte 5 and, in CI's compatibility job, Svelte 4, so the
+ * fixtures use syntax both accept and components are mounted with whichever
+ * API the installed version has.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { flushSync, mount, unmount } from 'svelte';
+import * as svelte from 'svelte';
+import { tick } from 'svelte';
 import { get, type Readable } from 'svelte/store';
 import {
     createContainer,
@@ -40,11 +45,25 @@ const defineCounter = () =>
 
 type CounterStore = ReturnType<ReturnType<typeof defineCounter>>;
 
-function render(component: typeof Counter, props: Record<string, unknown>) {
+async function render(
+    component: typeof Counter,
+    props: Record<string, unknown>,
+) {
     const target = document.createElement('div');
-    const instance = mount(component, { target, props });
-    flushSync();
-    return { target, destroy: () => unmount(instance) };
+    let destroy: () => void;
+    if ('mount' in svelte && typeof svelte.mount === 'function') {
+        const instance = svelte.mount(component, { target, props });
+        destroy = () => svelte.unmount(instance);
+    } else {
+        // Svelte 4: components are classes.
+        const Legacy = component as unknown as new (options: object) => {
+            $destroy(): void;
+        };
+        const instance = new Legacy({ target, props });
+        destroy = () => instance.$destroy();
+    }
+    await tick();
+    return { target, destroy };
 }
 
 /** Collect every value a Svelte store emits until unsubscribed. */
@@ -130,44 +149,49 @@ describe('useQuanta', () => {
         expect(values[1].a).toBe(1);
     });
 
-    it('renders and updates in a component', () => {
+    it('renders and updates in a component', async () => {
         const useCounter = defineCounter();
-        const { target } = render(Counter, { definition: useCounter });
+        const { target } = await render(Counter, { definition: useCounter });
         expect(target.textContent).toBe('0/0');
 
         useCounter().incA();
-        flushSync();
+        await tick();
         expect(target.textContent).toBe('1/1');
     });
 });
 
 describe('setQuantaContainer', () => {
-    it('scopes descendants to a container and hydrates a snapshot', () => {
+    it('scopes descendants to a container and hydrates a snapshot', async () => {
         const useCounter = defineCounter();
         const server = createContainer('server');
         useCounter(server).a = 4;
         const snapshot = server.dehydrate();
         server.dispose();
 
-        const { target } = render(Scope, { definition: useCounter, snapshot });
+        const { target } = await render(Scope, {
+            definition: useCounter,
+            snapshot,
+        });
 
         expect(target.textContent).toBe('4/4');
         expect(useCounter().a).toBe(0);
     });
 
-    it('disposes only a container it created, when destroyed', () => {
+    it('disposes only a container it created, when destroyed', async () => {
         const useCounter = defineCounter();
         let owned!: StoreContainer;
         const supplied = createContainer('mine');
 
-        render(Scope, {
+        const first = await render(Scope, {
             definition: useCounter,
             onContainer: (c: StoreContainer) => (owned = c),
-        }).destroy();
-        render(Scope, {
+        });
+        first.destroy();
+        const second = await render(Scope, {
             definition: useCounter,
             container: supplied,
-        }).destroy();
+        });
+        second.destroy();
 
         expect(owned.active).toBe(false);
         expect(supplied.active).toBe(true);
@@ -179,16 +203,16 @@ describe('setQuantaContainer', () => {
 });
 
 describe('useLocalStore', () => {
-    it('gives each instance its own store, disposed with the component', () => {
+    it('gives each instance its own store, disposed with the component', async () => {
         const useCounter = defineCounter();
         const stores: CounterStore[] = [];
-        const { target, destroy } = render(TwoLocal, {
+        const { target, destroy } = await render(TwoLocal, {
             definition: useCounter,
             onStore: (store: Readable<CounterStore>) => stores.push(get(store)),
         });
 
         stores[0].incA();
-        flushSync();
+        await tick();
         expect(target.textContent).toBe('10');
 
         const listener = vi.fn();

@@ -52,8 +52,18 @@ export function createQuanta(options: QuantaPluginOptions = {}): QuantaPlugin {
         install(app) {
             app.provide(CONTAINER, container);
             // Only dispose a container created here: a supplied one belongs to
-            // the caller. `onUnmount` arrived in Vue 3.5.
-            if (owned) app.onUnmount?.(() => container.dispose());
+            // the caller.
+            if (!owned) return;
+            if (typeof app.onUnmount === 'function') {
+                app.onUnmount(() => container.dispose());
+            } else {
+                // Vue before 3.5 has no unmount hook for plugins.
+                const unmount = app.unmount.bind(app);
+                app.unmount = () => {
+                    unmount();
+                    container.dispose();
+                };
+            }
         },
     };
 }
