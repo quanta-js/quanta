@@ -15,6 +15,8 @@ export {
     markRaw,
 } from './state';
 
+export { shallow } from './utils/shallow';
+
 export type { ComputedRef } from './state/computed';
 export type { WatchOptions, WatchStopHandle } from './state/watch';
 
