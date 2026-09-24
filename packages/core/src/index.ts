@@ -23,14 +23,7 @@ export type { WatchOptions, WatchStopHandle } from './state/watch';
 /* ------------------------------------------------------------------ *
  * Effects
  * ------------------------------------------------------------------ */
-export {
-    effect,
-    effectScope,
-    batchEffects,
-    untrack,
-    pauseTracking,
-    resumeTracking,
-} from './core/effect';
+export { effect, effectScope, batchEffects, untrack } from './core/effect';
 
 export type { EffectRunner, EffectOptions, EffectScope } from './core/effect';
 
@@ -68,11 +61,6 @@ export type { DevToolsEvent, DevToolsOptions } from './devtools';
  * Utilities
  * ------------------------------------------------------------------ */
 export { logger, LogLevel } from './services/logger-service';
-export {
-    sanitizePayload,
-    safeJsonParse,
-    safeJsonReviver,
-} from './utils/sanitize';
 
 /* ------------------------------------------------------------------ *
  * Types
