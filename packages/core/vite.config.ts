@@ -1,14 +1,12 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import banner from 'vite-plugin-banner';
 import { readFileSync } from 'fs';
 
-const licenseBanner = readFileSync(resolve(__dirname, '../../LICENSE'), 'utf8');
+const licenseBanner = `/*!\n${readFileSync(resolve(__dirname, '../../LICENSE'), 'utf8').trim()}\n*/`;
 
 export default defineConfig({
     // Declarations are emitted by `tsc -p tsconfig.build.json`, as in
     // @quantajs/react.
-    plugins: [banner(licenseBanner) as never],
     build: {
         lib: {
             entry: resolve(__dirname, 'src/index.ts'),
@@ -20,12 +18,30 @@ export default defineConfig({
             // empty object, and every export was silently written onto
             // `globalThis.QuantaJS`.
             formats: ['es', 'cjs'],
-            fileName: (format: string) =>
-                format === 'es' ? 'index.mjs' : 'index.cjs',
         },
         sourcemap: true,
         rollupOptions: {
             external: [],
+            output: [
+                {
+                    // One file per source module. With `sideEffects: false`, an
+                    // app's bundler can then drop whole modules it never
+                    // imports; from a single file it could only drop unused
+                    // functions, so module-level code such as the DevTools hook
+                    // shipped to every app (1.2–1.4 KB gzip).
+                    format: 'es',
+                    preserveModules: true,
+                    preserveModulesRoot: 'src',
+                    entryFileNames: '[name].mjs',
+                    banner: (chunk) => (chunk.isEntry ? licenseBanner : ''),
+                },
+                {
+                    // CommonJS consumers do not tree-shake; one file is simpler.
+                    format: 'cjs',
+                    entryFileNames: 'index.cjs',
+                    banner: licenseBanner,
+                },
+            ],
         },
     },
 });

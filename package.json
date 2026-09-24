@@ -20,7 +20,8 @@
     "examples:build": "pnpm --filter \"./examples/**\" build",
     "examples:verify": "pnpm --filter \"./examples/**\" verify",
     "verify:packaging": "node scripts/verify-packaging.mjs",
-    "verify:readme": "node scripts/verify-readme-snippets.mjs"
+    "verify:readme": "node scripts/verify-readme-snippets.mjs",
+    "check:size": "node scripts/check-size.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
