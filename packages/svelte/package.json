@@ -18,12 +18,13 @@
     ],
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/quanta-js/quanta.git"
+        "url": "git+https://github.com/quanta-js/quanta.git",
+        "directory": "packages/svelte"
     },
     "bugs": {
         "url": "https://github.com/quanta-js/quanta/issues"
     },
-    "homepage": "https://quantajs.com",
+    "homepage": "https://quantajs.com/docs/integration/svelte-integration",
     "version": "0.0.0",
     "type": "module",
     "license": "MIT",

@@ -5,7 +5,17 @@
 
 Framework-agnostic reactive stores for JavaScript and TypeScript: typed stores, deep reactivity, async action state, request-scoped containers and persistence. No runtime dependencies.
 
-For React, add [`@quantajs/react`](https://www.npmjs.com/package/@quantajs/react).
+**[Documentation](https://quantajs.com/docs/getting-started/introduction)** · [Changelog](https://github.com/quanta-js/quanta/blob/master/packages/core/CHANGELOG.md) · [Migrating to 3.0](https://quantajs.com/docs/getting-started/migration)
+
+Use it on its own, or with the bindings for your framework:
+
+| Framework | Package | Guide |
+| --- | --- | --- |
+| React | [`@quantajs/react`](https://www.npmjs.com/package/@quantajs/react) | [React](https://quantajs.com/docs/integration/react-integration) |
+| Vue | [`@quantajs/vue`](https://www.npmjs.com/package/@quantajs/vue) | [Vue](https://quantajs.com/docs/integration/vue-integration) |
+| Svelte | [`@quantajs/svelte`](https://www.npmjs.com/package/@quantajs/svelte) | [Svelte](https://quantajs.com/docs/integration/svelte-integration) |
+| Lit | [`@quantajs/lit`](https://www.npmjs.com/package/@quantajs/lit) | [Lit](https://quantajs.com/docs/integration/lit-integration) |
+| Astro | [`@quantajs/astro`](https://www.npmjs.com/package/@quantajs/astro) | [Astro](https://quantajs.com/docs/integration/astro-integration) |
 
 ## Install
 
@@ -110,7 +120,7 @@ client.hydrate(snapshot);
 useCounter(client).count; // 7
 ```
 
-On a server, always pass a container. The ambient container is shared by every request in the process.
+On a server, always pass a container. The ambient container is shared by every request in the process. See [Containers](https://quantajs.com/docs/api/containers) and [Server-side rendering](https://quantajs.com/docs/guides/ssr).
 
 ## Reactivity
 
@@ -168,7 +178,7 @@ const prefs = usePrefs();
 await prefs.$hydrated; // resolves once stored state has been applied
 ```
 
-Adapters: `LocalStorageAdapter`, `SessionStorageAdapter`, `IndexedDBAdapter`, or any object implementing `PersistenceAdapter`. The storage adapters are SSR-safe and do nothing when there is no `window`.
+Adapters: `LocalStorageAdapter`, `SessionStorageAdapter`, `IndexedDBAdapter`, `CookieAdapter`, or any object implementing `PersistenceAdapter`. The built-in adapters are SSR-safe: on the server they do nothing. See [Persistence](https://quantajs.com/docs/guides/persistence).
 
 Other options: `exclude`, `debounceMs`, `validator`, `onError`, `serialize` / `deserialize`, `transform`. Stored data is treated as untrusted: payloads from a newer version are refused, and prototype-pollution keys are stripped.
 

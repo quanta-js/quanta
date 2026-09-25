@@ -5,6 +5,8 @@
 
 React bindings for [`@quantajs/core`](https://www.npmjs.com/package/@quantajs/core). Built on `useSyncExternalStore`; works with React 18 and 19, StrictMode, SSR and the Next.js App Router.
 
+**[Documentation](https://quantajs.com/docs/integration/react-integration)** · [Example app](https://github.com/quanta-js/quanta/tree/master/examples/react-vite) · [Changelog](https://github.com/quanta-js/quanta/blob/master/packages/react/CHANGELOG.md)
+
 ## Install
 
 ```sh
@@ -152,7 +154,7 @@ export function Providers(props: {
 }
 ```
 
-On the server, create a container per request, resolve stores against it, and pass its snapshot down. Never resolve a store against the ambient container on the server: it is shared across requests. See [`examples/nextjs-app`](https://github.com/quanta-js/quanta/tree/master/examples/nextjs-app).
+On the server, create a container per request, resolve stores against it, and pass its snapshot down. Never resolve a store against the ambient container on the server: it is shared across requests. See the [Next.js guide](https://quantajs.com/docs/integration/nextjs-integration) and [`examples/nextjs-app`](https://github.com/quanta-js/quanta/tree/master/examples/nextjs-app).
 
 ## DevTools
 

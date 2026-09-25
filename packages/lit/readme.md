@@ -5,6 +5,8 @@
 
 Lit bindings for [`@quantajs/core`](https://www.npmjs.com/package/@quantajs/core): reactive controllers that connect QuantaJS stores to web components. Works with Lit 2 and 3.
 
+**[Documentation](https://quantajs.com/docs/integration/lit-integration)** · [Example app](https://github.com/quanta-js/quanta/tree/master/examples/lit-vite) · [Changelog](https://github.com/quanta-js/quanta/blob/master/packages/lit/CHANGELOG.md)
+
 ## Install
 
 ```sh

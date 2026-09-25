@@ -8,6 +8,8 @@
 
 State management with request isolation, async action state and versioned persistence built in. Framework-agnostic, with no runtime dependencies.
 
+**[Documentation](https://quantajs.com)** · [Migrating to 3.0](https://quantajs.com/docs/getting-started/migration)
+
 - **Typed stores without generics.** `defineStore` infers state, getters and actions; `this` inside an action is the fully typed store.
 - **Deep reactivity.** Mutate state directly. Reads inside effects, computed values and React selectors are tracked per property.
 - **Async actions that report their own state.** Every action has reactive `pending` and `error`, an `abort()`, and an `AbortSignal` at `this.$signal`.
