@@ -1,7 +1,7 @@
 {
     "name": "example-vue-vite",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.0.1",
     "type": "module",
     "description": "Vue + Vite: every @quantajs/vue composable, an async action's pending state, and a server render check that two concurrent requests keep their state apart.",
     "scripts": {

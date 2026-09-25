@@ -1,5 +1,54 @@
 # @quantajs/core
 
+## 3.0.0
+
+### Major Changes
+
+- b5170dd: **QuantaJS 3.0.** All packages now release together under one version. Alongside React, the framework-free core gains official bindings for Vue (`@quantajs/vue`), Svelte (`@quantajs/svelte`) and Lit (`@quantajs/lit`), and an Astro integration (`@quantajs/astro`) that lets React, Vue and Svelte islands share one store. 3.0 removes APIs that were deprecated or internal, types persistence end to end, and ships a smaller ES build. Migration guide: https://quantajs.com/docs/getting-started/migration
+- 4a2f4e6: Removed from the public API:
+
+    - `pauseTracking()` and `resumeTracking()`. Use `untrack(fn)`.
+    - `sanitizePayload()`, `safeJsonParse()` and `safeJsonReviver()`. Persisted and hydrated data is still sanitised automatically, and the default `deserialize` still drops prototype-pollution keys.
+
+- 776e7bd: Persistence is typed end to end, without `any`:
+
+    - `include` and `exclude` accept only the store's state keys.
+    - `serialize` receives the `PersistedData` envelope it actually encodes; `deserialize` returns `unknown`, which is checked before use.
+    - `migrations`, `transform.in` and `validator` receive `StoredState` (`Record<string, unknown>`); `transform.out` receives the state slice.
+    - `PersistenceAdapter` exchanges strings: `read()` returns `string | null`, `write()` takes a `string`. `IndexedDBAdapter.read()` returns `null` for a record that is not a string.
+    - `PersistedData.storeName` is always set; the unused `checksum` field is removed.
+    - New exported types: `StoredState` and `PersistenceOperation`.
+
+    `validator` now runs on the slice before `transform.out` when saving, so it sees the same state-shaped data on save and load. Previously it received the transformed output on save.
+
+- f826fa7: Removed:
+
+    - `useStore(name)` and `hasStore(name)`. Call the store definition instead (`useCart()` or `useCart(container)`); for a lookup by name use `container.get(name)` / `container.has(name)`.
+    - `store.notifyAll()`. Subscribers are called on every change.
+    - The deprecated type aliases. Use `ActionsTree` for `RawActions` and `ActionDefinition`, `GettersTree` for `GetterDefinitions`, `BoundActions` for `InferActions`, `Store` for `StoreInstance`, and `StoreDefinitionOptions` for `StoreOptions`.
+
+- 6528458: Removed from the public API:
+
+    - `nextTick()` — effects flush synchronously; use `await Promise.resolve()`.
+    - `reactiveEffect` — use `effect`.
+    - `MigrationManager`, `createMigrationManager`, `CommonMigrations` — use `persist: { version, migrations }`.
+    - `createPersistenceManager` — stores create it from the `persist` option.
+    - `debounce`, `Logger`, `createLogger` — internal utilities. `logger` and `LogLevel` remain for silencing library warnings.
+
+    `@quantajs/react` no longer re-exports `nextTick`.
+
+### Minor Changes
+
+- f1bebc6: `setDefaultContainerResolver(fn)` lets a server choose the default container for the code running now, typically the current request's from `AsyncLocalStorage`. Stores resolved without an explicit container, including by React, Vue or Svelte components rendered on the server, then use that request's container.
+- de2131a: New `CookieAdapter` persists small state, such as a theme, in a cookie the server also receives. Cookie attributes are configurable. A write that would exceed the 4096-byte cookie limit, invalid options or blocked cookie access throw, so the store reports them through `onError`. On the server it reads `null` and writes nothing.
+- 9af59f6: `watch` takes an `equals` option to decide whether a re-run produced a new value, instead of always using `Object.is`. `shallow` is now exported from `@quantajs/core`; `@quantajs/react` re-exports it, so existing imports keep working.
+
+### Patch Changes
+
+- f23b69f: Development mode is now detected from `process.env.NODE_ENV`, which app bundlers replace at build time. Production browser builds no longer print QuantaJS development warnings, and in Vite apps `mountDevTools()` and `<QuantaDevTools />` now show the panel in development without `visible`.
+- 6c73998: The ES build now ships one file per module, so an app's bundler drops the modules it does not use. Every import path is 1.2–1.4 KB gzip smaller: `reactive` + `effect` from 5.7 to 4.4 KB, and `defineStore` with the React hooks from 10.3 to 9.1 KB. The CommonJS build is unchanged.
+- 6a6809d: Persistence loads only the keys a store persists. Stored data written before a key was removed from `include`, or added to `exclude`, no longer loads that key into state.
+
 ## 2.3.0
 
 ### Minor Changes

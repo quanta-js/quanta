@@ -1,7 +1,7 @@
 {
     "name": "example-astro",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.0.1",
     "type": "module",
     "description": "Astro with React, Vue and Svelte islands sharing one QuantaJS store: state loaded in the page's frontmatter reaches every island, each request has its own container, and a check that concurrent requests keep their state apart.",
     "scripts": {

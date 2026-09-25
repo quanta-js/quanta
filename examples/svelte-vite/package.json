@@ -1,7 +1,7 @@
 {
     "name": "example-svelte-vite",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.0.1",
     "type": "module",
     "description": "Svelte + Vite: every @quantajs/svelte function, an async action's pending state, and a server render check that two concurrent requests keep their state apart.",
     "scripts": {
