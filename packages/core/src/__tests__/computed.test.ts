@@ -52,6 +52,7 @@ describe('computed', () => {
 
         state.a = 5;
         const callsAfterMutation = getterCalls; // Should NOT have run getter yet
+        expect(callsAfterMutation).toBe(callsAfterFirstRead);
         expect(c.value).toBe(10); // Lazy recompute
         expect(getterCalls).toBe(callsAfterMutation + 1); // Only ONE additional call
     });
