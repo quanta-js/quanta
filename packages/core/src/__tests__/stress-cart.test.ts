@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { createStore, watch } from '../index';
 
 describe('Cart Stress Test', () => {
@@ -43,7 +43,7 @@ describe('Cart Stress Test', () => {
             cartStore.addItem({ id: `p${i}`, name: 'Widget', price: 100 });
         }
 
-        // If it didn't freeze, we pass. We can just assert execution happened.
-        // renderCount should be around 51 (initial + 50 renders)
+        // The watcher is not immediate: one callback per items replacement.
+        expect(renderCount).toBe(50);
     });
 });
