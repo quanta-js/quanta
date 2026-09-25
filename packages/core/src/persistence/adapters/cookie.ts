@@ -50,18 +50,9 @@ export class CookieAdapter implements PersistenceAdapter {
         }
     }
 
-    write(data: any): void {
+    write(data: string): void {
         if (typeof document === 'undefined') return;
-        try {
-            const raw = typeof data === 'string' ? data : JSON.stringify(data);
-            if (typeof raw !== 'string') {
-                this.warn('value is not serializable');
-                return;
-            }
-            this.setCookie(encodeURIComponent(raw), this.options.maxAge);
-        } catch {
-            this.warn('write failed');
-        }
+        this.setCookie(encodeURIComponent(data), this.options.maxAge);
     }
 
     remove(): void {
@@ -86,17 +77,23 @@ export class CookieAdapter implements PersistenceAdapter {
             !['Lax', 'Strict', 'None'].includes(sameSite) ||
             (sameSite === 'None' && !secure)
         ) {
-            this.warn('invalid cookie options');
-            return;
+            throw new Error('CookieAdapter: invalid cookie options.');
         }
         let cookie = `${encodeURIComponent(this.key)}=${value}; Path=${path}; Max-Age=${maxAge}; SameSite=${sameSite}`;
         if (domain !== undefined) cookie += `; Domain=${domain}`;
         if (secure) cookie += '; Secure';
         if (cookie.length > 4096) {
-            this.warn('cookie exceeds 4096 bytes; reduce the persisted slice');
-            return;
+            throw new Error(
+                'CookieAdapter: cookie exceeds 4096 bytes; reduce the persisted slice.',
+            );
         }
-        document.cookie = cookie;
+        try {
+            document.cookie = cookie;
+        } catch {
+            throw new Error(
+                'CookieAdapter: write failed; cookie access may be blocked.',
+            );
+        }
     }
 
     private warn(message: string): void {

@@ -3,6 +3,7 @@ import { Window } from 'happy-dom';
 import { CookieAdapter } from '../index';
 import type { CookieAdapterOptions } from '../index';
 import { logger } from '../services/logger-service';
+import { createPersistenceManager } from '../persistence/core';
 
 describe('CookieAdapter', () => {
     beforeEach(() => {
@@ -38,8 +39,6 @@ describe('CookieAdapter', () => {
         expect(adapter.read()).toBeNull();
         adapter.write('');
         expect(adapter.read()).toBe('');
-        adapter.write({ enabled: true });
-        expect(adapter.read()).toBe('{"enabled":true}');
     });
 
     it('uses the same scope when removing a cookie', () => {
@@ -88,16 +87,16 @@ describe('CookieAdapter', () => {
         );
     });
 
-    it('does nothing without a document, including unserializable input', () => {
+    it('does nothing without a document', () => {
         vi.stubGlobal('document', undefined);
         const adapter = new CookieAdapter('ssr');
         expect(adapter.read()).toBeNull();
-        expect(() => adapter.write(1n)).not.toThrow();
+        expect(() => adapter.write('value')).not.toThrow();
         expect(() => adapter.remove()).not.toThrow();
         expect(logger.warn).not.toHaveBeenCalled();
     });
 
-    it('warns without throwing on blocked access and malformed values', () => {
+    it('returns null for bad reads and throws for blocked writes', () => {
         document.cookie = 'bad=%ZZ; Path=/';
         expect(new CookieAdapter('bad').read()).toBeNull();
         vi.stubGlobal('document', {
@@ -110,19 +109,16 @@ describe('CookieAdapter', () => {
         });
         const adapter = new CookieAdapter('blocked');
         expect(adapter.read()).toBeNull();
-        expect(() => adapter.write('x')).not.toThrow();
+        expect(() => adapter.write('x')).toThrow('CookieAdapter: write failed');
         expect(() => adapter.remove()).not.toThrow();
-        expect(logger.warn).toHaveBeenCalledTimes(4);
+        expect(logger.warn).toHaveBeenCalledTimes(3);
     });
 
     it('refuses oversized encoded values without overwriting prior state', () => {
         const adapter = new CookieAdapter('limit');
         adapter.write('original');
-        adapter.write('ü'.repeat(1000));
+        expect(() => adapter.write('ü'.repeat(1000))).toThrow('4096 bytes');
         expect(adapter.read()).toBe('original');
-        expect(logger.warn).toHaveBeenCalledWith(
-            expect.stringContaining('4096 bytes'),
-        );
     });
 
     it('counts the whole cookie at the 4096 byte boundary', () => {
@@ -136,7 +132,9 @@ describe('CookieAdapter', () => {
         const adapter = new CookieAdapter('key');
         adapter.write('x'.repeat(4096 - overhead));
         expect(setter.mock.calls[0][0]).toHaveLength(4096);
-        adapter.write('x'.repeat(4097 - overhead));
+        expect(() => adapter.write('x'.repeat(4097 - overhead))).toThrow(
+            '4096 bytes',
+        );
         expect(setter).toHaveBeenCalledTimes(1);
     });
 
@@ -148,18 +146,46 @@ describe('CookieAdapter', () => {
         { maxAge: 1.5 },
         { sameSite: 'None' },
     ])('refuses invalid attributes: %j', (options) => {
-        new CookieAdapter('invalid', options).write('x');
+        expect(() => new CookieAdapter('invalid', options).write('x')).toThrow(
+            'invalid cookie options',
+        );
         expect(document.cookie).toBe('');
-        expect(logger.warn).toHaveBeenCalled();
     });
 
-    it('handles serialization failures without logging stored contents', () => {
-        const circular: any = {};
-        circular.self = circular;
-        const adapter = new CookieAdapter('value');
-        expect(() => adapter.write(circular)).not.toThrow();
-        expect(() => adapter.write(undefined)).not.toThrow();
-        expect(document.cookie).toBe('');
-        expect(logger.warn).toHaveBeenCalledTimes(2);
-    });
+    it.each(['oversized', 'blocked'])(
+        'reports %s writes through persistence onError',
+        async (failure) => {
+            const adapter = new CookieAdapter('state');
+            if (failure === 'blocked') {
+                vi.stubGlobal('document', {
+                    get cookie() {
+                        return '';
+                    },
+                    set cookie(_value: string) {
+                        throw new Error('blocked');
+                    },
+                });
+            }
+            const onError = vi.fn();
+            const manager = createPersistenceManager(
+                () => ({
+                    value: failure === 'oversized' ? 'x'.repeat(5000) : 'small',
+                }),
+                vi.fn(),
+                vi.fn(),
+                { adapter, onError },
+            );
+            await vi.runAllTimersAsync();
+            await manager.save();
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: expect.stringContaining(
+                        failure === 'oversized' ? '4096 bytes' : 'write failed',
+                    ),
+                }),
+                'write',
+            );
+            manager.destroy();
+        },
+    );
 });
