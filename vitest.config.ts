@@ -69,8 +69,6 @@ export default defineConfig({
                 '**/index.ts',
                 // Pure type definition files (no runtime code)
                 'packages/core/src/type/**',
-                // DOM-only adapters (require real browser APIs)
-                'packages/core/src/persistence/adapters/**',
                 // DevTools React component (requires full Preact runtime)
                 'packages/react/src/components/QuantaDevTools.tsx',
                 // Large UI surfaces intentionally validated via targeted runtime tests
