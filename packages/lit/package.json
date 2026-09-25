@@ -1,0 +1,64 @@
+{
+    "name": "@quantajs/lit",
+    "private": false,
+    "author": {
+        "name": "Jeel Gajera",
+        "url": "https://github.com/JeelGajera"
+    },
+    "description": "Lit bindings for QuantaJS stores: reactive controllers for web components.",
+    "keywords": [
+        "quantajs",
+        "state-management",
+        "store",
+        "lit",
+        "web-components",
+        "reactive-controller",
+        "custom-elements",
+        "typescript"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/quanta-js/quanta.git"
+    },
+    "bugs": {
+        "url": "https://github.com/quanta-js/quanta/issues"
+    },
+    "homepage": "https://quantajs.com",
+    "version": "0.0.0",
+    "type": "module",
+    "license": "MIT",
+    "scripts": {
+        "test:types": "tsc --noEmit",
+        "build": "npm run clean && vite build && npm run build:types",
+        "clean": "rimraf dist",
+        "lint": "eslint \"src/**/*.ts\"",
+        "lint:fix": "eslint \"src/**/*.ts\" --fix",
+        "format": "prettier --write \"src/**/*.ts\"",
+        "build:types": "tsc -p tsconfig.build.json"
+    },
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "require": "./dist/index.cjs"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist"
+    ],
+    "sideEffects": false,
+    "peerDependencies": {
+        "lit": ">=2.0.0"
+    },
+    "dependencies": {
+        "@quantajs/core": "workspace:*"
+    },
+    "devDependencies": {
+        "lit": "^3.3.3",
+        "@lit/context": "^1.1.6"
+    }
+}

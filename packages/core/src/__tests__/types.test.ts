@@ -1,14 +1,16 @@
 import { describe, it, expectTypeOf } from 'vitest';
 import type {
     StateDefinition,
-    RawActions,
-    StoreInstance,
+    ActionsTree,
+    Store,
     StoreSubscriber,
 } from '../type/store-types';
 import type {
     PersistenceAdapter,
+    PersistenceConfig,
     PersistedData,
     PersistenceManager,
+    StoredState,
 } from '../type/persistence-types';
 import { reactive, computed } from '../state';
 import { LogLevel } from '../services/logger-service';
@@ -28,9 +30,9 @@ describe('type-level tests', () => {
         });
     });
 
-    describe('RawActions', () => {
+    describe('ActionsTree', () => {
         it('should be a record of functions', () => {
-            expectTypeOf<RawActions>().toEqualTypeOf<
+            expectTypeOf<ActionsTree>().toEqualTypeOf<
                 Record<string, (...args: any[]) => any>
             >();
         });
@@ -64,6 +66,48 @@ describe('type-level tests', () => {
         });
     });
 
+    describe('PersistenceConfig', () => {
+        type State = { theme: string; token: string; opened: Date };
+        type Config = PersistenceConfig<State>;
+        const adapter = {} as PersistenceAdapter;
+
+        it('limits include and exclude to state keys', () => {
+            const config: Config = { adapter, include: ['theme'] };
+            expectTypeOf(config).toMatchTypeOf<Config>();
+            // @ts-expect-error not a key of the state
+            const wrong: Config = { adapter, include: ['nope'] };
+            expectTypeOf(wrong).toMatchTypeOf<Config>();
+        });
+
+        it('passes the envelope to serialize', () => {
+            expectTypeOf<
+                Parameters<NonNullable<Config['serialize']>>[0]
+            >().toEqualTypeOf<PersistedData>();
+        });
+
+        it('types transform.out by the state and the rest as stored data', () => {
+            type Transform = NonNullable<Config['transform']>;
+            expectTypeOf<
+                Parameters<NonNullable<Transform['out']>>[0]
+            >().toEqualTypeOf<Partial<State>>();
+            expectTypeOf<
+                Parameters<NonNullable<Transform['in']>>[0]
+            >().toEqualTypeOf<StoredState>();
+            expectTypeOf<
+                Parameters<NonNullable<Config['validator']>>[0]
+            >().toEqualTypeOf<StoredState>();
+        });
+
+        it('has adapters exchange strings', () => {
+            expectTypeOf<
+                ReturnType<PersistenceAdapter['read']>
+            >().toEqualTypeOf<string | null | Promise<string | null>>();
+            expectTypeOf<
+                Parameters<PersistenceAdapter['write']>[0]
+            >().toEqualTypeOf<string>();
+        });
+    });
+
     describe('LogLevel enum', () => {
         it('should have correct numeric values', () => {
             expectTypeOf(LogLevel.DEBUG).toBeNumber();
@@ -92,9 +136,9 @@ describe('type-level tests', () => {
         });
     });
 
-    describe('StoreInstance type', () => {
+    describe('Store type', () => {
         it('should expose state, getters, actions, subscribe, $reset', () => {
-            type Instance = StoreInstance<
+            type Instance = Store<
                 { count: number },
                 { doubled: (s: { count: number }) => number },
                 { increment: () => void }

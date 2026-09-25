@@ -19,11 +19,8 @@ import {
     track,
     type EffectScope,
 } from './effect';
-import { createPersistenceManager } from '../persistence';
-import type {
-    PersistenceManager,
-    PersistenceConfig,
-} from '../type/persistence-types';
+import { createPersistenceManager } from '../persistence/core';
+import type { PersistenceManager } from '../type/persistence-types';
 import { logger } from '../services/logger-service';
 import { __DEV__ } from '../utils/env';
 import { devtoolsSink, unregisterStore } from '../devtools/hook';
@@ -197,13 +194,11 @@ export function instantiateStore<
     };
 
     if (options.persist) {
-        persistenceManager = createPersistenceManager<Record<string, unknown>>(
-            () => state as unknown as Record<string, unknown>,
+        persistenceManager = createPersistenceManager(
+            () => state,
             (incoming) => mergeExternal(state, incoming, name),
             notifySubscribers,
-            options.persist as unknown as PersistenceConfig<
-                Record<string, unknown>
-            >,
+            options.persist,
             name,
             settleHydration,
         );
@@ -221,10 +216,6 @@ export function instantiateStore<
             return () => {
                 subscribers.delete(callback);
             };
-        },
-
-        notifyAll(): void {
-            notifySubscribers();
         },
 
         /**

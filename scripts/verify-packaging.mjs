@@ -43,11 +43,12 @@ import {
     readdirSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
+import vm from 'node:vm';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
-const PACKAGES = ['core', 'react', 'devtools'];
+const PACKAGES = ['core', 'react', 'devtools', 'vue', 'svelte', 'lit'];
 
 const run = (cmd, args, cwd) =>
     execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe' });
@@ -232,6 +233,67 @@ export { useQuanta, useQuantaValue };
     log('bundler build without the optional peer: ok');
 
     /* ---------------------------------------------------------------- *
+     * 5b. A production app build must turn development diagnostics off
+     *
+     * The dev check reads `process.env.NODE_ENV` so that an app's bundler
+     * replaces it. When it read `import.meta` through a variable instead,
+     * production browser bundles fell back to development and printed
+     * warnings. Build an app that triggers a dev-only warning and run it with
+     * no `process`, as a browser would.
+     * ---------------------------------------------------------------- */
+    const prod = join(app, 'prod');
+    mkdirSync(prod);
+    writeFileSync(
+        join(prod, 'index.html'),
+        '<script type="module" src="./main.ts"></script>\n',
+    );
+    writeFileSync(
+        join(prod, 'main.ts'),
+        `import { createStore } from '@quantajs/core';
+
+// A getter named like a state key: warned about only in development.
+createStore('shadow', { state: () => ({ a: 1 }), getters: { a: (s) => s.a } });
+`,
+    );
+    writeFileSync(
+        join(prod, 'vite.config.js'),
+        // A classic script, so it runs in a plain vm context below.
+        "export default { build: { modulePreload: false, rollupOptions: { output: { format: 'iife' } } } };\n",
+    );
+    run('npx', ['vite', 'build', 'prod'], app);
+    const assets = join(prod, 'dist', 'assets');
+    const bundle = readFileSync(
+        join(assets, readdirSync(assets).find((f) => f.endsWith('.js'))),
+        'utf8',
+    );
+    if (bundle.includes('process.env.NODE_ENV')) {
+        throw new Error(
+            'REGRESSION: the app bundler left process.env.NODE_ENV in place, so ' +
+                'the dev check cannot be resolved at build time',
+        );
+    }
+    const warnings = [];
+    const silent = () => {};
+    vm.runInNewContext(bundle, {
+        console: {
+            warn: (...args) => warnings.push(args.join(' ')),
+            error: (...args) => warnings.push(args.join(' ')),
+            log: silent,
+            info: silent,
+            debug: silent,
+        },
+        window: {},
+        document: {},
+    });
+    if (warnings.length > 0) {
+        throw new Error(
+            'REGRESSION: a production build prints development warnings:\n' +
+                warnings.join('\n'),
+        );
+    }
+    log('production build is quiet: ok');
+
+    /* ---------------------------------------------------------------- *
      * 6. The main entry must not reference an optional peer at all
      *
      * Belt to the bundler's braces. Bundlers disagree about how hard to fail
@@ -347,6 +409,224 @@ import('@quantajs/devtools').then((esm) => {
 `,
     );
     log(run('node', ['check.cjs'], devApp).trim());
+
+    /* ---------------------------------------------------------------- *
+     * 8. @quantajs/vue must load under both require() and import, with
+     *    declarations that type a selector's ref
+     * ---------------------------------------------------------------- */
+    const vueApp = join(workdir, 'vue-app');
+    mkdirSync(vueApp);
+    writeFileSync(
+        join(vueApp, 'package.json'),
+        JSON.stringify({
+            name: 'packaging-fixture-vue',
+            private: true,
+            version: '0.0.0',
+            dependencies: {
+                '@quantajs/core': `file:${tarballs.core}`,
+                '@quantajs/vue': `file:${tarballs.vue}`,
+                vue: '^3.5.0',
+            },
+            devDependencies: { typescript: '^5.0.0' },
+        }),
+    );
+    run('npm', ['install', '--no-audit', '--no-fund'], vueApp);
+    writeFileSync(
+        join(vueApp, 'check.cjs'),
+        `const cjs = require('@quantajs/vue');
+if (typeof cjs.useQuantaValue !== 'function') {
+    throw new Error('require("@quantajs/vue") has no useQuantaValue');
+}
+import('@quantajs/vue').then((esm) => {
+    if (typeof esm.createQuanta !== 'function') {
+        throw new Error('import("@quantajs/vue") has no createQuanta');
+    }
+    console.log('vue require + import: ok');
+});
+`,
+    );
+    log(run('node', ['check.cjs'], vueApp).trim());
+    writeFileSync(
+        join(vueApp, 'types-check.ts'),
+        `import type { Ref } from 'vue';
+import { defineStore } from '@quantajs/core';
+import { useQuantaValue } from '@quantajs/vue';
+
+const useCounter = defineStore('counter', {
+    state: () => ({ count: 0 }),
+    getters: { doubled: (s) => s.count * 2 },
+});
+
+// Fails to compile if the declarations are empty or the inference is broken.
+export function setup(): Readonly<Ref<number>> {
+    return useQuantaValue(useCounter, (s) => s.doubled);
+}
+`,
+    );
+    writeFileSync(
+        join(vueApp, 'tsconfig.json'),
+        JSON.stringify({
+            compilerOptions: {
+                strict: true,
+                noEmit: true,
+                module: 'esnext',
+                target: 'es2022',
+                moduleResolution: 'bundler',
+                lib: ['es2022', 'dom'],
+                skipLibCheck: true,
+            },
+            include: ['types-check.ts'],
+        }),
+    );
+    run('npx', ['tsc', '-p', 'tsconfig.json'], vueApp);
+    log('vue type declarations: ok');
+
+    /* ---------------------------------------------------------------- *
+     * 9. @quantajs/svelte must load under both require() and import, with
+     *    declarations that type a selector's store
+     * ---------------------------------------------------------------- */
+    const svelteApp = join(workdir, 'svelte-app');
+    mkdirSync(svelteApp);
+    writeFileSync(
+        join(svelteApp, 'package.json'),
+        JSON.stringify({
+            name: 'packaging-fixture-svelte',
+            private: true,
+            version: '0.0.0',
+            dependencies: {
+                '@quantajs/core': `file:${tarballs.core}`,
+                '@quantajs/svelte': `file:${tarballs.svelte}`,
+                svelte: '^5.0.0',
+            },
+            devDependencies: { typescript: '^5.0.0' },
+        }),
+    );
+    run('npm', ['install', '--no-audit', '--no-fund'], svelteApp);
+    writeFileSync(
+        join(svelteApp, 'check.cjs'),
+        `const cjs = require('@quantajs/svelte');
+if (typeof cjs.useQuantaValue !== 'function') {
+    throw new Error('require("@quantajs/svelte") has no useQuantaValue');
+}
+import('@quantajs/svelte').then((esm) => {
+    if (typeof esm.setQuantaContainer !== 'function') {
+        throw new Error('import("@quantajs/svelte") has no setQuantaContainer');
+    }
+    console.log('svelte require + import: ok');
+});
+`,
+    );
+    log(run('node', ['check.cjs'], svelteApp).trim());
+    writeFileSync(
+        join(svelteApp, 'types-check.ts'),
+        `import type { Readable } from 'svelte/store';
+import { defineStore } from '@quantajs/core';
+import { useQuantaValue } from '@quantajs/svelte';
+
+const useCounter = defineStore('counter', {
+    state: () => ({ count: 0 }),
+    getters: { doubled: (s) => s.count * 2 },
+});
+
+// Fails to compile if the declarations are empty or the inference is broken.
+export const doubled: Readable<number> = useQuantaValue(
+    useCounter,
+    (s) => s.doubled,
+);
+`,
+    );
+    writeFileSync(
+        join(svelteApp, 'tsconfig.json'),
+        JSON.stringify({
+            compilerOptions: {
+                strict: true,
+                noEmit: true,
+                module: 'esnext',
+                target: 'es2022',
+                moduleResolution: 'bundler',
+                lib: ['es2022', 'dom'],
+                skipLibCheck: true,
+            },
+            include: ['types-check.ts'],
+        }),
+    );
+    run('npx', ['tsc', '-p', 'tsconfig.json'], svelteApp);
+    log('svelte type declarations: ok');
+
+    /* ---------------------------------------------------------------- *
+     * 10. @quantajs/lit must load under both require() and import, with
+     *     declarations that type a controller's value
+     * ---------------------------------------------------------------- */
+    const litApp = join(workdir, 'lit-app');
+    mkdirSync(litApp);
+    writeFileSync(
+        join(litApp, 'package.json'),
+        JSON.stringify({
+            name: 'packaging-fixture-lit',
+            private: true,
+            version: '0.0.0',
+            dependencies: {
+                '@quantajs/core': `file:${tarballs.core}`,
+                '@quantajs/lit': `file:${tarballs.lit}`,
+                lit: '^3.0.0',
+            },
+            devDependencies: { typescript: '^5.0.0' },
+        }),
+    );
+    run('npm', ['install', '--no-audit', '--no-fund'], litApp);
+    writeFileSync(
+        join(litApp, 'check.cjs'),
+        `const cjs = require('@quantajs/lit');
+if (typeof cjs.QuantaValueController !== 'function') {
+    throw new Error('require("@quantajs/lit") has no QuantaValueController');
+}
+import('@quantajs/lit').then((esm) => {
+    if (typeof esm.provideQuantaContainer !== 'function') {
+        throw new Error('import("@quantajs/lit") has no provideQuantaContainer');
+    }
+    console.log('lit require + import: ok');
+});
+`,
+    );
+    log(run('node', ['check.cjs'], litApp).trim());
+    writeFileSync(
+        join(litApp, 'types-check.ts'),
+        `import { LitElement } from 'lit';
+import { defineStore } from '@quantajs/core';
+import { QuantaValueController } from '@quantajs/lit';
+
+const useCounter = defineStore('counter', {
+    state: () => ({ count: 0 }),
+    getters: { doubled: (s) => s.count * 2 },
+});
+
+// Fails to compile if the declarations are empty or the inference is broken.
+export class Doubled extends LitElement {
+    doubled = new QuantaValueController(this, useCounter, (s) => s.doubled);
+    get value(): number {
+        return this.doubled.value;
+    }
+}
+`,
+    );
+    writeFileSync(
+        join(litApp, 'tsconfig.json'),
+        JSON.stringify({
+            compilerOptions: {
+                strict: true,
+                noEmit: true,
+                module: 'esnext',
+                target: 'es2022',
+                moduleResolution: 'bundler',
+                lib: ['es2022', 'dom'],
+                skipLibCheck: true,
+                useDefineForClassFields: false,
+            },
+            include: ['types-check.ts'],
+        }),
+    );
+    run('npx', ['tsc', '-p', 'tsconfig.json'], litApp);
+    log('lit type declarations: ok');
 
     log('\npackaging verification passed');
 } catch (error) {

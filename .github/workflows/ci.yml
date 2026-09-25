@@ -112,7 +112,20 @@ jobs:
             node: 24
           - name: React 18
             node: 20
-            react: '18.3.1'
+            overrides: '{"react":"18.3.1","react-dom":"18.3.1","@types/react":"^18.3.0","@types/react-dom":"^18.3.0"}'
+          # @quantajs/vue declares vue >=3.3 and falls back where 3.5 APIs are missing.
+          - name: Vue 3.3
+            node: 20
+            overrides: '{"vue":"3.3.13"}'
+          # @quantajs/svelte declares svelte >=4; its tests compile fixtures with
+          # whichever Svelte is installed.
+          - name: Svelte 4
+            node: 20
+            overrides: '{"svelte":"4.2.20"}'
+          # @quantajs/lit declares lit >=2.
+          - name: Lit 2
+            node: 20
+            overrides: '{"lit":"2.8.0"}'
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -128,21 +141,22 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: 'pnpm'
 
-      # @quantajs/react declares react >=18; everything else tests on 19.
-      - name: ⚛️ Pin React ${{ matrix.react }}
-        if: matrix.react
+      # Each binding declares a peer range wider than the version the main job
+      # tests; these entries test its oldest supported version.
+      - name: 📌 Pin ${{ matrix.name }}
+        if: matrix.overrides
+        env:
+          OVERRIDES: ${{ matrix.overrides }}
         run: |
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            const v = '${{ matrix.react }}';
-            pkg.pnpm.overrides = { ...pkg.pnpm.overrides, react: v, 'react-dom': v,
-              '@types/react': '^18.3.0', '@types/react-dom': '^18.3.0' };
+            pkg.pnpm.overrides = { ...pkg.pnpm.overrides, ...JSON.parse(process.env.OVERRIDES) };
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
 
       - name: 📦 Install dependencies
-        run: pnpm install ${{ matrix.react && '--no-frozen-lockfile' || '--frozen-lockfile' }}
+        run: pnpm install ${{ matrix.overrides && '--no-frozen-lockfile' || '--frozen-lockfile' }}
 
       - name: 🧪 Run tests
         run: pnpm test
@@ -219,3 +233,6 @@ jobs:
 
       - name: 📝 Type-check README examples
         run: pnpm verify:readme
+
+      - name: 📏 Check bundle size budgets
+        run: pnpm check:size

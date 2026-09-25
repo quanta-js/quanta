@@ -13,6 +13,7 @@ node_modules
 package-lock.json*
 dist
 dist-ssr
+dist-server
 *.local
 
 # Next.js (examples/nextjs-app)

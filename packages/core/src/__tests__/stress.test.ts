@@ -83,7 +83,7 @@ describe('stress and edge case tests', () => {
         });
 
         it('should handle empty array', () => {
-            const arr = createReactive([]);
+            const arr = createReactive<number[]>([]);
             expect(arr.length).toBe(0);
             arr.push(1);
             expect(arr.length).toBe(1);

@@ -60,7 +60,7 @@
     "sideEffects": false,
     "peerDependencies": {
         "react": ">=18.0.0",
-        "@quantajs/devtools": ">=2.0.0"
+        "@quantajs/devtools": "workspace:*"
     },
     "dependencies": {
         "@quantajs/core": "workspace:*"

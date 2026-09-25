@@ -30,7 +30,7 @@ function setup(persist: Record<string, unknown> = {}) {
 }
 
 const written = (write: ReturnType<typeof vi.fn>) =>
-    JSON.parse(write.mock.calls.at(-1)![0]).data;
+    JSON.parse(write.mock.lastCall![0]).data;
 
 beforeEach(() => {
     vi.useFakeTimers();

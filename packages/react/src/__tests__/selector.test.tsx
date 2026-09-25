@@ -11,12 +11,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { StrictMode, useState } from 'react';
 import { render, act, screen, cleanup } from '@testing-library/react';
-import { createStore, destroyAllStores } from '@quantajs/core';
-import {
-    useQuantaSelector,
-    useQuantaStore,
-    shallow,
-} from '../hooks/useQuantaStore';
+import { createStore, destroyAllStores, shallow } from '@quantajs/core';
+import { useQuantaSelector, useQuantaStore } from '../hooks/useQuantaStore';
 import { useComputed } from '../hooks/useComputed';
 
 let uid = 0;

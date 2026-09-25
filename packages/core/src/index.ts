@@ -15,22 +15,15 @@ export {
     markRaw,
 } from './state';
 
+export { shallow } from './utils/shallow';
+
 export type { ComputedRef } from './state/computed';
 export type { WatchOptions, WatchStopHandle } from './state/watch';
 
 /* ------------------------------------------------------------------ *
  * Effects
  * ------------------------------------------------------------------ */
-export {
-    effect,
-    reactiveEffect,
-    effectScope,
-    batchEffects,
-    untrack,
-    nextTick,
-    pauseTracking,
-    resumeTracking,
-} from './core/effect';
+export { effect, effectScope, batchEffects, untrack } from './core/effect';
 
 export type { EffectRunner, EffectOptions, EffectScope } from './core/effect';
 
@@ -40,12 +33,11 @@ export type { EffectRunner, EffectOptions, EffectScope } from './core/effect';
 export {
     defineStore,
     createStore,
-    useStore,
-    hasStore,
     destroyAllStores,
     createContainer,
     getDefaultContainer,
     setDefaultContainer,
+    setDefaultContainerResolver,
     resetDefaultContainer,
 } from './core';
 
@@ -69,25 +61,12 @@ export type { DevToolsEvent, DevToolsOptions } from './devtools';
 /* ------------------------------------------------------------------ *
  * Utilities
  * ------------------------------------------------------------------ */
-export {
-    logger,
-    Logger,
-    LogLevel,
-    createLogger,
-} from './services/logger-service';
-
-export { debounce } from './utils/debounce';
-export {
-    sanitizePayload,
-    safeJsonParse,
-    safeJsonReviver,
-} from './utils/sanitize';
+export { logger, LogLevel } from './services/logger-service';
 
 /* ------------------------------------------------------------------ *
  * Types
  * ------------------------------------------------------------------ */
 export type {
-    // Current
     StateTree,
     StateDefinition,
     GettersTree,
@@ -101,11 +80,4 @@ export type {
     StoreApi,
     StoreDefinitionOptions,
     StoreSubscriber,
-    // Deprecated aliases, kept so existing imports keep resolving
-    RawActions,
-    GetterDefinitions,
-    ActionDefinition,
-    InferActions,
-    StoreInstance,
-    StoreOptions,
 } from './type/store-types';

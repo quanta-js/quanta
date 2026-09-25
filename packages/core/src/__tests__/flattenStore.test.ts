@@ -14,16 +14,20 @@ function makeStore(
         getters: getters,
         actions: actions,
         subscribe: vi.fn(() => vi.fn()),
-        notifyAll: vi.fn(),
         $reset: vi.fn(),
         $destroy: vi.fn(),
     };
 }
 
+/** The flat store is typed `object`; these tests read it by name. */
+function flatten(store: ReturnType<typeof makeStore>) {
+    return flattenStore(store) as Record<string, any>;
+}
+
 describe('flattenStore', () => {
     it('should expose state properties directly', () => {
         const store = makeStore({ count: 42, name: 'test' });
-        const flat = flattenStore(store);
+        const flat = flatten(store);
 
         expect(flat.count).toBe(42);
         expect(flat.name).toBe('test');
@@ -31,7 +35,7 @@ describe('flattenStore', () => {
 
     it('should allow setting state properties via flat store', () => {
         const store = makeStore({ count: 0 });
-        const flat = flattenStore(store);
+        const flat = flatten(store);
 
         flat.count = 99;
         expect(flat.count).toBe(99);
@@ -47,11 +51,10 @@ describe('flattenStore', () => {
             },
             actions: {},
             subscribe: vi.fn(() => vi.fn()),
-            notifyAll: vi.fn(),
             $reset: vi.fn(),
             $destroy: vi.fn(),
         };
-        const flat = flattenStore(store);
+        const flat = flatten(store);
 
         expect(flat.doubled).toBe(10);
     });
@@ -59,7 +62,7 @@ describe('flattenStore', () => {
     it('should expose actions as functions', () => {
         const action = vi.fn();
         const store = makeStore({ count: 0 }, {}, { increment: action });
-        const flat = flattenStore(store);
+        const flat = flatten(store);
 
         expect(typeof flat.increment).toBe('function');
         flat.increment();
@@ -68,7 +71,7 @@ describe('flattenStore', () => {
 
     it('should fallback to store properties for meta keys', () => {
         const store = makeStore({ count: 0 });
-        const flat = flattenStore(store);
+        const flat = flatten(store);
 
         expect(typeof flat.$reset).toBe('function');
         expect(typeof flat.$destroy).toBe('function');
@@ -77,7 +80,7 @@ describe('flattenStore', () => {
     it('should prioritize state over getters over actions', () => {
         // State should be checked first
         const store = makeStore({ x: 'from-state' });
-        const flat = flattenStore(store);
+        const flat = flatten(store);
         expect(flat.x).toBe('from-state');
     });
 });

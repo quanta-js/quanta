@@ -3,14 +3,14 @@ import type {
     PersistenceConfig,
     PersistedData,
     PersistenceManager,
+    PersistenceOperation,
+    StoredState,
 } from '../type/persistence-types';
 import { logger } from '../services/logger-service';
 import { __DEV__ } from '../utils/env';
 import { watch } from '../state';
 import { toRaw } from '../core/create-reactive';
 import { sanitizePayload, safeJsonParse, isSafeKey } from '../utils/sanitize';
-
-type PersistOperation = 'read' | 'write' | 'remove' | 'watch-setup';
 
 /**
  * Wire a store's state to a storage adapter.
@@ -26,11 +26,11 @@ type PersistOperation = 'read' | 'write' | 'remove' | 'watch-setup';
  * keys, version-checked, and passed through the caller's `validator` before
  * they are allowed anywhere near application state.
  */
-export function createPersistenceManager<T extends Record<string, unknown>>(
-    getState: () => T,
-    setState: (newState: Partial<T>) => void,
+export function createPersistenceManager<S extends object>(
+    getState: () => S,
+    setState: (data: StoredState) => void,
     notifySubscribers: () => void,
-    config: PersistenceConfig<T>,
+    config: PersistenceConfig<S>,
     storeName = 'anonymous',
     onHydrated?: () => void,
 ): PersistenceManager {
@@ -40,7 +40,7 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
         // Prototype-pollution-safe by default. A caller supplying their own
         // `deserialize` opts out, which is why the result is still sanitised
         // below rather than trusting this alone.
-        deserialize = safeJsonParse as (raw: string) => unknown,
+        deserialize = safeJsonParse,
         debounceMs = 300,
         include,
         exclude,
@@ -70,7 +70,7 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
     let pendingWrites = 0;
     let lastWritten: string | null = null;
 
-    const fail = (error: unknown, phase: PersistOperation): void => {
+    const fail = (error: unknown, phase: PersistenceOperation): void => {
         const err = error instanceof Error ? error : new Error(String(error));
         try {
             onError?.(err, phase);
@@ -89,14 +89,14 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
      * -------------------------------------------------------------- */
 
     /** Narrow raw adapter output to a payload we are willing to act on. */
-    const normalize = (raw: unknown): PersistedData<T> | null => {
+    const normalize = (raw: unknown): PersistedData | null => {
         if (!raw || typeof raw !== 'object') return null;
         const record = raw as Record<string, unknown>;
         const data = record.data;
         if (!data || typeof data !== 'object') return null;
 
         return {
-            data: data as T,
+            data: data as StoredState,
             version:
                 typeof record.version === 'number' ? record.version : version,
             timestamp:
@@ -110,16 +110,16 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
         };
     };
 
-    /** Build the subset of state that should be written. */
-    const buildSlice = (state: T): Partial<T> => {
+    /** Pick the keys of state that are persisted. */
+    const buildSlice = (state: S): Partial<S> => {
         // `toRaw` avoids walking the reactive proxy: we only need the values,
         // and going through traps here would register spurious dependencies
         // and pay proxy overhead on every key.
         const source = toRaw(state);
-        let slice: Partial<T>;
+        let slice: Partial<S>;
 
         if (include && include.length > 0) {
-            slice = {} as Partial<T>;
+            slice = {};
             for (const key of include) {
                 if (key in source) slice[key] = source[key];
             }
@@ -137,7 +137,28 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
             for (const key of exclude) delete slice[key];
         }
 
-        return transform?.out ? transform.out(slice) : slice;
+        return slice;
+    };
+
+    /**
+     * Keep only the keys this store persists. Stored data can hold others:
+     * written before a key was removed from `include`, or put there by
+     * another script. Without this, taking `token` out of `include` would
+     * still load the old token into state on every visit.
+     */
+    const pickPersisted = (data: StoredState): StoredState => {
+        const allowed: readonly string[] | undefined =
+            include && include.length > 0 ? include : undefined;
+        const excluded = new Set<string>(exclude);
+        if (allowed === undefined && excluded.size === 0) return data;
+
+        const picked: StoredState = {};
+        for (const key of Object.keys(data)) {
+            if (allowed !== undefined && !allowed.includes(key)) continue;
+            if (excluded.has(key)) continue;
+            picked[key] = data[key];
+        }
+        return picked;
     };
 
     /* -------------------------------------------------------------- *
@@ -151,18 +172,20 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
         try {
             const slice = buildSlice(getState());
 
-            if (validator && !validator(slice)) {
+            if (validator && !validator(slice as StoredState)) {
                 throw new Error('Validation failed before saving');
             }
 
-            const payload: PersistedData<T> = {
-                data: slice as T,
+            const payload: PersistedData = {
+                data: transform?.out
+                    ? transform.out(slice)
+                    : (slice as StoredState),
                 version,
                 timestamp: Date.now(),
                 storeName,
             };
 
-            const encoded = serialize(payload as unknown as T);
+            const encoded = serialize(payload);
 
             // Skip the adapter round-trip when nothing actually changed —
             // cheap protection against a watcher that fires on an unrelated key.
@@ -186,7 +209,10 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
      * Convert an adapter payload into state, applying migrations, transforms
      * and validation. Returns null when the payload must be ignored.
      */
-    const decode = (raw: unknown, phase: PersistOperation): T | null => {
+    const decode = (
+        raw: unknown,
+        phase: PersistenceOperation,
+    ): StoredState | null => {
         // Storage content is untrusted and may not be valid JSON at all —
         // another script on the origin can write anything to the key. A parse
         // failure must surface through onError, not escape as a raw
@@ -230,11 +256,13 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
                 )
                     ? migrations[v]
                     : undefined;
-                if (migrate) data = sanitizePayload(migrate(data)) as T;
+                if (migrate) data = sanitizePayload(migrate(data));
             }
         }
 
-        if (transform?.in) data = sanitizePayload(transform.in(data)) as T;
+        if (transform?.in) data = sanitizePayload(transform.in(data));
+
+        data = pickPersisted(data);
 
         if (validator && !validator(data)) {
             fail(new Error('Loaded data failed validation'), phase);
@@ -242,14 +270,14 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
         }
 
         // Final guard in case a custom transform reintroduced a bad key.
-        for (const key of Object.keys(data as Record<string, unknown>)) {
+        for (const key of Object.keys(data)) {
             if (!isSafeKey(key)) {
                 fail(new Error(`Refusing to load unsafe key "${key}"`), phase);
                 return null;
             }
         }
 
-        return data as T;
+        return data;
     };
 
     const load = async (): Promise<void> => {
@@ -315,11 +343,11 @@ export function createPersistenceManager<T extends Record<string, unknown>>(
                     // reactive proxy is what registers the dependency, so this
                     // deliberately does *not* use toRaw.
                     const state = getState() as Record<string, unknown>;
-                    const keys =
+                    const keys: readonly string[] =
                         include && include.length > 0
-                            ? (include as string[])
+                            ? include
                             : Object.keys(state);
-                    const excluded = new Set((exclude ?? []) as string[]);
+                    const excluded = new Set<string>(exclude);
 
                     for (const key of keys) {
                         if (excluded.has(key)) continue;

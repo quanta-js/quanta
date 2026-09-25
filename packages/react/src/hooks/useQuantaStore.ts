@@ -9,7 +9,7 @@ import {
     useSyncExternalStore,
 } from 'react';
 import {
-    reactiveEffect,
+    effect,
     untrack,
     type ActionsTree,
     type EffectRunner,
@@ -41,18 +41,6 @@ export interface SelectorOptions<T> {
 }
 
 /**
- * Shallow structural equality for objects and arrays, one level deep.
- *
- * The standard companion to a selector that projects state:
- * ```ts
- * const { name, email } = useQuantaSelector(
- *     store,
- *     (s) => ({ name: s.name, email: s.email }),
- *     { equalityFn: shallow },
- * );
- * ```
- */
-/**
  * The default equality used when no `equalityFn` is supplied.
  *
  * The comparison only ever runs because a tracked dependency changed, so the
@@ -73,37 +61,6 @@ function defaultEquality<T>(a: T, b: T): boolean {
     if (typeof a === 'object' && a !== null) return false;
     if (typeof b === 'object' && b !== null) return false;
     return Object.is(a, b);
-}
-
-export function shallow<T>(a: T, b: T): boolean {
-    if (Object.is(a, b)) return true;
-    if (
-        typeof a !== 'object' ||
-        a === null ||
-        typeof b !== 'object' ||
-        b === null
-    ) {
-        return false;
-    }
-
-    if (Array.isArray(a) !== Array.isArray(b)) return false;
-
-    const aKeys = Object.keys(a as Record<string, unknown>);
-    const bKeys = Object.keys(b as Record<string, unknown>);
-    if (aKeys.length !== bKeys.length) return false;
-
-    for (const key of aKeys) {
-        if (
-            !Object.prototype.hasOwnProperty.call(b, key) ||
-            !Object.is(
-                (a as Record<string, unknown>)[key],
-                (b as Record<string, unknown>)[key],
-            )
-        ) {
-            return false;
-        }
-    }
-    return true;
 }
 
 /**
@@ -202,7 +159,7 @@ export function useQuantaSelector<
             // change; re-invoking the runner recomputes *and* re-tracks, so a
             // selector whose dependencies vary between runs stays correct.
             let changed = false;
-            const runner: EffectRunner = reactiveEffect(
+            const runner: EffectRunner = effect(
                 () => {
                     changed = readIntoRef();
                 },

@@ -9,11 +9,11 @@ import {
     getDefaultContainer,
     setDefaultContainer,
     destroyAllStores,
-    hasStore,
-    useStore,
     effect,
-    nextTick,
 } from '../index';
+
+/** Whether the ambient container holds a store with this name. */
+const hasStore = (id: string) => getDefaultContainer().has(id);
 
 let uid = 0;
 const name = (p: string) => `ct_${p}_${++uid}_${Date.now()}`;
@@ -261,12 +261,12 @@ describe('default container', () => {
         expect(definition().count).toBe(0);
     });
 
-    it('useStore() finds a created store and explains when it cannot', () => {
+    it('container.get() finds a created store by name', () => {
         const definition = counter();
         const store = definition();
 
-        expect(useStore(definition.$id)).toBe(store);
-        expect(() => useStore('nope')).toThrow(/does not exist in container/);
+        expect(getDefaultContainer().get(definition.$id)).toBe(store);
+        expect(getDefaultContainer().get('nope')).toBeUndefined();
     });
 });
 
@@ -462,7 +462,7 @@ describe('async action lifecycle', () => {
 
         const promise = store.load('x');
         await promise;
-        await nextTick();
+        await Promise.resolve();
 
         expect(seen[0]).toBe(false);
         expect(seen).toContain(true);

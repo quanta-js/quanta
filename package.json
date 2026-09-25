@@ -20,7 +20,8 @@
     "examples:build": "pnpm --filter \"./examples/**\" build",
     "examples:verify": "pnpm --filter \"./examples/**\" verify",
     "verify:packaging": "node scripts/verify-packaging.mjs",
-    "verify:readme": "node scripts/verify-readme-snippets.mjs"
+    "verify:readme": "node scripts/verify-readme-snippets.mjs",
+    "check:size": "node scripts/check-size.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
@@ -36,6 +37,7 @@
     "happy-dom": "^20.14.5",
     "prettier": "^3.9.8",
     "rimraf": "^6.1.3",
+    "svelte": "^5.57.1",
     "typescript": "^6.0.2",
     "vite": "^8.3.0",
     "vite-plugin-banner": "^0.8.1",

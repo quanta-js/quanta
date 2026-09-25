@@ -5,11 +5,7 @@ export { useQuanta, useQuantaValue, useQuantaActions } from './hooks/useStore';
 export { useLocalStore } from './hooks/useCreateStore';
 
 /* --- Lower-level hooks (take a resolved store, not a definition) ---- */
-export {
-    useQuantaStore,
-    useQuantaSelector,
-    shallow,
-} from './hooks/useQuantaStore';
+export { useQuantaStore, useQuantaSelector } from './hooks/useQuantaStore';
 export type { EqualityFn, SelectorOptions } from './hooks/useQuantaStore';
 export { useWatch } from './hooks/useWatch';
 export { useComputed } from './hooks/useComputed';
@@ -50,7 +46,7 @@ export {
     effectScope,
     batchEffects,
     untrack,
-    nextTick,
+    shallow,
     toRaw,
     markRaw,
     isReactive,

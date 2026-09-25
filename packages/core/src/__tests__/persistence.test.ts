@@ -223,7 +223,9 @@ describe('persistence', () => {
         it('should call onError when cross-tab payload is malformed', async () => {
             const adapter = createMockAdapter();
             const onError = vi.fn();
-            let subscriptionCallback: ((data: any) => void) | null = null;
+            // Asserted rather than annotated, so the callback assigned inside
+            // the mock is not narrowed away to null.
+            let subscriptionCallback = null as ((data: any) => void) | null;
 
             adapter.subscribe = vi.fn((cb: (data: any) => void) => {
                 subscriptionCallback = cb;
@@ -270,6 +272,101 @@ describe('persistence', () => {
 
             await vi.runAllTimersAsync();
             expect(() => manager.destroy()).not.toThrow();
+        });
+
+        it('validates the slice before transform.out on save', async () => {
+            const adapter = createMockAdapter();
+            const validator = vi.fn(
+                (data: Record<string, unknown>) =>
+                    typeof data.count === 'number',
+            );
+            const manager = createPersistenceManager(
+                () => ({ count: 2 }),
+                vi.fn(),
+                vi.fn(),
+                {
+                    adapter,
+                    validator,
+                    transform: { out: (s) => ({ count: String(s.count) }) },
+                },
+            );
+
+            await vi.runAllTimersAsync();
+            await manager.save();
+
+            expect(validator).toHaveBeenCalledWith({ count: 2 });
+            expect(JSON.parse(adapter.storage.get('test-key')).data).toEqual({
+                count: '2',
+            });
+        });
+
+        it('passes the envelope to serialize', async () => {
+            const adapter = createMockAdapter();
+            const serialize = vi.fn(JSON.stringify);
+            const manager = createPersistenceManager(
+                () => ({ count: 3 }),
+                vi.fn(),
+                vi.fn(),
+                { adapter, serialize, version: 4 },
+                'envelope-store',
+            );
+
+            await vi.runAllTimersAsync();
+            await manager.save();
+
+            expect(serialize).toHaveBeenCalledWith({
+                data: { count: 3 },
+                version: 4,
+                timestamp: expect.any(Number),
+                storeName: 'envelope-store',
+            });
+        });
+
+        it('loads only keys in include', async () => {
+            const adapter = createMockAdapter();
+            const setState = vi.fn();
+            // Written back when `token` was still persisted.
+            adapter.storage.set(
+                'test-key',
+                JSON.stringify({
+                    data: { theme: 'dark', token: 'old-token' },
+                    version: 1,
+                    timestamp: Date.now(),
+                }),
+            );
+
+            createPersistenceManager(
+                () => ({ theme: 'light', token: '' }),
+                setState,
+                vi.fn(),
+                { adapter, include: ['theme'] },
+            );
+            await vi.runAllTimersAsync();
+
+            expect(setState).toHaveBeenCalledWith({ theme: 'dark' });
+        });
+
+        it('does not load keys in exclude', async () => {
+            const adapter = createMockAdapter();
+            const setState = vi.fn();
+            adapter.storage.set(
+                'test-key',
+                JSON.stringify({
+                    data: { count: 1, secret: 'x' },
+                    version: 1,
+                    timestamp: Date.now(),
+                }),
+            );
+
+            createPersistenceManager(
+                () => ({ count: 0, secret: '' }),
+                setState,
+                vi.fn(),
+                { adapter, exclude: ['secret'] },
+            );
+            await vi.runAllTimersAsync();
+
+            expect(setState).toHaveBeenCalledWith({ count: 1 });
         });
     });
 });

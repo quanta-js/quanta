@@ -1,12 +1,13 @@
 'use client';
 
-import { ReactNode, useEffect, useMemo, useRef } from 'react';
+import { ReactNode, useMemo, useRef } from 'react';
 import {
     createContainer,
     type ContainerSnapshot,
     type StoreContainer,
 } from '@quantajs/core';
 import { QuantaContext } from '../context/QuantaContext';
+import { useDisposeOnUnmount } from '../hooks/useDisposeOnUnmount';
 
 export interface QuantaProviderProps {
     /**
@@ -61,12 +62,7 @@ export function QuantaProvider({
     // Only dispose a container this provider created. A caller-supplied one
     // has a lifetime the caller controls — disposing it here would destroy a
     // request-scoped container out from under its owner.
-    useEffect(() => {
-        const owned = ownedRef.current;
-        return () => {
-            if (owned && container === undefined) owned.dispose();
-        };
-    }, [container]);
+    useDisposeOnUnmount(container === undefined ? ownedRef.current : null);
 
     const value = useMemo(() => ({ container: active }), [active]);
 
