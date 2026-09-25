@@ -4,7 +4,7 @@
  * These are public API, so they are tested through the public entry point
  * rather than by importing internals.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
     reactive,
     shallowReactive,
