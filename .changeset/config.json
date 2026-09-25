@@ -9,7 +9,8 @@
       "@quantajs/devtools",
       "@quantajs/vue",
       "@quantajs/svelte",
-      "@quantajs/lit"
+      "@quantajs/lit",
+      "@quantajs/astro"
     ]
   ],
   "linked": [],

@@ -72,3 +72,4 @@ jobs:
           publish_pkg packages/vue
           publish_pkg packages/svelte
           publish_pkg packages/lit
+          publish_pkg packages/astro

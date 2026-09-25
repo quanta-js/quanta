@@ -1,0 +1,73 @@
+{
+    "name": "@quantajs/astro",
+    "private": false,
+    "author": {
+        "name": "Jeel Gajera",
+        "url": "https://github.com/JeelGajera"
+    },
+    "description": "Astro integration for QuantaJS: one store shared by React, Vue and Svelte islands, a container per request, and server state that reaches the islands.",
+    "keywords": [
+        "quantajs",
+        "state-management",
+        "store",
+        "astro",
+        "astro-integration",
+        "withastro",
+        "islands",
+        "ssr",
+        "typescript"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/quanta-js/quanta.git"
+    },
+    "bugs": {
+        "url": "https://github.com/quanta-js/quanta/issues"
+    },
+    "homepage": "https://quantajs.com",
+    "version": "0.0.0",
+    "type": "module",
+    "license": "MIT",
+    "scripts": {
+        "test:types": "tsc --noEmit",
+        "build": "npm run clean && vite build && npm run build:types",
+        "clean": "rimraf dist",
+        "lint": "eslint \"src/**/*.ts\"",
+        "lint:fix": "eslint \"src/**/*.ts\" --fix",
+        "format": "prettier --write \"src/**/*.ts\"",
+        "build:types": "tsc -p tsconfig.build.json"
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./middleware": {
+            "types": "./dist/middleware.d.ts",
+            "import": "./dist/middleware.js"
+        },
+        "./client": {
+            "types": "./dist/client.d.ts",
+            "import": "./dist/client.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist"
+    ],
+    "sideEffects": [
+        "./dist/client.js"
+    ],
+    "peerDependencies": {
+        "astro": ">=7.0.0"
+    },
+    "dependencies": {
+        "@quantajs/core": "workspace:*",
+        "devalue": "^5.8.1"
+    },
+    "devDependencies": {
+        "astro": "^7.3.5"
+    }
+}
