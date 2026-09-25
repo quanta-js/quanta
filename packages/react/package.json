@@ -18,12 +18,13 @@
     ],
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/quanta-js/quanta.git"
+        "url": "git+https://github.com/quanta-js/quanta.git",
+        "directory": "packages/react"
     },
     "bugs": {
         "url": "https://github.com/quanta-js/quanta/issues"
     },
-    "homepage": "https://quantajs.com",
+    "homepage": "https://quantajs.com/docs/integration/react-integration",
     "version": "2.1.3",
     "type": "module",
     "license": "MIT",

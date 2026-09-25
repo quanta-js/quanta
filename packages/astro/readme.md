@@ -5,6 +5,8 @@
 
 QuantaJS for [Astro](https://astro.build). One store, shared by every island whatever its framework, with state loaded on the server reaching the islands in the browser.
 
+**[Documentation](https://quantajs.com/docs/integration/astro-integration)** · [Example app](https://github.com/quanta-js/quanta/tree/master/examples/astro) · [Changelog](https://github.com/quanta-js/quanta/blob/master/packages/astro/CHANGELOG.md)
+
 - **Each request gets its own container.** Pages, middleware and islands rendered on the server all resolve stores against it, so concurrent requests never share state.
 - **Server state reaches the islands.** The request's state is written into the page and applied before any island hydrates, so islands start from what the server rendered.
 - **Islands share one store.** React, Vue and Svelte islands on one page read and change the same state, through their own bindings.

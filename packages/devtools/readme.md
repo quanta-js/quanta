@@ -5,6 +5,8 @@
 
 An in-page inspector for [`@quantajs/core`](https://www.npmjs.com/package/@quantajs/core) stores: live state and an action log. Renders inside a shadow root, so it does not touch your page's styles.
 
+**[Documentation](https://quantajs.com/docs/guides/devtools)** · [Changelog](https://github.com/quanta-js/quanta/blob/master/packages/devtools/CHANGELOG.md)
+
 ## Install
 
 ```sh

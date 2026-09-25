@@ -5,6 +5,8 @@
 
 Vue bindings for [`@quantajs/core`](https://www.npmjs.com/package/@quantajs/core). Composables for Vue 3.3 and later, with server rendering support.
 
+**[Documentation](https://quantajs.com/docs/integration/vue-integration)** · [Example app](https://github.com/quanta-js/quanta/tree/master/examples/vue-vite) · [Changelog](https://github.com/quanta-js/quanta/blob/master/packages/vue/CHANGELOG.md)
+
 ## Install
 
 ```sh

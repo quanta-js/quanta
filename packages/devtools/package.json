@@ -14,12 +14,13 @@
     ],
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/quanta-js/quanta.git"
+        "url": "git+https://github.com/quanta-js/quanta.git",
+        "directory": "packages/devtools"
     },
     "bugs": {
         "url": "https://github.com/quanta-js/quanta/issues"
     },
-    "homepage": "https://quantajs.com",
+    "homepage": "https://quantajs.com/docs/guides/devtools",
     "version": "2.1.1",
     "type": "module",
     "license": "MIT",

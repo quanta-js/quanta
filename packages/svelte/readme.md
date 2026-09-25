@@ -5,6 +5,8 @@
 
 Svelte bindings for [`@quantajs/core`](https://www.npmjs.com/package/@quantajs/core). QuantaJS stores as Svelte stores, for Svelte 4 and 5 and SvelteKit.
 
+**[Documentation](https://quantajs.com/docs/integration/svelte-integration)** · [Example app](https://github.com/quanta-js/quanta/tree/master/examples/svelte-vite) · [Changelog](https://github.com/quanta-js/quanta/blob/master/packages/svelte/CHANGELOG.md)
+
 ## Install
 
 ```sh
