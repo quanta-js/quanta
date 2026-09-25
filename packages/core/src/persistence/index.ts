@@ -13,4 +13,6 @@ export {
     LocalStorageAdapter,
     SessionStorageAdapter,
     IndexedDBAdapter,
+    CookieAdapter,
 } from './adapters';
+export type { CookieAdapterOptions } from './adapters';
