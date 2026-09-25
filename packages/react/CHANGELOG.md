@@ -1,5 +1,45 @@
 # @quantajs/react
 
+## 3.0.0
+
+### Major Changes
+
+- b5170dd: **QuantaJS 3.0.** All packages now release together under one version. Alongside React, the framework-free core gains official bindings for Vue (`@quantajs/vue`), Svelte (`@quantajs/svelte`) and Lit (`@quantajs/lit`), and an Astro integration (`@quantajs/astro`) that lets React, Vue and Svelte islands share one store. 3.0 removes APIs that were deprecated or internal, types persistence end to end, and ships a smaller ES build. Migration guide: https://quantajs.com/docs/getting-started/migration
+- 4a2f4e6: `@quantajs/react` now requires `@quantajs/devtools` from the same major (`^3.0.0`), and `@quantajs/devtools` requires `@quantajs/core` from the same major, so 2.x and 3.x packages can no longer be installed together without a warning.
+- 6528458: Removed from the public API:
+
+    - `nextTick()` — effects flush synchronously; use `await Promise.resolve()`.
+    - `reactiveEffect` — use `effect`.
+    - `MigrationManager`, `createMigrationManager`, `CommonMigrations` — use `persist: { version, migrations }`.
+    - `createPersistenceManager` — stores create it from the `persist` option.
+    - `debounce`, `Logger`, `createLogger` — internal utilities. `logger` and `LogLevel` remain for silencing library warnings.
+
+    `@quantajs/react` no longer re-exports `nextTick`.
+
+### Patch Changes
+
+- f23b69f: Development mode is now detected from `process.env.NODE_ENV`, which app bundlers replace at build time. Production browser builds no longer print QuantaJS development warnings, and in Vite apps `mountDevTools()` and `<QuantaDevTools />` now show the panel in development without `visible`.
+- 4301641: StrictMode and `useLocalStore` fixes:
+
+    - `<QuantaProvider>` without a `container`, and `useLocalStore`, no longer break under React StrictMode. StrictMode's simulated unmount in development disposed the container the component went on using, so the first update threw or was ignored. Disposal now happens a tick after a real unmount.
+    - `useLocalStore` now re-renders the component when its store changes, like `useQuanta`. It previously returned the store without subscribing to it.
+
+- 9af59f6: `watch` takes an `equals` option to decide whether a re-run produced a new value, instead of always using `Object.is`. `shallow` is now exported from `@quantajs/core`; `@quantajs/react` re-exports it, so existing imports keep working.
+- Updated dependencies [f1bebc6]
+- Updated dependencies [f23b69f]
+- Updated dependencies [6c73998]
+- Updated dependencies [6a6809d]
+- Updated dependencies [de2131a]
+- Updated dependencies [b5170dd]
+- Updated dependencies [4a2f4e6]
+- Updated dependencies [4a2f4e6]
+- Updated dependencies [776e7bd]
+- Updated dependencies [f826fa7]
+- Updated dependencies [6528458]
+- Updated dependencies [9af59f6]
+    - @quantajs/core@3.0.0
+    - @quantajs/devtools@3.0.0
+
 ## 2.1.3
 
 ### Patch Changes

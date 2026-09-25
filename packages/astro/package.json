@@ -26,7 +26,7 @@
         "url": "https://github.com/quanta-js/quanta/issues"
     },
     "homepage": "https://quantajs.com/docs/integration/astro-integration",
-    "version": "0.0.0",
+    "version": "3.0.0",
     "type": "module",
     "license": "MIT",
     "scripts": {

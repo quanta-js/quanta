@@ -1,7 +1,7 @@
 {
     "name": "example-lit-vite",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.0.1",
     "type": "module",
     "description": "Lit + Vite: every @quantajs/lit controller in real web components, a provided container, and type-checked controller inference.",
     "scripts": {

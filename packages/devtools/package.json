@@ -21,7 +21,7 @@
         "url": "https://github.com/quanta-js/quanta/issues"
     },
     "homepage": "https://quantajs.com/docs/guides/devtools",
-    "version": "2.1.1",
+    "version": "3.0.0",
     "type": "module",
     "license": "MIT",
     "main": "./dist/index.cjs",

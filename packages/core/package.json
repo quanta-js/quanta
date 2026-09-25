@@ -26,7 +26,7 @@
         "url": "https://github.com/quanta-js/quanta/issues"
     },
     "homepage": "https://quantajs.com",
-    "version": "2.3.0",
+    "version": "3.0.0",
     "type": "module",
     "license": "MIT",
     "scripts": {
