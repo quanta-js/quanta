@@ -1,16 +1,15 @@
 import { useState } from 'preact/hooks';
 import logo from './public/logo.svg';
 import { useDevToolsBridge } from './hooks/useDevToolsBridge';
+import { usePanelPreferences } from './hooks/usePanelPreferences';
 import { StoreInspector } from './components/StoreInspector';
 import { ActionLog } from './components/ActionLog';
 import Icon from './components/ui/icon';
 
 export function DevTools() {
-    const [isOpen, setIsOpen] = useState(false);
+    const { isOpen, setIsOpen, activeTab, setActiveTab } =
+        usePanelPreferences();
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState<'inspector' | 'actions'>(
-        'inspector',
-    );
     const {
         stores,
         actions,
