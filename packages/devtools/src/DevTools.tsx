@@ -10,8 +10,14 @@ export function DevTools() {
     const { isOpen, setIsOpen, activeTab, setActiveTab } =
         usePanelPreferences();
     const [searchQuery, setSearchQuery] = useState('');
-    const { stores, actions, selectedStore, setSelectedStore, snapshotOf } =
-        useDevToolsBridge();
+    const {
+        stores,
+        actions,
+        clearActions,
+        selectedStore,
+        setSelectedStore,
+        snapshotOf,
+    } = useDevToolsBridge();
 
     const filteredStores = Object.keys(stores).filter((name) =>
         name.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -151,7 +157,7 @@ export function DevTools() {
                             }
                         />
                     ) : (
-                        <ActionLog actions={actions} />
+                        <ActionLog actions={actions} onClear={clearActions} />
                     )}
                 </main>
             </div>

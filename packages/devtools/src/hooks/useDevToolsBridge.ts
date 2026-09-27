@@ -134,6 +134,7 @@ export function useDevToolsBridge() {
     return {
         stores,
         actions,
+        clearActions: () => setActions([]),
         selectedStore,
         setSelectedStore,
         snapshotOf,

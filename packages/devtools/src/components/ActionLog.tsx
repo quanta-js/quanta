@@ -12,6 +12,7 @@ interface ActionInfo {
 
 interface ActionLogProps {
     actions: ActionInfo[];
+    onClear: () => void;
 }
 
 const MAX_PREVIEW_LENGTH = 100;
@@ -96,46 +97,75 @@ function PayloadCell({ args }: { args: any[] }) {
     );
 }
 
-export function ActionLog({ actions }: ActionLogProps) {
-    if (actions.length === 0) {
-        return (
-            <div class="qdt-empty">
-                <Icon name="activity" size={28} />
-                <span>No actions recorded yet</span>
-            </div>
-        );
-    }
+export function ActionLog({ actions, onClear }: ActionLogProps) {
+    const [query, setQuery] = useState('');
+    const search = query.trim().toLowerCase();
+    const filteredActions = actions.filter(
+        (action) =>
+            action.storeName.toLowerCase().includes(search) ||
+            action.actionName.toLowerCase().includes(search),
+    );
 
     return (
         <div style={{ height: '100%', overflowY: 'auto' }}>
-            <table class="qdt-actions-table">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Store</th>
-                        <th>Action</th>
-                        <th>Payload</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {actions.map((action) => (
-                        <tr key={action.id}>
-                            <td class="qdt-actions-time">
-                                {new Date(
-                                    action.timestamp,
-                                ).toLocaleTimeString()}
-                            </td>
-                            <td class="qdt-actions-store">
-                                {action.storeName}
-                            </td>
-                            <td class="qdt-actions-name">
-                                {action.actionName}
-                            </td>
-                            <PayloadCell args={action.args} />
+            <div class="qdt-actions-toolbar">
+                <div class="qdt-search">
+                    <Icon name="search" size={14} />
+                    <input
+                        type="search"
+                        aria-label="Filter actions by store or action name"
+                        placeholder="Filter actions..."
+                        value={query}
+                        onInput={(event) => setQuery(event.currentTarget.value)}
+                    />
+                </div>
+                <button
+                    class="qdt-btn"
+                    onClick={onClear}
+                    disabled={actions.length === 0}
+                >
+                    Clear
+                </button>
+            </div>
+            {filteredActions.length === 0 ? (
+                <div class="qdt-empty">
+                    <Icon name="activity" size={28} />
+                    <span>
+                        {actions.length === 0
+                            ? 'No actions recorded yet'
+                            : `No actions match "${query}"`}
+                    </span>
+                </div>
+            ) : (
+                <table class="qdt-actions-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Store</th>
+                            <th>Action</th>
+                            <th>Payload</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {filteredActions.map((action) => (
+                            <tr key={action.id}>
+                                <td class="qdt-actions-time">
+                                    {new Date(
+                                        action.timestamp,
+                                    ).toLocaleTimeString()}
+                                </td>
+                                <td class="qdt-actions-store">
+                                    {action.storeName}
+                                </td>
+                                <td class="qdt-actions-name">
+                                    {action.actionName}
+                                </td>
+                                <PayloadCell args={action.args} />
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
         </div>
     );
 }

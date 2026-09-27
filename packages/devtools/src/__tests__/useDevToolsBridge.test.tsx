@@ -96,6 +96,27 @@ describe('useDevToolsBridge', () => {
         expect(snapshot?.actions[0].actionName).toBe('add');
     });
 
+    it('clears the action history without disconnecting from future events', async () => {
+        function Probe() {
+            snapshot = useDevToolsBridge();
+            return null;
+        }
+        await act(async () => render(h(Probe, {}), container));
+        const event = (actionName: string) => ({
+            type: 'ACTION_CALL',
+            payload: { storeName: 'cart', actionName, args: [] },
+        });
+        await act(async () => emit?.(event('before')));
+        expect(snapshot?.actions).toHaveLength(1);
+        await act(async () => snapshot?.clearActions());
+        expect(snapshot?.actions).toHaveLength(0);
+        expect(unsubscribeSpy).not.toHaveBeenCalled();
+        await act(async () => emit?.(event('after')));
+        expect(snapshot?.actions.map((action) => action.actionName)).toEqual([
+            'after',
+        ]);
+    });
+
     it('cleans up bridge subscription on unmount', async () => {
         function Probe() {
             snapshot = useDevToolsBridge();
