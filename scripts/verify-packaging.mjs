@@ -50,8 +50,24 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const PACKAGES = ['core', 'react', 'devtools', 'vue', 'svelte', 'lit', 'astro'];
 
-const run = (cmd, args, cwd) =>
-    execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe' });
+const run = (cmd, args, cwd) => {
+    if (
+        process.platform === 'win32' &&
+        (cmd === 'npm' || cmd === 'npx')
+    ) {
+        return execFileSync(
+            process.env.ComSpec || 'cmd.exe',
+            ['/d', '/s', '/c', cmd, ...args],
+            { cwd, encoding: 'utf8', stdio: 'pipe' },
+        );
+    }
+
+    return execFileSync(cmd, args, {
+        cwd,
+        encoding: 'utf8',
+        stdio: 'pipe',
+    });
+};
 
 const log = (msg) => process.stdout.write(`${msg}\n`);
 
