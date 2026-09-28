@@ -1,0 +1,4 @@
+# Store and check out text files with LF line endings on every platform, so a
+# Windows checkout has the same bytes as CI: Prettier and the verification
+# scripts see identical files everywhere. Binary files are detected as such.
+* text=auto eol=lf
