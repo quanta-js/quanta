@@ -36,6 +36,7 @@
 import { execFileSync } from 'node:child_process';
 import {
     mkdtempSync,
+    existsSync,
     writeFileSync,
     readFileSync,
     mkdirSync,
@@ -44,22 +45,33 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import vm from 'node:vm';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const PACKAGES = ['core', 'react', 'devtools', 'vue', 'svelte', 'lit', 'astro'];
 
+const runNodeTool = (entry, args, cwd) =>
+    execFileSync(process.execPath, [entry, ...args], {
+        cwd,
+        encoding: 'utf8',
+        stdio: 'pipe',
+    });
+
+const npmCli = join(
+    dirname(process.execPath),
+    'node_modules',
+    'npm',
+    'bin',
+    'npm-cli.js',
+);
+
 const run = (cmd, args, cwd) => {
-    if (
-        process.platform === 'win32' &&
-        (cmd === 'npm' || cmd === 'npx')
-    ) {
-        return execFileSync(
-            process.env.ComSpec || 'cmd.exe',
-            ['/d', '/s', '/c', cmd, ...args],
-            { cwd, encoding: 'utf8', stdio: 'pipe' },
-        );
+    if (process.platform === 'win32' && cmd === 'npm') {
+        if (!existsSync(npmCli)) {
+            throw new Error(`npm CLI not found at ${npmCli}`);
+        }
+        return runNodeTool(npmCli, args, cwd);
     }
 
     return execFileSync(cmd, args, {
@@ -68,7 +80,6 @@ const run = (cmd, args, cwd) => {
         stdio: 'pipe',
     });
 };
-
 const log = (msg) => process.stdout.write(`${msg}\n`);
 
 /** Every package.json the resolver may rewrite, so they can be put back. */
@@ -215,7 +226,11 @@ export default n;
             2,
         ),
     );
-    run('npx', ['tsc', '-p', 'tsconfig.json'], app);
+    runNodeTool(
+        join(app, 'node_modules', 'typescript', 'bin', 'tsc'),
+        ['-p', 'tsconfig.json'],
+        app,
+    );
     log('type declarations: ok');
 
     /* ---------------------------------------------------------------- *
@@ -251,7 +266,11 @@ export { useQuanta, useQuantaValue };
     );
 
     try {
-        run('npx', ['vite', 'build'], app);
+        runNodeTool(
+            join(app, 'node_modules', 'vite', 'bin', 'vite.js'),
+            ['build'],
+            app,
+        );
     } catch (error) {
         const output = `${error.stdout ?? ''}${error.stderr ?? ''}`;
         if (output.includes('@quantajs/devtools')) {
@@ -294,7 +313,11 @@ createStore('shadow', { state: () => ({ a: 1 }), getters: { a: (s) => s.a } });
         // A classic script, so it runs in a plain vm context below.
         "export default { build: { modulePreload: false, rollupOptions: { output: { format: 'iife' } } } };\n",
     );
-    run('npx', ['vite', 'build', 'prod'], app);
+    runNodeTool(
+        join(app, 'node_modules', 'vite', 'bin', 'vite.js'),
+        ['build', 'prod'],
+        app,
+    );
     const assets = join(prod, 'dist', 'assets');
     const bundle = readFileSync(
         join(assets, readdirSync(assets).find((f) => f.endsWith('.js'))),
@@ -512,7 +535,11 @@ export function setup(): Readonly<Ref<number>> {
             include: ['types-check.ts'],
         }),
     );
-    run('npx', ['tsc', '-p', 'tsconfig.json'], vueApp);
+    runNodeTool(
+        join(vueApp, 'node_modules', 'typescript', 'bin', 'tsc'),
+        ['-p', 'tsconfig.json'],
+        vueApp,
+    );
     log('vue type declarations: ok');
 
     /* ---------------------------------------------------------------- *
@@ -584,7 +611,11 @@ export const doubled: Readable<number> = useQuantaValue(
             include: ['types-check.ts'],
         }),
     );
-    run('npx', ['tsc', '-p', 'tsconfig.json'], svelteApp);
+    runNodeTool(
+        join(svelteApp, 'node_modules', 'typescript', 'bin', 'tsc'),
+        ['-p', 'tsconfig.json'],
+        svelteApp,
+    );
     log('svelte type declarations: ok');
 
     /* ---------------------------------------------------------------- *
@@ -659,7 +690,11 @@ export class Doubled extends LitElement {
             include: ['types-check.ts'],
         }),
     );
-    run('npx', ['tsc', '-p', 'tsconfig.json'], litApp);
+    runNodeTool(
+        join(litApp, 'node_modules', 'typescript', 'bin', 'tsc'),
+        ['-p', 'tsconfig.json'],
+        litApp,
+    );
     log('lit type declarations: ok');
 
     /* ---------------------------------------------------------------- *
