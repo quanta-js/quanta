@@ -1,6 +1,9 @@
-import { createStore } from '@quantajs/core';
+import { createStore, enableDevTools } from '@quantajs/core';
 import { mountDevTools } from '../src/mount';
-import '../src/index.css';
+
+// DevTools is opt-in, and stores only report to it once it is enabled.
+// `redact` keeps the login action's password out of the panel.
+enableDevTools({ redact: ['password'] });
 
 // Create some mock stores for testing
 const userStore = createStore('userStore', {
