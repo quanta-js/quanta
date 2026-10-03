@@ -150,9 +150,13 @@ jobs:
         run: |
           node -e "
             const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.pnpm.overrides = { ...pkg.pnpm.overrides, ...JSON.parse(process.env.OVERRIDES) };
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+            const entries = Object.entries(JSON.parse(process.env.OVERRIDES))
+              .map(([name, range]) => '    ' + JSON.stringify(name) + ': ' + JSON.stringify(range) + '\\n')
+              .join('');
+            const file = 'pnpm-workspace.yaml';
+            const yaml = fs.readFileSync(file, 'utf8');
+            if (!/^overrides:\\n/m.test(yaml)) throw new Error('no overrides block in ' + file);
+            fs.writeFileSync(file, yaml.replace(/^overrides:\\n/m, (block) => block + entries));
           "
 
       - name: 📦 Install dependencies
