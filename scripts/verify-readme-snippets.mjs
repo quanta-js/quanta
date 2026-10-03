@@ -11,7 +11,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
@@ -48,7 +48,7 @@ const tsconfig = {
 
 function extract(markdown) {
     const blocks = [];
-    const fence = /^```(ts|tsx)\n([\s\S]*?)^```$/gm;
+    const fence = /^```(ts|tsx)\r?\n([\s\S]*?)^```\r?$/gm;
     let match;
     while ((match = fence.exec(markdown)) !== null) {
         blocks.push({ lang: match[1], code: match[2] });
@@ -79,8 +79,12 @@ try {
 
         try {
             execFileSync(
-                join(ROOT, 'node_modules', '.bin', 'tsc'),
-                ['-p', join(WORK, 'tsconfig.json')],
+                process.execPath,
+                [
+                    join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'),
+                    '-p',
+                    join(WORK, 'tsconfig.json'),
+                ],
                 { encoding: 'utf8', stdio: 'pipe' },
             );
             console.log(`ok    ${readme} (${blocks.length} blocks)`);
@@ -89,7 +93,7 @@ try {
             console.log(`FAIL  ${readme}`);
             console.log(
                 String(error.stdout || error.message).replaceAll(
-                    WORK + '/',
+                    WORK + sep,
                     '  ',
                 ),
             );
