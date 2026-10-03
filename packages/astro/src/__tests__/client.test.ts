@@ -1,33 +1,73 @@
 /**
  * @vitest-environment happy-dom
- *
- * The client runs once, when imported, like the script Astro loads before
- * hydration; these tests follow a first page load, then a later navigation.
  */
-import { describe, it, expect } from 'vitest';
-import { defineStore } from '@quantajs/core';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const useCounter = defineStore('astro_client_counter', {
-    state: () => ({ count: 0 }),
+let resetContainer: (() => void) | undefined;
+
+async function loadClient(
+    snapshot?: Record<string, Record<string, unknown>>,
+) {
+    vi.resetModules();
+
+    if (snapshot !== undefined) {
+        window.__QUANTA__ = snapshot;
+    }
+
+    const core = await import('@quantajs/core');
+    resetContainer = core.resetDefaultContainer;
+    await import('../client');
+
+    return core;
+}
+
+afterEach(() => {
+    resetContainer?.();
+    resetContainer = undefined;
+    delete window.__QUANTA__;
+    delete window.__QUANTA_ADOPT__;
+    vi.resetModules();
 });
 
 describe('client', () => {
-    it('seeds the default container from the page, before islands resolve stores', async () => {
-        window.__QUANTA__ = { astro_client_counter: { count: 5 } };
+    it('does nothing when the page has no snapshot', async () => {
+        const { defineStore } = await loadClient();
+        const useCounter = defineStore('astro_client_counter', {
+            state: () => ({ count: 0 }),
+        });
 
-        await import('../client');
+        expect(useCounter().count).toBe(0);
+        expect(window.__QUANTA__).toBeUndefined();
+    });
+
+    it('seeds the default container from the page, before islands resolve stores', async () => {
+        const { defineStore } = await loadClient({
+            astro_client_counter: { count: 5 },
+        });
+        const useCounter = defineStore('astro_client_counter', {
+            state: () => ({ count: 0 }),
+        });
 
         expect(useCounter().count).toBe(5);
         expect(window.__QUANTA__).toBeUndefined();
     });
 
-    it('lets a later page’s snapshot script adopt its state', () => {
-        // What the snapshot script does after a view transition, when the
-        // client is already loaded.
+    it('lets later page snapshot scripts adopt state more than once', async () => {
+        const { defineStore } = await loadClient();
+        const useCounter = defineStore('astro_client_counter', {
+            state: () => ({ count: 0 }),
+        });
+
         window.__QUANTA__ = { astro_client_counter: { count: 9 } };
         window.__QUANTA_ADOPT__?.();
 
         expect(useCounter().count).toBe(9);
+        expect(window.__QUANTA__).toBeUndefined();
+
+        window.__QUANTA__ = { astro_client_counter: { count: 12 } };
+        window.__QUANTA_ADOPT__?.();
+
+        expect(useCounter().count).toBe(12);
         expect(window.__QUANTA__).toBeUndefined();
     });
 });
