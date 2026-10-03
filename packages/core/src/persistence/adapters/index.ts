@@ -3,5 +3,7 @@ export { SessionStorageAdapter } from './sessionStorage';
 export { IndexedDBAdapter } from './indexedDB';
 export { CookieAdapter } from './cookie';
 export type { CookieAdapterOptions } from './cookie';
+export { AsyncStorageAdapter } from './asyncStorage';
+export type { AsyncStorageLike } from './asyncStorage';
 
 export type { PersistenceAdapter } from '../../type/persistence-types';
