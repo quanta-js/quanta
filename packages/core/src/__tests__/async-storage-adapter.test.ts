@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createContainer } from '../core/container';
+import { defineStore } from '../core/define-store';
 import {
     AsyncStorageAdapter,
     type AsyncStorageLike,
@@ -53,7 +55,9 @@ describe('AsyncStorageAdapter', () => {
 
         await expect(adapter.read()).resolves.toBeNull();
         expect(logger.warn).toHaveBeenCalledWith(
-            expect.stringContaining('AsyncStorageAdapter: read failed: blocked'),
+            expect.stringContaining(
+                'AsyncStorageAdapter: read failed: blocked',
+            ),
         );
     });
 
@@ -73,5 +77,34 @@ describe('AsyncStorageAdapter', () => {
         const adapter = new AsyncStorageAdapter('state', storage);
 
         await expect(adapter.remove()).rejects.toBe(error);
+    });
+
+    it('restores store state and reports store-level write failures', async () => {
+        const storage = new MemoryStorage();
+        const onError = vi.fn();
+        const useStore = defineStore('async-storage-integration', {
+            state: () => ({ count: 0 }),
+            persist: {
+                adapter: new AsyncStorageAdapter('state', storage),
+                debounceMs: 0,
+                onError,
+            },
+        });
+
+        const first = useStore(createContainer('async-storage-first'));
+        await first.$hydrated;
+        first.count = 7;
+        await first.$persist!.save();
+
+        const restored = useStore(createContainer('async-storage-restored'));
+        await restored.$hydrated;
+        expect(restored.count).toBe(7);
+
+        const error = new Error('full');
+        storage.setItem.mockRejectedValueOnce(error);
+        restored.count = 8;
+        await restored.$persist!.save();
+
+        expect(onError).toHaveBeenCalledWith(error, 'write');
     });
 });

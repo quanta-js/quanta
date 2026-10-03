@@ -13,6 +13,11 @@ export interface AsyncStorageLike {
  *
  * The storage implementation is injected so `@quantajs/core` does not depend
  * on React Native or a specific AsyncStorage package.
+ *
+ * @example
+ * ```ts
+ * new AsyncStorageAdapter('settings', AsyncStorage);
+ * ```
  */
 export class AsyncStorageAdapter implements PersistenceAdapter {
     constructor(
