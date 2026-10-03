@@ -14,5 +14,6 @@ export {
     SessionStorageAdapter,
     IndexedDBAdapter,
     CookieAdapter,
+    AsyncStorageAdapter,
 } from './adapters';
-export type { CookieAdapterOptions } from './adapters';
+export type { CookieAdapterOptions, AsyncStorageLike } from './adapters';
