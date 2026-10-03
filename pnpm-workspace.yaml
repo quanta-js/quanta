@@ -1,3 +1,12 @@
 packages:
     - 'packages/*'
     - 'examples/*'
+
+# Kept here rather than in package.json: pnpm 11 and later (which Dependabot
+# uses) only read settings from this file.
+overrides:
+    minimatch: '>=10.2.3'
+    brace-expansion: '>=5.0.9'
+
+onlyBuiltDependencies:
+    - esbuild
