@@ -21,13 +21,13 @@
         "@quantajs/vue": "workspace:*",
         "astro": "^7.3.5",
         "react": "^19.2.4",
-        "react-dom": "^19.2.4",
+        "react-dom": "^19.3.0",
         "svelte": "^5.46.4",
         "vue": "^3.5.24"
     },
     "devDependencies": {
         "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.4",
+        "@types/react-dom": "^19.3.0",
         "typescript": "^6.0.3"
     }
 }

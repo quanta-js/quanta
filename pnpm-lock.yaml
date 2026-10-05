@@ -17,7 +17,7 @@ importers:
         version: 3.0.3
       '@testing-library/react':
         specifier: ^16.3.3
-        version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.3.0(react@19.2.4))(react@19.2.4)
       '@types/node':
         specifier: ^26.6.3
         version: 26.6.3
@@ -74,7 +74,7 @@ importers:
         version: 11.1.6(astro@7.3.5(@types/node@26.6.3)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1))(supports-color@7.2.0)
       '@astrojs/react':
         specifier: ^7.0.0
-        version: 7.0.0(@types/node@26.6.3)(@types/react-dom@19.2.4(@types/react@19.2.14))(@types/react@19.2.14)(esbuild@0.28.2)(jiti@2.6.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(terser@5.46.1)(yaml@2.9.1)
+        version: 7.0.0(@types/node@26.6.3)(@types/react-dom@19.3.0(@types/react@19.2.14))(@types/react@19.2.14)(esbuild@0.28.2)(jiti@2.6.1)(react-dom@19.3.0(react@19.2.4))(react@19.2.4)(terser@5.46.1)(yaml@2.9.1)
       '@astrojs/svelte':
         specifier: ^9.0.1
         version: 9.0.1(@types/node@26.6.3)(astro@7.3.5(@types/node@26.6.3)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.6.1)(svelte@5.57.1(@typescript-eslint/types@8.70.1))(terser@5.46.1)(typescript@6.0.3)(yaml@2.9.1)
@@ -103,8 +103,8 @@ importers:
         specifier: ^19.2.4
         version: 19.2.4
       react-dom:
-        specifier: ^19.2.4
-        version: 19.2.4(react@19.2.4)
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.2.4)
       svelte:
         specifier: ^5.46.4
         version: 5.57.1(@typescript-eslint/types@8.70.1)
@@ -116,8 +116,8 @@ importers:
         specifier: ^19.2.14
         version: 19.2.14
       '@types/react-dom':
-        specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.14)
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.2.14)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -151,13 +151,13 @@ importers:
         version: link:../../packages/react
       next:
         specifier: ^16.3.6
-        version: 16.3.6(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@26.6.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 16.3.6(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@26.6.3)(react-dom@19.3.0(react@19.2.4))(react@19.2.4)
       react:
         specifier: ^19.2.4
         version: 19.2.4
       react-dom:
-        specifier: ^19.2.4
-        version: 19.2.4(react@19.2.4)
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.2.4)
     devDependencies:
       '@types/node':
         specifier: ^26.6.3
@@ -166,8 +166,8 @@ importers:
         specifier: ^19.2.14
         version: 19.2.14
       '@types/react-dom':
-        specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.14)
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.2.14)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -187,15 +187,15 @@ importers:
         specifier: ^19.2.4
         version: 19.2.4
       react-dom:
-        specifier: ^19.2.4
-        version: 19.2.4(react@19.2.4)
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.2.4)
     devDependencies:
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
       '@types/react-dom':
-        specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.14)
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.2.14)
       '@vitejs/plugin-react':
         specifier: ^6.1.1
         version: 6.1.1(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1))
@@ -317,14 +317,14 @@ importers:
         specifier: ^19.2.14
         version: 19.2.14
       '@types/react-dom':
-        specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.14)
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.2.14)
       react:
         specifier: ^19.2.4
         version: 19.2.4
       react-dom:
-        specifier: ^19.2.4
-        version: 19.2.4(react@19.2.4)
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.2.4)
 
   packages/svelte:
     dependencies:
@@ -1656,10 +1656,10 @@ packages:
   '@types/node@26.6.3':
     resolution: {integrity: sha512-dsqMQQoeTLqu9wynDD00q573mNzso3IdQOAfHRJqLCcmCFPoGo9A1bDpUcv/9tnKpErQWv9uKeGfl37EIS02Yg==}
 
-  '@types/react-dom@19.2.4':
-    resolution: {integrity: sha512-Bsc+QHgp+P/F02XDzNCY9jnZNCUuLki36KT7VKrTXXLdHf+vHMNZnW1rVu5DNW/rCK+fya3DATySbLM4yhtKUw==}
+  '@types/react-dom@19.3.0':
+    resolution: {integrity: sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q==}
     peerDependencies:
-      '@types/react': ^19.2.0
+      '@types/react': ^19.3.0
 
   '@types/react@19.2.14':
     resolution: {integrity: sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w==}
@@ -2954,10 +2954,10 @@ packages:
     resolution: {integrity: sha512-hek2mFQpPuI4E1BBKrSto+BU3e3x4xuarsbiwr3+lf7p44juvFMV0XFWQAP3xUyqXA4RrXLIoaSUGbSt056ZMw==}
     engines: {node: '>= 0.6'}
 
-  react-dom@19.2.4:
-    resolution: {integrity: sha512-AXJdLo8kgMbimY95O2aKQqsz2iWi9jMgKJhRBAxECE4IFxfcazB2LmzloIoibJI3C12IlY20+KFaLv+71bUJeQ==}
+  react-dom@19.3.0:
+    resolution: {integrity: sha512-JDk8dgif51OjFoDE70+OT9ICyYr+69HlmihNwp1+Nsfbna3t5sIiCa9ZJktDmQ4/1b/rn26hIAR2uYXDMr5r0Q==}
     peerDependencies:
-      react: ^19.2.4
+      react: ^19.3.0
 
   react-is@17.0.2:
     resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
@@ -3011,8 +3011,8 @@ packages:
     resolution: {integrity: sha512-42tBVwLWnaQvW5zc4HbZrTuWccECCZfBi92FDuwtqxasH+JbPB3/FOKb1m222K42R4WxuxzzMsTswfzgtSu64Q==}
     engines: {node: '>=11.0.0'}
 
-  scheduler@0.27.0:
-    resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
+  scheduler@0.28.0:
+    resolution: {integrity: sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==}
 
   scule@1.3.0:
     resolution: {integrity: sha512-6FtHJEvt+pVMIB9IBY+IcCJ6Z5f1iQnytgyfKMhDKgmzYG+TeH/wx1y3l27rshSbLiSanrR9ffZDrEsmjlQF2g==}
@@ -3620,15 +3620,15 @@ snapshots:
     dependencies:
       prismjs: 1.30.0
 
-  '@astrojs/react@7.0.0(@types/node@26.6.3)(@types/react-dom@19.2.4(@types/react@19.2.14))(@types/react@19.2.14)(esbuild@0.28.2)(jiti@2.6.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(terser@5.46.1)(yaml@2.9.1)':
+  '@astrojs/react@7.0.0(@types/node@26.6.3)(@types/react-dom@19.3.0(@types/react@19.2.14))(@types/react@19.2.14)(esbuild@0.28.2)(jiti@2.6.1)(react-dom@19.3.0(react@19.2.4))(react@19.2.4)(terser@5.46.1)(yaml@2.9.1)':
     dependencies:
       '@astrojs/internal-helpers': 0.11.0
       '@types/react': 19.2.14
-      '@types/react-dom': 19.2.4(@types/react@19.2.14)
+      '@types/react-dom': 19.3.0(@types/react@19.2.14)
       '@vitejs/plugin-react': 6.1.1(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1))
       devalue: 5.9.4
       react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
+      react-dom: 19.3.0(react@19.2.4)
       ultrahtml: 1.7.0
       vite: 8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1)
     transitivePeerDependencies:
@@ -4697,15 +4697,15 @@ snapshots:
       picocolors: 1.1.1
       pretty-format: 27.5.1
 
-  '@testing-library/react@16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@testing-library/react@16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.3.0(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@babel/runtime': 7.29.7
       '@testing-library/dom': 10.4.1
       react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
+      react-dom: 19.3.0(react@19.2.4)
     optionalDependencies:
       '@types/react': 19.2.14
-      '@types/react-dom': 19.2.4(@types/react@19.2.14)
+      '@types/react-dom': 19.3.0(@types/react@19.2.14)
 
   '@tybys/wasm-util@0.10.4':
     dependencies:
@@ -4756,7 +4756,7 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
-  '@types/react-dom@19.2.4(@types/react@19.2.14)':
+  '@types/react-dom@19.3.0(@types/react@19.2.14)':
     dependencies:
       '@types/react': 19.2.14
 
@@ -5957,7 +5957,7 @@ snapshots:
 
   neotraverse@1.0.1: {}
 
-  next@16.3.6(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@26.6.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  next@16.3.6(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@26.6.3)(react-dom@19.3.0(react@19.2.4))(react@19.2.4):
     dependencies:
       '@next/env': 16.3.6
       '@swc/helpers': 0.5.23
@@ -5965,7 +5965,7 @@ snapshots:
       caniuse-lite: 1.0.30001810
       postcss: 8.5.23
       react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
+      react-dom: 19.3.0(react@19.2.4)
       styled-jsx: 5.1.6(@babel/core@7.29.7(supports-color@7.2.0))(react@19.2.4)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.3.6
@@ -6137,10 +6137,10 @@ snapshots:
 
   range-parser@1.3.0: {}
 
-  react-dom@19.2.4(react@19.2.4):
+  react-dom@19.3.0(react@19.2.4):
     dependencies:
       react: 19.2.4
-      scheduler: 0.27.0
+      scheduler: 0.28.0
 
   react-is@17.0.2: {}
 
@@ -6245,7 +6245,7 @@ snapshots:
 
   sax@1.6.1: {}
 
-  scheduler@0.27.0: {}
+  scheduler@0.28.0: {}
 
   scule@1.3.0: {}
 
