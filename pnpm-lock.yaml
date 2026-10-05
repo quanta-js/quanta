@@ -17,7 +17,7 @@ importers:
         version: 3.0.3
       '@testing-library/react':
         specifier: ^16.3.3
-        version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.2.4(react@19.3.0))(react@19.3.0)
       '@types/node':
         specifier: ^26.6.3
         version: 26.6.3
@@ -74,7 +74,7 @@ importers:
         version: 11.1.6(astro@7.3.5(@types/node@26.6.3)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1))(supports-color@7.2.0)
       '@astrojs/react':
         specifier: ^7.0.0
-        version: 7.0.0(@types/node@26.6.3)(@types/react-dom@19.2.4(@types/react@19.2.14))(@types/react@19.2.14)(esbuild@0.28.2)(jiti@2.6.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(terser@5.46.1)(yaml@2.9.1)
+        version: 7.0.0(@types/node@26.6.3)(@types/react-dom@19.2.4(@types/react@19.3.0))(@types/react@19.3.0)(esbuild@0.28.2)(jiti@2.6.1)(react-dom@19.2.4(react@19.3.0))(react@19.3.0)(terser@5.46.1)(yaml@2.9.1)
       '@astrojs/svelte':
         specifier: ^9.0.1
         version: 9.0.1(@types/node@26.6.3)(astro@7.3.5(@types/node@26.6.3)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.6.1)(svelte@5.57.1(@typescript-eslint/types@8.70.1))(terser@5.46.1)(typescript@6.0.3)(yaml@2.9.1)
@@ -100,11 +100,11 @@ importers:
         specifier: ^7.3.5
         version: 7.3.5(@types/node@26.6.3)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1)
       react:
-        specifier: ^19.2.4
-        version: 19.2.4
+        specifier: ^19.3.0
+        version: 19.3.0
       react-dom:
         specifier: ^19.2.4
-        version: 19.2.4(react@19.2.4)
+        version: 19.2.4(react@19.3.0)
       svelte:
         specifier: ^5.46.4
         version: 5.57.1(@typescript-eslint/types@8.70.1)
@@ -113,11 +113,11 @@ importers:
         version: 3.5.43(typescript@6.0.3)
     devDependencies:
       '@types/react':
-        specifier: ^19.2.14
-        version: 19.2.14
+        specifier: ^19.3.0
+        version: 19.3.0
       '@types/react-dom':
         specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.14)
+        version: 19.2.4(@types/react@19.3.0)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -151,23 +151,23 @@ importers:
         version: link:../../packages/react
       next:
         specifier: ^16.3.6
-        version: 16.3.6(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@26.6.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 16.3.6(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@26.6.3)(react-dom@19.2.4(react@19.3.0))(react@19.3.0)
       react:
-        specifier: ^19.2.4
-        version: 19.2.4
+        specifier: ^19.3.0
+        version: 19.3.0
       react-dom:
         specifier: ^19.2.4
-        version: 19.2.4(react@19.2.4)
+        version: 19.2.4(react@19.3.0)
     devDependencies:
       '@types/node':
         specifier: ^26.6.3
         version: 26.6.3
       '@types/react':
-        specifier: ^19.2.14
-        version: 19.2.14
+        specifier: ^19.3.0
+        version: 19.3.0
       '@types/react-dom':
         specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.14)
+        version: 19.2.4(@types/react@19.3.0)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -184,18 +184,18 @@ importers:
         specifier: workspace:*
         version: link:../../packages/react
       react:
-        specifier: ^19.2.4
-        version: 19.2.4
+        specifier: ^19.3.0
+        version: 19.3.0
       react-dom:
         specifier: ^19.2.4
-        version: 19.2.4(react@19.2.4)
+        version: 19.2.4(react@19.3.0)
     devDependencies:
       '@types/react':
-        specifier: ^19.2.14
-        version: 19.2.14
+        specifier: ^19.3.0
+        version: 19.3.0
       '@types/react-dom':
         specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.14)
+        version: 19.2.4(@types/react@19.3.0)
       '@vitejs/plugin-react':
         specifier: ^6.1.1
         version: 6.1.1(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1))
@@ -314,17 +314,17 @@ importers:
         specifier: workspace:*
         version: link:../devtools
       '@types/react':
-        specifier: ^19.2.14
-        version: 19.2.14
+        specifier: ^19.3.0
+        version: 19.3.0
       '@types/react-dom':
         specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.14)
+        version: 19.2.4(@types/react@19.3.0)
       react:
-        specifier: ^19.2.4
-        version: 19.2.4
+        specifier: ^19.3.0
+        version: 19.3.0
       react-dom:
         specifier: ^19.2.4
-        version: 19.2.4(react@19.2.4)
+        version: 19.2.4(react@19.3.0)
 
   packages/svelte:
     dependencies:
@@ -1661,8 +1661,8 @@ packages:
     peerDependencies:
       '@types/react': ^19.2.0
 
-  '@types/react@19.2.14':
-    resolution: {integrity: sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w==}
+  '@types/react@19.3.0':
+    resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
@@ -2962,8 +2962,8 @@ packages:
   react-is@17.0.2:
     resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
 
-  react@19.2.4:
-    resolution: {integrity: sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==}
+  react@19.3.0:
+    resolution: {integrity: sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==}
     engines: {node: '>=0.10.0'}
 
   readdirp@5.1.1:
@@ -3620,15 +3620,15 @@ snapshots:
     dependencies:
       prismjs: 1.30.0
 
-  '@astrojs/react@7.0.0(@types/node@26.6.3)(@types/react-dom@19.2.4(@types/react@19.2.14))(@types/react@19.2.14)(esbuild@0.28.2)(jiti@2.6.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(terser@5.46.1)(yaml@2.9.1)':
+  '@astrojs/react@7.0.0(@types/node@26.6.3)(@types/react-dom@19.2.4(@types/react@19.3.0))(@types/react@19.3.0)(esbuild@0.28.2)(jiti@2.6.1)(react-dom@19.2.4(react@19.3.0))(react@19.3.0)(terser@5.46.1)(yaml@2.9.1)':
     dependencies:
       '@astrojs/internal-helpers': 0.11.0
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.4(@types/react@19.2.14)
+      '@types/react': 19.3.0
+      '@types/react-dom': 19.2.4(@types/react@19.3.0)
       '@vitejs/plugin-react': 6.1.1(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1))
       devalue: 5.9.4
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
+      react: 19.3.0
+      react-dom: 19.2.4(react@19.3.0)
       ultrahtml: 1.7.0
       vite: 8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.9.1)
     transitivePeerDependencies:
@@ -4697,15 +4697,15 @@ snapshots:
       picocolors: 1.1.1
       pretty-format: 27.5.1
 
-  '@testing-library/react@16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@testing-library/react@16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.2.4(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@babel/runtime': 7.29.7
       '@testing-library/dom': 10.4.1
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
+      react: 19.3.0
+      react-dom: 19.2.4(react@19.3.0)
     optionalDependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.4(@types/react@19.2.14)
+      '@types/react': 19.3.0
+      '@types/react-dom': 19.2.4(@types/react@19.3.0)
 
   '@tybys/wasm-util@0.10.4':
     dependencies:
@@ -4756,11 +4756,11 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
-  '@types/react-dom@19.2.4(@types/react@19.2.14)':
+  '@types/react-dom@19.2.4(@types/react@19.3.0)':
     dependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.3.0
 
-  '@types/react@19.2.14':
+  '@types/react@19.3.0':
     dependencies:
       csstype: 3.2.3
 
@@ -5957,16 +5957,16 @@ snapshots:
 
   neotraverse@1.0.1: {}
 
-  next@16.3.6(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@26.6.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  next@16.3.6(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@26.6.3)(react-dom@19.2.4(react@19.3.0))(react@19.3.0):
     dependencies:
       '@next/env': 16.3.6
       '@swc/helpers': 0.5.23
       baseline-browser-mapping: 2.11.25
       caniuse-lite: 1.0.30001810
       postcss: 8.5.23
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      styled-jsx: 5.1.6(@babel/core@7.29.7(supports-color@7.2.0))(react@19.2.4)
+      react: 19.3.0
+      react-dom: 19.2.4(react@19.3.0)
+      styled-jsx: 5.1.6(@babel/core@7.29.7(supports-color@7.2.0))(react@19.3.0)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.3.6
       '@next/swc-darwin-x64': 16.3.6
@@ -6137,14 +6137,14 @@ snapshots:
 
   range-parser@1.3.0: {}
 
-  react-dom@19.2.4(react@19.2.4):
+  react-dom@19.2.4(react@19.3.0):
     dependencies:
-      react: 19.2.4
+      react: 19.3.0
       scheduler: 0.27.0
 
   react-is@17.0.2: {}
 
-  react@19.2.4: {}
+  react@19.3.0: {}
 
   readdirp@5.1.1: {}
 
@@ -6370,10 +6370,10 @@ snapshots:
       character-entities-html4: 2.1.0
       character-entities-legacy: 3.0.0
 
-  styled-jsx@5.1.6(@babel/core@7.29.7(supports-color@7.2.0))(react@19.2.4):
+  styled-jsx@5.1.6(@babel/core@7.29.7(supports-color@7.2.0))(react@19.3.0):
     dependencies:
       client-only: 0.0.1
-      react: 19.2.4
+      react: 19.3.0
     optionalDependencies:
       '@babel/core': 7.29.7(supports-color@7.2.0)
 
