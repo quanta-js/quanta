@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
     Logger,
     LogLevel,
@@ -6,10 +6,16 @@ import {
     logger,
     isNodeEnvironment,
     isBrowserEnvironment,
+    isWebWorkerEnvironment,
 } from '../services/logger-service';
 
 describe('Logger', () => {
     let testLogger: Logger;
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+    });
 
     beforeEach(() => {
         testLogger = new Logger({
@@ -176,6 +182,160 @@ describe('Logger', () => {
 
         it('should detect browser environment', () => {
             expect(typeof isBrowserEnvironment()).toBe('boolean');
+        });
+
+        it('recognizes a worker without window or document globals', () => {
+            vi.stubGlobal('self', {});
+            vi.stubGlobal('window', undefined);
+            vi.stubGlobal('document', undefined);
+            expect(isWebWorkerEnvironment()).toBe(true);
+
+            vi.stubGlobal('window', {});
+            expect(isWebWorkerEnvironment()).toBe(false);
+
+            vi.stubGlobal('window', undefined);
+            vi.stubGlobal('document', {});
+            expect(isWebWorkerEnvironment()).toBe(false);
+
+            vi.stubGlobal('self', undefined);
+            vi.stubGlobal('document', undefined);
+            expect(isWebWorkerEnvironment()).toBe(false);
+        });
+    });
+
+    describe('fallback behavior', () => {
+        it('drops warnings when the configured level is ERROR', () => {
+            const warnSpy = vi
+                .spyOn(console, 'warn')
+                .mockImplementation(() => {});
+            const errorOnly = new Logger({
+                level: LogLevel.ERROR,
+                timestamp: false,
+                colors: false,
+            });
+
+            errorOnly.warn('suppressed');
+            expect(warnSpy).not.toHaveBeenCalled();
+        });
+
+        it('uses LOG as the label for an unknown log level', () => {
+            // Public methods use known levels; exercise the formatter fallback.
+            const formatter = testLogger as unknown as {
+                formatMessage: (level: LogLevel, message: string) => string;
+            };
+
+            expect(formatter.formatMessage(99 as LogLevel, 'unexpected')).toBe(
+                '[LOG] unexpected',
+            );
+        });
+
+        it('omits ANSI color for an unknown log level', () => {
+            const colorLogger = new Logger({
+                level: LogLevel.DEBUG,
+                timestamp: false,
+                colors: true,
+            });
+            const formatter = colorLogger as unknown as {
+                formatMessage: (level: LogLevel, message: string) => string;
+            };
+
+            expect(
+                formatter.formatMessage(99 as LogLevel, 'unknown level'),
+            ).toContain('[LOG] unknown level');
+        });
+
+        it('omits a timestamp if Date.toISOString throws', () => {
+            vi.spyOn(Date.prototype, 'toISOString').mockImplementation(() => {
+                throw new Error('clock unavailable');
+            });
+            const logSpy = vi
+                .spyOn(console, 'log')
+                .mockImplementation(() => {});
+            const timestampLogger = new Logger({
+                level: LogLevel.INFO,
+                timestamp: true,
+                colors: false,
+            });
+
+            expect(() => timestampLogger.log('still works')).not.toThrow();
+            expect(logSpy).toHaveBeenCalledWith('[INFO] still works');
+        });
+
+        it('uses timestamps and color codes when enabled', () => {
+            vi.spyOn(Date.prototype, 'toISOString').mockReturnValue(
+                '2026-01-01T00:00:00.000Z',
+            );
+            const logSpy = vi
+                .spyOn(console, 'log')
+                .mockImplementation(() => {});
+            const coloredLogger = new Logger({
+                level: LogLevel.INFO,
+                timestamp: true,
+                colors: true,
+            });
+
+            coloredLogger.log('colored message');
+            expect(logSpy).toHaveBeenCalledWith(
+                expect.stringContaining(
+                    '[2026-01-01T00:00:00.000Z] [INFO] colored message',
+                ),
+            );
+        });
+
+        it('does not throw when console is unavailable', () => {
+            vi.stubGlobal('console', undefined);
+            try {
+                const noConsole = new Logger({
+                    level: LogLevel.DEBUG,
+                    timestamp: false,
+                    colors: false,
+                });
+
+                expect(() => noConsole.warn('unavailable')).not.toThrow();
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+
+        it('falls back to console.log when the preferred method is missing', () => {
+            const log = vi.fn();
+            vi.stubGlobal('console', { log });
+            try {
+                const fallbackLogger = new Logger({
+                    level: LogLevel.DEBUG,
+                    timestamp: false,
+                    colors: false,
+                });
+
+                fallbackLogger.warn('missing warn');
+                expect(log).toHaveBeenCalledWith('[WARN] missing warn');
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+
+        it('falls back to console.log when a console method throws', () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+                throw new Error('console.warn unavailable');
+            });
+            const logSpy = vi
+                .spyOn(console, 'log')
+                .mockImplementation(() => {});
+
+            expect(() => testLogger.warn('recover')).not.toThrow();
+            expect(warnSpy).toHaveBeenCalledOnce();
+            expect(logSpy).toHaveBeenCalledWith('[WARN] recover');
+        });
+
+        it('swallows failures when both console methods throw', () => {
+            vi.spyOn(console, 'warn').mockImplementation(() => {
+                throw new Error('console.warn unavailable');
+            });
+            vi.spyOn(console, 'log').mockImplementation(() => {
+                throw new Error('console.log unavailable');
+            });
+
+            expect(() => testLogger.warn('do not crash')).not.toThrow();
         });
     });
 });
