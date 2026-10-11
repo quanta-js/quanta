@@ -1,6 +1,10 @@
 import { describe, it, expectTypeOf } from 'vitest';
 import type { Readable } from 'svelte/store';
-import { createContainer, defineStore, type StoreContainer } from '@quantajs/core';
+import {
+    createContainer,
+    defineStore,
+    type StoreContainer,
+} from '@quantajs/core';
 import {
     getQuantaContainer,
     setQuantaContainer,
@@ -34,7 +38,10 @@ describe('Svelte public API types', () => {
             const label = useQuantaValue(useCounter, (store) => store.label);
             expectTypeOf(label).toEqualTypeOf<Readable<string>>();
 
-            const doubled = useQuantaValue(useCounter, (store) => store.doubled);
+            const doubled = useQuantaValue(
+                useCounter,
+                (store) => store.doubled,
+            );
             expectTypeOf(doubled).toEqualTypeOf<Readable<number>>();
 
             // @ts-expect-error selectors must only access keys exposed by the store
@@ -74,9 +81,13 @@ describe('Svelte public API types', () => {
         function assertTypes() {
             const container = createContainer('svelte-types');
             expectTypeOf(container).toEqualTypeOf<StoreContainer>();
-            expectTypeOf(setQuantaContainer(container)).toEqualTypeOf<StoreContainer>();
+            expectTypeOf(
+                setQuantaContainer(container),
+            ).toEqualTypeOf<StoreContainer>();
             expectTypeOf(setQuantaContainer()).toEqualTypeOf<StoreContainer>();
-            expectTypeOf(getQuantaContainer()).toEqualTypeOf<StoreContainer | undefined>();
+            expectTypeOf(getQuantaContainer()).toEqualTypeOf<
+                StoreContainer | undefined
+            >();
 
             // @ts-expect-error the container must implement StoreContainer
             setQuantaContainer({ id: 'invalid' });
