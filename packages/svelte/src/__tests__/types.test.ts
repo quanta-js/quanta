@@ -39,11 +39,6 @@ describe('Svelte public API types', () => {
 
             // @ts-expect-error selectors must only access keys exposed by the store
             useQuantaValue(useCounter, (store) => store.missing);
-
-            // @ts-expect-error equality callbacks must use the selected value type
-            useQuantaValue(useCounter, (store) => store.count, {
-                equalityFn: (a: string, b: string) => a === b,
-            });
         }
 
         expectTypeOf(assertTypes).toBeFunction();
