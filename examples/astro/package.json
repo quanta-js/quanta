@@ -11,7 +11,7 @@
     },
     "dependencies": {
         "@astrojs/node": "^11.1.6",
-        "@astrojs/react": "^7.0.0",
+        "@astrojs/react": "^7.0.1",
         "@astrojs/svelte": "^9.0.1",
         "@astrojs/vue": "^7.0.3",
         "@quantajs/astro": "workspace:*",
