@@ -1,13 +1,16 @@
 /**
  * @vitest-environment happy-dom
+ *
+ * Each test imports the client afresh, as a page load does before hydration.
+ * Calling __QUANTA_ADOPT__ stands in for the snapshot script after a view
+ * transition, when the client module is already loaded.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ContainerSnapshot } from '@quantajs/core';
 
 let resetContainer: (() => void) | undefined;
 
-async function loadClient(
-    snapshot?: Record<string, Record<string, unknown>>,
-) {
+async function loadClient(snapshot?: ContainerSnapshot) {
     vi.resetModules();
 
     if (snapshot !== undefined) {
