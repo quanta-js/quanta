@@ -3,7 +3,7 @@ import { IndexedDBAdapter } from '../persistence/adapters/indexedDB';
 import { logger } from '../services/logger-service';
 
 type FakeIndexedDBOptions = {
-    readError?: Error;
+    readError?: unknown;
     writeError?: Error;
     removeError?: Error;
     openErrorOnce?: Error;
@@ -14,7 +14,7 @@ type FakeIndexedDBOptions = {
 /** Just enough of IndexedDB for the adapter: one store, async requests. */
 function fakeIndexedDB(options: FakeIndexedDBOptions = {}) {
     const records = new Map<string, unknown>();
-    const request = (compute: () => unknown, error?: Error) => {
+    const request = (compute: () => unknown, error?: unknown) => {
         const req: Record<string, unknown> = {};
         queueMicrotask(() => {
             if (error) {
@@ -176,9 +176,16 @@ describe('IndexedDBAdapter', () => {
         const warn = vi.spyOn(logger, 'warn');
 
         expect(await new IndexedDBAdapter('k').read()).toBeNull();
-        expect(warn).toHaveBeenCalledWith(
-            'IndexedDB read failed: read failed',
-        );
+        expect(warn).toHaveBeenCalledWith('IndexedDB read failed: read failed');
+    });
+
+    it('returns null and warns when a read request fails with a non-Error value', async () => {
+        const fake = fakeIndexedDB({ readError: 'blocked' });
+        vi.stubGlobal('indexedDB', fake.api);
+        const warn = vi.spyOn(logger, 'warn');
+
+        expect(await new IndexedDBAdapter('k').read()).toBeNull();
+        expect(warn).toHaveBeenCalledWith('IndexedDB read failed: blocked');
     });
 
     it('rejects when write and remove requests fail', async () => {
