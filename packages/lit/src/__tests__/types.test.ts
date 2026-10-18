@@ -56,8 +56,12 @@ describe('Lit public API types', () => {
             );
             expectTypeOf(computed.value).toEqualTypeOf<{ doubled: number }>();
 
-            // @ts-expect-error the selector must only read fields on the store
-            new QuantaValueController(host, useCounter, (store) => store.missing);
+            new QuantaValueController(
+                host,
+                useCounter,
+                // @ts-expect-error the selector must only read fields on the store
+                (store) => store.missing,
+            );
         }
 
         expectTypeOf(assertTypes).toBeFunction();
@@ -97,12 +101,12 @@ describe('Lit public API types', () => {
             expectTypeOf(
                 provideQuantaContainer(host, container),
             ).toEqualTypeOf<StoreContainer>();
-            expectTypeOf(provideQuantaContainer(host)).toEqualTypeOf<
-                StoreContainer
-            >();
-            expectTypeOf(quantaContainerContext).toEqualTypeOf<
-                QuantaContainerContext
-            >();
+            expectTypeOf(
+                provideQuantaContainer(host),
+            ).toEqualTypeOf<StoreContainer>();
+            expectTypeOf(
+                quantaContainerContext,
+            ).toEqualTypeOf<QuantaContainerContext>();
 
             // @ts-expect-error the explicit container must implement StoreContainer
             provideQuantaContainer(host, { id: 'invalid' });
