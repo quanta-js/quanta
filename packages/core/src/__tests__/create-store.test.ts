@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { createStore, getDefaultContainer } from '../index';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { createStore, getDefaultContainer, logger } from '../index';
+import { instantiateStore } from '../core/create-store';
 
 // Helper: unique names to avoid registry collisions
 let storeId = 0;
@@ -312,6 +313,202 @@ describe('createStore', () => {
 
             const result = store.incrementAndGetDoubled();
             expect(result).toBe(2);
+        });
+
+        it('wraps non-Error rejections and supports function thenables', async () => {
+            const name = uniqueName();
+            const fnThenable = Object.assign(() => {}, {
+                then: (resolve: (v: string) => void) => {
+                    resolve('ok');
+                    return Promise.resolve('ok');
+                },
+            });
+            const store = createStore(name, {
+                state: () => ({ count: 0 }),
+                actions: {
+                    async failString() {
+                        throw 'plain failure';
+                    },
+                    runThenable() {
+                        return fnThenable as unknown as Promise<string>;
+                    },
+                },
+            });
+
+            await expect(store.failString()).rejects.toBe('plain failure');
+            expect(store.failString.error).toBeInstanceOf(Error);
+            expect(store.failString.error?.message).toBe('plain failure');
+
+            await expect(store.runThenable()).resolves.toBe('ok');
+            expect(store.runThenable.pending).toBe(false);
+        });
+    });
+
+    describe('$dehydrate and manualCopy fallback', () => {
+        afterEach(() => {
+            vi.unstubAllGlobals();
+            vi.restoreAllMocks();
+        });
+
+        it('falls back to manualCopy when structuredClone throws (e.g. state holds a function)', () => {
+            const name = uniqueName();
+            const created = new Date('2026-01-15T12:00:00Z');
+            const nested = { label: 'inner' };
+            const mapVal = new Map<string, unknown>([['k', { nested: 1 }]]);
+            const setVal = new Set<unknown>([{ item: 2 }]);
+            const fn = () => 42;
+
+            const store = createStore(name, {
+                state: () => ({
+                    count: 3,
+                    empty: null as null | string,
+                    created,
+                    list: [1, nested],
+                    map: mapVal,
+                    set: setVal,
+                    fn,
+                }),
+            });
+
+            const copy = store.$dehydrate();
+            expect(copy.count).toBe(3);
+            expect(copy.empty).toBeNull();
+            expect(copy.created).toBeInstanceOf(Date);
+            expect(copy.created).not.toBe(created);
+            expect(copy.created.getTime()).toBe(created.getTime());
+            expect(copy.list).toEqual([1, { label: 'inner' }]);
+            expect(copy.list).not.toBe(store.state.list);
+            expect(copy.map).toBeInstanceOf(Map);
+            expect(copy.map.get('k')).toEqual({ nested: 1 });
+            expect(copy.map).not.toBe(mapVal);
+            expect(copy.set).toBeInstanceOf(Set);
+            expect([...copy.set]).toEqual([{ item: 2 }]);
+            expect(copy.set).not.toBe(setVal);
+            expect(copy.fn).toBe(fn);
+        });
+
+        it('falls back to manualCopy when structuredClone is unavailable and preserves cycles', () => {
+            vi.stubGlobal('structuredClone', undefined);
+
+            const cyclicObj: Record<string, unknown> = { name: 'root' };
+            cyclicObj.self = cyclicObj;
+            const cyclicArr: unknown[] = ['a'];
+            cyclicArr.push(cyclicArr);
+            const cyclicMap = new Map<string, unknown>();
+            cyclicMap.set('self', cyclicMap);
+            const cyclicSet = new Set<unknown>();
+            cyclicSet.add(cyclicSet);
+
+            const store = createStore(uniqueName(), {
+                state: () => ({
+                    cyclicObj,
+                    cyclicArr,
+                    cyclicMap,
+                    cyclicSet,
+                }),
+            });
+
+            const dehydrated = store.$dehydrate();
+            expect(dehydrated.cyclicObj.name).toBe('root');
+            expect(dehydrated.cyclicObj.self).toBe(dehydrated.cyclicObj);
+            expect(dehydrated.cyclicArr[1]).toBe(dehydrated.cyclicArr);
+            expect(dehydrated.cyclicMap.get('self')).toBe(dehydrated.cyclicMap);
+            expect(dehydrated.cyclicSet.has(dehydrated.cyclicSet)).toBe(true);
+
+            // toJSON uses the same structuredCopy path
+            const jsonCopy = store.toJSON();
+            expect(jsonCopy.cyclicObj.self).toBe(jsonCopy.cyclicObj);
+        });
+    });
+
+    describe('validation, patching, hydration and error paths', () => {
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
+
+        it('throws when options.state is not a function', () => {
+            expect(() =>
+                createStore(uniqueName(), {
+                    state: null as unknown as () => Record<string, unknown>,
+                }),
+            ).toThrow(/options\.state must be a function/);
+        });
+
+        it('logs subsequent subscriber errors and rethrows the first', () => {
+            const errorSpy = vi
+                .spyOn(logger, 'error')
+                .mockImplementation(() => {});
+            const store = createStore(uniqueName(), {
+                state: () => ({ count: 0 }),
+            });
+
+            store.subscribe(() => {
+                throw new Error('first failure');
+            });
+            store.subscribe(() => {
+                throw 'second non-error failure';
+            });
+
+            expect(() => {
+                store.count = 1;
+            }).toThrow('first failure');
+            expect(errorSpy).toHaveBeenCalledTimes(1);
+            expect(errorSpy.mock.calls[0][0]).toContain(
+                'second non-error failure',
+            );
+        });
+
+        it('$patch skips unsafe keys and $reset deletes added keys', () => {
+            const store = createStore(uniqueName(), {
+                state: () => ({ a: 1 }) as Record<string, unknown>,
+            });
+
+            store.$patch({
+                a: 2,
+                ['__proto__']: { polluted: true },
+            } as Record<string, unknown>);
+            expect(store.a).toBe(2);
+            expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+
+            store.$patch((draft) => {
+                draft.extra = 'temp';
+            });
+            expect(store.extra).toBe('temp');
+
+            store.$reset();
+            expect(store.a).toBe(1);
+            expect('extra' in store.state).toBe(false);
+        });
+
+        it('$hydrate ignores non-objects and merges valid snapshots', () => {
+            const store = createStore(uniqueName(), {
+                state: () => ({ a: 1, b: 'init' }),
+            });
+
+            store.$hydrate(null as unknown as Record<string, unknown>);
+            store.$hydrate('bad' as unknown as Record<string, unknown>);
+            store.$hydrate({ a: 1, b: 'updated' });
+            expect(store.a).toBe(1);
+            expect(store.b).toBe('updated');
+        });
+
+        it('$destroy catches and logs errors from host cleanup', () => {
+            const errorSpy = vi
+                .spyOn(logger, 'error')
+                .mockImplementation(() => {});
+            const store = instantiateStore(
+                uniqueName(),
+                { state: () => ({ count: 0 }) },
+                {
+                    onDestroy() {
+                        throw 'teardown boom';
+                    },
+                },
+            );
+
+            expect(() => store.$destroy!()).not.toThrow();
+            expect(errorSpy).toHaveBeenCalledTimes(1);
+            expect(errorSpy.mock.calls[0][0]).toContain('teardown boom');
         });
     });
 });
