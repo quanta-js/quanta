@@ -1,9 +1,9 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { createStore } from '@quantajs/core';
+import { createStore, logger } from '@quantajs/core';
 
 let storeId = 0;
 function uniqueName(prefix = 'watchcomp') {
@@ -18,6 +18,10 @@ describe('useWatch', () => {
         useWatch = mod.useWatch;
     });
 
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it('should watch store value changes', () => {
         const name = uniqueName();
         const store = createStore(name, {
@@ -27,11 +31,14 @@ describe('useWatch', () => {
         const callback = vi.fn();
         renderHook(() => useWatch(store, (s: any) => s.count, callback));
 
+        expect(callback).not.toHaveBeenCalled();
+
         act(() => {
             store.count = 5;
         });
 
-        expect(callback).toHaveBeenCalled();
+        expect(callback).toHaveBeenCalledTimes(1);
+        expect(callback).toHaveBeenCalledWith(5);
     });
 
     it('should call with options (deep, immediate)', () => {
@@ -75,6 +82,7 @@ describe('useWatch', () => {
         const store = createStore(name, {
             state: () => ({ count: 0 }),
         });
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
         renderHook(() =>
             useWatch(
@@ -91,6 +99,125 @@ describe('useWatch', () => {
                 store.count = 1;
             });
         }).toThrow(/watch callback failed/);
+
+        expect(logError).toHaveBeenCalledWith(
+            'useWatch: Failed to execute watch callback: watch callback failed',
+        );
+    });
+
+    it('should log and rethrow non-Error values thrown by the callback', () => {
+        const name = uniqueName();
+        const store = createStore(name, {
+            state: () => ({ count: 0 }),
+        });
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
+
+        renderHook(() =>
+            useWatch(
+                store,
+                (s: any) => s.count,
+                () => {
+                    throw 'callback string failure';
+                },
+            ),
+        );
+
+        expect(() => {
+            act(() => {
+                store.count = 1;
+            });
+        }).toThrow('callback string failure');
+
+        expect(logError).toHaveBeenCalledWith(
+            'useWatch: Failed to execute watch callback: callback string failure',
+        );
+    });
+
+    it('should log and rethrow Error when the watch function throws during setup', () => {
+        const name = uniqueName();
+        const store = createStore(name, {
+            state: () => ({ count: 0 }),
+        });
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        expect(() => {
+            renderHook(() =>
+                useWatch(
+                    store,
+                    () => {
+                        throw new Error('watch fn setup failed');
+                    },
+                    vi.fn(),
+                ),
+            );
+        }).toThrow(/watch fn setup failed/);
+
+        expect(logError).toHaveBeenCalledWith(
+            'useWatch: Failed to execute watch function: watch fn setup failed',
+        );
+        expect(logError).toHaveBeenCalledWith(
+            'useWatch: Failed to set up watcher: watch fn setup failed',
+        );
+    });
+
+    it('should log and rethrow non-Error values when the watch function throws during setup', () => {
+        const name = uniqueName();
+        const store = createStore(name, {
+            state: () => ({ count: 0 }),
+        });
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        expect(() => {
+            renderHook(() =>
+                useWatch(
+                    store,
+                    () => {
+                        throw 'watch fn string error';
+                    },
+                    vi.fn(),
+                ),
+            );
+        }).toThrow('watch fn string error');
+
+        expect(logError).toHaveBeenCalledWith(
+            'useWatch: Failed to execute watch function: watch fn string error',
+        );
+        expect(logError).toHaveBeenCalledWith(
+            'useWatch: Failed to set up watcher: watch fn string error',
+        );
+    });
+
+    it('should log and rethrow when the watch function throws on a state update', () => {
+        const name = uniqueName();
+        const store = createStore(name, {
+            state: () => ({ count: 0 }),
+        });
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
+
+        renderHook(() =>
+            useWatch(
+                store,
+                (s: any) => {
+                    if (s.count > 0) {
+                        throw new Error('watch fn update failed');
+                    }
+                    return s.count;
+                },
+                vi.fn(),
+            ),
+        );
+
+        expect(() => {
+            act(() => {
+                store.count = 1;
+            });
+        }).toThrow(/watch fn update failed/);
+
+        expect(logError).toHaveBeenCalledWith(
+            'useWatch: Failed to execute watch function: watch fn update failed',
+        );
     });
 
     it('should reconfigure when options change', () => {
