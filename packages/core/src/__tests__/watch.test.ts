@@ -49,6 +49,20 @@ describe('watch', () => {
             state.count = 1;
             expect(callback).toHaveBeenCalledWith(1, 0);
         });
+
+        it('should invoke immediately with undefined oldValue when immediate: true', () => {
+            const state = createReactive({ count: 0 });
+            const callback = vi.fn();
+
+            watch(() => state.count, callback, { immediate: true });
+
+            expect(callback).toHaveBeenCalledTimes(1);
+            expect(callback).toHaveBeenCalledWith(0, undefined);
+
+            state.count = 1;
+            expect(callback).toHaveBeenCalledTimes(2);
+            expect(callback).toHaveBeenLastCalledWith(1, 0);
+        });
     });
 
     describe('deep watching', () => {
@@ -89,6 +103,150 @@ describe('watch', () => {
 
             state.items[0].name = 'modified';
             expect(callback).toHaveBeenCalled();
+        });
+
+        it('should handle deep watching of Map mutations (set, delete, clear)', () => {
+            const state = createReactive({
+                map: new Map<string, number>(),
+            });
+            const callback = vi.fn();
+
+            watch(() => state.map, callback, { deep: true });
+            expect(callback).not.toHaveBeenCalled();
+
+            state.map.set('a', 1);
+            expect(callback).toHaveBeenCalledTimes(1);
+
+            state.map.set('a', 2);
+            expect(callback).toHaveBeenCalledTimes(2);
+
+            // Setting the same value is a no-op and must not re-fire
+            state.map.set('a', 2);
+            expect(callback).toHaveBeenCalledTimes(2);
+
+            state.map.delete('a');
+            expect(callback).toHaveBeenCalledTimes(3);
+
+            state.map.set('b', 10);
+            expect(callback).toHaveBeenCalledTimes(4);
+
+            state.map.clear();
+            expect(callback).toHaveBeenCalledTimes(5);
+        });
+
+        it('should detect nested value changes inside Map entries with deep: true', () => {
+            const keyObj = { id: 1 };
+            const state = createReactive({
+                users: new Map<
+                    object | string,
+                    { score: number; meta: { active: boolean } }
+                >([
+                    ['alice', { score: 10, meta: { active: true } }],
+                    [keyObj, { score: 20, meta: { active: false } }],
+                ]),
+            });
+            const callback = vi.fn();
+
+            watch(() => state.users, callback, { deep: true });
+            expect(callback).not.toHaveBeenCalled();
+
+            state.users.get('alice')!.score = 25;
+            expect(callback).toHaveBeenCalledTimes(1);
+
+            state.users.get(keyObj)!.meta.active = true;
+            expect(callback).toHaveBeenCalledTimes(2);
+        });
+
+        it('should handle deep watching of Set mutations (add, delete, clear)', () => {
+            const state = createReactive({
+                tags: new Set<string>(),
+            });
+            const callback = vi.fn();
+
+            watch(() => state.tags, callback, { deep: true });
+            expect(callback).not.toHaveBeenCalled();
+
+            state.tags.add('alpha');
+            expect(callback).toHaveBeenCalledTimes(1);
+
+            // Duplicate add is a no-op
+            state.tags.add('alpha');
+            expect(callback).toHaveBeenCalledTimes(1);
+
+            state.tags.delete('alpha');
+            expect(callback).toHaveBeenCalledTimes(2);
+
+            state.tags.add('beta');
+            expect(callback).toHaveBeenCalledTimes(3);
+
+            state.tags.clear();
+            expect(callback).toHaveBeenCalledTimes(4);
+        });
+
+        it('should detect nested property changes on objects inside a Set with deep: true', () => {
+            const state = createReactive({
+                items: new Set([{ id: 1, count: 0 }]),
+            });
+            const callback = vi.fn();
+
+            watch(() => state.items, callback, { deep: true });
+            expect(callback).not.toHaveBeenCalled();
+
+            const [reactiveItem] = [...state.items];
+            reactiveItem.count = 5;
+            expect(callback).toHaveBeenCalledTimes(1);
+        });
+
+        it('should handle cyclic structures without infinite recursion', () => {
+            interface Node {
+                value: number;
+                self?: Node;
+                peer?: Node;
+            }
+            const a: Node = { value: 1 };
+            const b: Node = { value: 2, peer: a };
+            a.self = a;
+            a.peer = b;
+
+            const state = createReactive({ root: a });
+            const callback = vi.fn();
+
+            watch(() => state.root, callback, { deep: true });
+            expect(callback).not.toHaveBeenCalled();
+
+            state.root.value = 10;
+            expect(callback).toHaveBeenCalledTimes(1);
+
+            state.root.peer!.value = 20;
+            expect(callback).toHaveBeenCalledTimes(2);
+        });
+
+        it('should handle cyclic references inside Map and Set with deep: true', () => {
+            const map = createReactive(
+                new Map<string, { count: number; back?: unknown }>(),
+            );
+            const entry: { count: number; back?: unknown } = { count: 0 };
+            entry.back = map;
+            map.set('self', entry);
+
+            const set = createReactive(new Set<unknown>());
+            const setItem: { label: string; container?: unknown } = {
+                label: 'x',
+            };
+            setItem.container = set;
+            set.add(setItem);
+
+            const mapCb = vi.fn();
+            const setCb = vi.fn();
+            watch(() => map, mapCb, { deep: true });
+            watch(() => set, setCb, { deep: true });
+
+            map.get('self')!.count = 1;
+            expect(mapCb).toHaveBeenCalledTimes(1);
+
+            const [item] = [...set] as Array<{ label: string }>;
+            item.label = 'y';
+            expect(setCb).toHaveBeenCalledTimes(1);
         });
     });
 
